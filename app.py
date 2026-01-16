@@ -190,6 +190,60 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
+    /* ===== SELECTBOX DROPDOWN (POPOVER & LISTBOX) ===== */
+    /* Fond du menu deroulant */
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    [data-baseweb="menu"],
+    [data-baseweb="menu"] > div {
+        background-color: #001529 !important;
+        border: 2px solid #D4AF37 !important;
+        border-radius: 10px !important;
+    }
+
+    /* Liste des options */
+    ul[role="listbox"],
+    [data-baseweb="menu"] ul {
+        background-color: #001529 !important;
+        padding: 5px !important;
+    }
+
+    /* Options du menu */
+    li[role="option"],
+    [data-baseweb="menu"] li,
+    ul[role="listbox"] li {
+        color: #FFFFFF !important;
+        background-color: #001529 !important;
+        padding: 10px 15px !important;
+        border-radius: 5px !important;
+        margin: 2px 0 !important;
+    }
+
+    /* Survol des options - Fond Dore, Texte Bleu Nuit */
+    li[role="option"]:hover,
+    [data-baseweb="menu"] li:hover,
+    ul[role="listbox"] li:hover,
+    li[role="option"][aria-selected="true"],
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background-color: #D4AF37 !important;
+        color: #001529 !important;
+        font-weight: bold !important;
+    }
+
+    /* Option selectionnee/focus */
+    li[role="option"]:focus,
+    li[role="option"][data-highlighted="true"],
+    [data-baseweb="menu"] li:focus {
+        background-color: #D4AF37 !important;
+        color: #001529 !important;
+        outline: none !important;
+    }
+
+    /* Icone fleche du selectbox */
+    .stSelectbox svg {
+        fill: #D4AF37 !important;
+    }
+
     /* ===== SLIDER ===== */
     .stSlider > div > div > div {
         background-color: #D4AF37 !important;
