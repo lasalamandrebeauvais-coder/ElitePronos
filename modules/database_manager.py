@@ -774,7 +774,20 @@ def get_date_j1(saison_id=None):
     conn.close()
 
     if result and result[0]:
-        return datetime.fromisoformat(result[0].replace('Z', '+00:00'))
+        try:
+            # Essayer de parser la date ISO
+            date_str = result[0].replace('Z', '+00:00')
+            dt = datetime.fromisoformat(date_str)
+            # Convertir en datetime naive (sans timezone) pour comparaison
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            return dt
+        except (ValueError, AttributeError):
+            # Fallback: essayer format standard
+            try:
+                return datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
+            except:
+                return None
     return None
 
 
