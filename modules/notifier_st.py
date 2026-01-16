@@ -235,14 +235,17 @@ def email_lancement_saison(utilisateur):
 
 
 def email_bienvenue(utilisateur):
-    """Email de bienvenue pour un nouvel inscrit"""
+    """
+    Email de bienvenue complet pour un nouvel inscrit
+    Inclut: tarifs, paiement, gains, prix fixes, reglement
+    """
     prenom = utilisateur.get('prenom') or utilisateur.get('pseudo')
     pseudo = utilisateur.get('pseudo')
 
     content = f'''
     <h2>Bienvenue dans l'Elite !</h2>
     <p>Bonjour <strong>{prenom}</strong>,</p>
-    <p>Votre inscription a Elite Pronos est confirmee.
+    <p>Votre inscription a Elite Pronos est enregistree.
     Vous faites desormais partie de la ligue des experts !</p>
 
     <div class="highlight-box">
@@ -250,19 +253,110 @@ def email_bienvenue(utilisateur):
         <div class="big-text">@{pseudo}</div>
     </div>
 
-    <p><strong>Vos avantages :</strong></p>
+    <!-- TARIF ET PAIEMENT -->
+    <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid #333; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #FFD700; margin-top: 0;">Tarif de participation</h3>
+        <p style="color: #ffffff; font-size: 1.2em;">
+            <strong style="color: #FFD700;">55 euros</strong> (mise de 50 euros + 5 euros de frais de maintenance)
+        </p>
+        <p style="color: #cccccc;">
+            <strong>Paiement :</strong> Votre compte sera valide apres reception de votre cheque ou virement bancaire.
+        </p>
+        <p style="color: #888; font-size: 0.9em;">
+            Coordonnees de paiement communiquees par l'administrateur.
+        </p>
+    </div>
+
+    <!-- GAINS ET RECOMPENSES -->
+    <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #333; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #00FF00; margin-top: 0;">Gains et Recompenses</h3>
+
+        <p style="color: #FFD700;"><strong>Podium (selon nombre de joueurs) :</strong></p>
+        <ul style="color: #cccccc; margin-left: 20px;">
+            <li><strong>Jusqu'a 10 joueurs :</strong> Top 3 recompense</li>
+            <li><strong>11 a 15 joueurs :</strong> Top 5 recompense</li>
+            <li><strong>16 joueurs et plus :</strong> Top 7 recompense</li>
+        </ul>
+        <p style="color: #888; font-size: 0.9em;">
+            Les sommes sont arrondies a la dizaine d'euros.
+        </p>
+
+        <p style="color: #FFD700; margin-top: 20px;"><strong>Prix Fixes :</strong></p>
+        <ul style="color: #cccccc; margin-left: 20px;">
+            <li><span style="color: #FFD700; font-weight: bold;">50 euros</span> : Meilleur score sur une semaine</li>
+            <li><span style="color: #FFD700; font-weight: bold;">25 euros</span> : Plus grand nombre de paris 1N2 reussis sur la saison</li>
+        </ul>
+
+        <p style="color: #888; font-size: 0.9em; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+            <strong>Reglement des gains :</strong> Les gains seront verses dans les 15 jours suivant la fin du championnat.
+        </p>
+    </div>
+
+    <!-- VOS AVANTAGES -->
+    <p><strong>Vos avantages de joueur :</strong></p>
     <ul style="color: #cccccc;">
-        <li>1 Joker Points Doubles (x2 sur vos gains)</li>
+        <li>1 Joker Points Doubles (x2 sur vos gains de la semaine)</li>
         <li>1 Joker Points Voles (copiez les pronos d'un rival)</li>
         <li>Acces au classement en temps reel</li>
-        <li>Defis entre amis</li>
+        <li>Bonus Grand Chelem : +40 pts si 4/4 resultats corrects</li>
     </ul>
 
+    <!-- REGLEMENT -->
+    <div style="background: #0a0a1a; border: 2px solid #D4AF37; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #D4AF37; margin-top: 0; text-align: center;">REGLEMENT OFFICIEL</h3>
+
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 1 - Participation et Inscription</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                Elite Pronos est une ligue privee reservee aux membres invites.
+                Inscription soumise a validation admin. Compte unique obligatoire (pseudo min. 3 car., email valide, PIN min. 4 car.).
+                Inscriptions ouvertes 30 jours avant la J1.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 2 - Pronostics Hebdomadaires</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                4 matchs par semaine. Budget de 100 points a repartir (mise min. 10, max. 60 par match).
+                Deadline : 1h avant le premier match. Defaut de pronostic = pronostics du dernier du classement attribues automatiquement.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 3 - Systeme de Points</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                <strong>Formule :</strong> Points = Mise x Cote (si 1N2 correct).<br>
+                <strong>Bonus score exact :</strong> +10 points fixes.<br>
+                <strong>Grand Chelem (4/4 corrects) :</strong> +40 points appliques la semaine suivante.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 4 - Les Jokers</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                2 jokers par saison :<br>
+                <strong>Points Doubles :</strong> x2 sur tous les gains de la semaine.<br>
+                <strong>Points Voles :</strong> Copie les pronostics d'un adversaire choisi.<br>
+                Activation avant la deadline, non annulable.
+            </p>
+        </div>
+
+        <div>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 5 - Classement et Recompenses</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                Classement par cumul des points. Departage : scores exacts, Grand Chelems, confrontation directe.
+                <strong style="color: #ff6b6b;">Triche = disqualification immediate.</strong>
+            </p>
+        </div>
+    </div>
+
     <p style="text-align: center;">
-        <a href="#" class="button">Commencer a jouer</a>
+        <a href="#" class="button">Acceder a Elite Pronos</a>
     </p>
 
-    <p>Bonne chance pour cette saison !</p>
+    <p style="color: #888; font-size: 0.9em; text-align: center;">
+        Que le meilleur pronostiqueur gagne !
+    </p>
     '''
 
     return get_base_template(content, "Bienvenue")
@@ -558,6 +652,47 @@ def envoyer_email_bienvenue(utilisateur):
     return send_email(
         utilisateur['email'],
         "Bienvenue dans Elite Pronos !",
+        html
+    )
+
+
+def email_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
+    """Email d'alerte admin pour un nouvel inscrit"""
+    date_inscription = datetime.now().strftime('%d/%m/%Y a %H:%M')
+
+    content = f'''
+    <h2>Nouvelle inscription !</h2>
+    <p>Un nouveau joueur vient de s'inscrire sur Elite Pronos.</p>
+
+    <div class="highlight-box">
+        <div style="text-align: left;">
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Pseudo :</strong> <span style="color: #fff;">@{pseudo}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Prenom :</strong> <span style="color: #fff;">{prenom or "Non renseigne"}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Email :</strong> <span style="color: #fff;">{email}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Parrain :</strong> <span style="color: #00FF00; font-weight: bold;">{parrain}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Date :</strong> <span style="color: #888;">{date_inscription}</span></p>
+        </div>
+    </div>
+
+    <p style="color: #ff6b6b;">
+        <strong>Action requise :</strong> Validez cette inscription dans le panel admin apres reception du paiement.
+    </p>
+
+    <p style="text-align: center;">
+        <a href="#" class="button">Acceder au Panel Admin</a>
+    </p>
+    '''
+
+    return get_base_template(content, "Nouvel Inscrit")
+
+
+def envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
+    """Envoie une alerte email a l'admin pour chaque nouvel inscrit"""
+    ADMIN_EMAIL = "elite.pronos.2@gmail.com"
+    html = email_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
+    return send_email(
+        ADMIN_EMAIL,
+        f"Elite Pronos - Nouvel inscrit: @{pseudo} (Parrain: {parrain})",
         html
     )
 

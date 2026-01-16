@@ -273,6 +273,12 @@ def init_database():
     except sqlite3.OperationalError:
         pass  # Colonne existe déjà
 
+    # Migration: Ajouter colonne parrain (qui vous a recommande)
+    try:
+        cursor.execute("ALTER TABLE utilisateurs ADD COLUMN parrain TEXT")
+    except sqlite3.OperationalError:
+        pass  # Colonne existe déjà
+
     # S'assurer que Baggio est admin
     cursor.execute("UPDATE utilisateurs SET is_admin = 1 WHERE pseudo = 'baggio'")
 

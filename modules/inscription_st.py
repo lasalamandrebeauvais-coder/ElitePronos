@@ -21,10 +21,12 @@ try:
         get_countdown_j1,
         ajouter_jokers_nouvel_utilisateur
     )
-    from modules.notifier_st import envoyer_email_bienvenue
+    from modules.notifier_st import envoyer_email_bienvenue, envoyer_alerte_nouvel_inscrit
     HAS_MANAGER = True
 except ImportError:
     HAS_MANAGER = False
+    def envoyer_alerte_nouvel_inscrit(*args):
+        pass
 
 
 def valider_email(email):
@@ -72,7 +74,7 @@ def sauvegarder_avatar(image_file, pseudo):
     return None
 
 
-def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, avatar_path=None):
+def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avatar_path=None):
     """Enregistre l'utilisateur dans la base de donnees"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -87,9 +89,9 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, avatar_path=N
         is_first_user = (nb_users == 0)
 
         cursor.execute('''
-            INSERT INTO utilisateurs (prenom, pseudo, email, telephone, pin, statut)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (prenom, pseudo, email, telephone, pin, statut))
+            INSERT INTO utilisateurs (prenom, pseudo, email, telephone, pin, statut, parrain)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (prenom, pseudo, email, telephone, pin, statut, parrain))
         conn.commit()
 
         # Recuperer l'ID du nouvel utilisateur
@@ -100,10 +102,13 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, avatar_path=N
         if HAS_MANAGER:
             ajouter_jokers_nouvel_utilisateur(user_id)
 
-            # Envoyer email de bienvenue
+            # Envoyer email de bienvenue au joueur
             if email:
                 user_data = {'id': user_id, 'pseudo': pseudo, 'prenom': prenom, 'email': email}
                 envoyer_email_bienvenue(user_data)
+
+            # Envoyer email alerte admin (nouvel inscrit)
+            envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
 
         # Message adapte selon le statut
         if is_first_user:
@@ -235,6 +240,7 @@ def afficher_formulaire_inscription():
         email = st.text_input("Email *", placeholder="votre@email.com")
         telephone = st.text_input("Telephone", placeholder="06 12 34 56 78")
         pin = st.text_input("Code PIN *", type="password", placeholder="Minimum 4 caracteres")
+        parrain = st.text_input("Qui vous a recommande ? *", placeholder="Nom ou pseudo de votre parrain")
 
         st.markdown("<small>* Champs obligatoires</small>", unsafe_allow_html=True)
 
@@ -254,6 +260,9 @@ def afficher_formulaire_inscription():
             if not valider_pin(pin):
                 erreurs.append("Le PIN doit contenir au moins 4 caracteres")
 
+            if not parrain or len(parrain.strip()) < 2:
+                erreurs.append("Veuillez indiquer qui vous a recommande")
+
             if pseudo_existe(pseudo):
                 erreurs.append("Ce pseudo est deja pris")
 
@@ -269,7 +278,7 @@ def afficher_formulaire_inscription():
 
                 # Enregistrer l'utilisateur
                 success, message = enregistrer_utilisateur(
-                    prenom, pseudo, email, telephone, pin, avatar_path
+                    prenom, pseudo, email, telephone, pin, parrain.strip(), avatar_path
                 )
 
                 if success:
