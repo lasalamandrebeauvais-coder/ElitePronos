@@ -26,6 +26,11 @@ from modules.login_st import (
     init_session
 )
 from modules.dashboard_st import afficher_dashboard
+from modules.database_manager import init_database
+
+# Initialiser la base de donnees (cree les tables si elles n'existent pas)
+create_database()
+init_database()
 
 # Initialiser la session
 init_session()
