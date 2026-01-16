@@ -32,6 +32,16 @@ from modules.database_manager import init_database
 create_database()
 init_database()
 
+# Activation temporaire du compte admin "baggio"
+try:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE utilisateurs SET statut = 'Actif' WHERE pseudo = 'baggio'")
+    conn.commit()
+    conn.close()
+except:
+    pass
+
 # Initialiser la session
 init_session()
 

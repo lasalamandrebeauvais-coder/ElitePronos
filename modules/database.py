@@ -14,11 +14,11 @@ def get_db_path():
     return DB_PATH
 
 def create_database():
-    # Connexion au fichier unique valide
+    """Cree toutes les tables necessaires pour Elite Pronos"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # 1. Table UTILISATEURS (Synchronisée avec inscription.py et admin_panel.py)
+    # 1. Table UTILISATEURS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS utilisateurs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,22 +32,44 @@ def create_database():
         )
     ''')
 
-    # 2. Table MATCHS (Synchronisée avec bot_sourcing.py et interface_win.py)
+    # 2. Table MATCHES (avec toutes les colonnes necessaires)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            semaine_id INTEGER,
-            championnat TEXT,
-            equipe_home TEXT,
-            equipe_away TEXT,
-            cote_home REAL,
-            cote_draw REAL,
-            cote_away REAL,
-            date_match TEXT
+            saison_id INTEGER DEFAULT 2024,
+            semaine_id INTEGER NOT NULL DEFAULT 1,
+            championnat TEXT NOT NULL DEFAULT 'FL1',
+            equipe_home TEXT NOT NULL,
+            equipe_away TEXT NOT NULL,
+            cote_home REAL NOT NULL DEFAULT 2.0,
+            cote_draw REAL NOT NULL DEFAULT 3.0,
+            cote_away REAL NOT NULL DEFAULT 2.5,
+            date_match DATETIME,
+            score_final_home INTEGER,
+            score_final_away INTEGER,
+            is_active BOOLEAN DEFAULT 1
         )
     ''')
 
-    # 3. Table PRONOSTICS (Synchronisée avec interface_win.py et calcul_resultats.py)
+    # 3. Table PREDICTIONS (principale pour les pronostics utilisateurs)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            match_id INTEGER NOT NULL,
+            saison_id INTEGER DEFAULT 2024,
+            score_prono_home INTEGER NOT NULL,
+            score_prono_away INTEGER NOT NULL,
+            mise_points INTEGER NOT NULL,
+            points_gagnes INTEGER DEFAULT 0,
+            is_score_exact BOOLEAN DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES utilisateurs(id),
+            FOREIGN KEY (match_id) REFERENCES matches(id),
+            UNIQUE(user_id, match_id)
+        )
+    ''')
+
+    # 4. Table PRONOSTICS (legacy - compatibilite)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pronostics (
             match_id INTEGER PRIMARY KEY,
@@ -57,22 +79,22 @@ def create_database():
         )
     ''')
 
-    # 4. Tables JOKERS & CONFIG (Synchronisées avec interface_win.py)
+    # 5. Tables JOKERS & CONFIG
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS joker_semaine (
-            id INTEGER PRIMARY KEY, 
+            id INTEGER PRIMARY KEY,
             type TEXT
         )
     ''')
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS config_semaine (
-            cle TEXT PRIMARY KEY, 
+            cle TEXT PRIMARY KEY,
             valeur TEXT
         )
     ''')
 
-    # 5. Table HISTORIQUE (Synchronisée avec calcul_resultats.py)
+    # 6. Table HISTORIQUE
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS historique (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,9 +106,22 @@ def create_database():
         )
     ''')
 
+    # 7. Table RELATIONS (amis)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS relations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateur_id INTEGER NOT NULL,
+            ami_id INTEGER NOT NULL,
+            statut TEXT DEFAULT 'en_attente',
+            date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id),
+            FOREIGN KEY (ami_id) REFERENCES utilisateurs(id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
-    print(f"Base de donnees synchronisee: {DB_PATH}")
+    print(f"[OK] Base de donnees initialisee: {DB_PATH}")
 
 if __name__ == "__main__":
     create_database()

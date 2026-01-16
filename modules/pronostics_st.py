@@ -24,44 +24,56 @@ def get_matchs_semaine():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Recuperer la semaine active (matchs sans score final)
-    cursor.execute("""
-        SELECT DISTINCT semaine_id FROM matches
-        WHERE is_active = 1 AND score_final_home IS NULL
-        ORDER BY semaine_id DESC LIMIT 1
-    """)
-    result = cursor.fetchone()
+    try:
+        # Verifier si la table matches existe et a des donnees
+        cursor.execute("SELECT COUNT(*) FROM matches")
+        count = cursor.fetchone()[0]
 
-    if result:
-        semaine_id = result[0]
-        # Recuperer les matchs de cette semaine
+        if count == 0:
+            conn.close()
+            return []
+
+        # Recuperer la semaine active (matchs sans score final)
         cursor.execute("""
-            SELECT id, championnat, equipe_home, equipe_away,
-                   cote_home, cote_draw, cote_away, date_match
-            FROM matches
-            WHERE semaine_id = ?
-            ORDER BY
-                CASE WHEN championnat = 'FL1' THEN 0 ELSE 1 END,
-                id
-            LIMIT 4
-        """, (semaine_id,))
-    else:
-        # Fallback: tous les matchs actifs
-        cursor.execute("""
-            SELECT id, championnat, equipe_home, equipe_away,
-                   cote_home, cote_draw, cote_away, date_match
-            FROM matches
-            WHERE is_active = 1
-            ORDER BY
-                CASE WHEN championnat = 'FL1' THEN 0 ELSE 1 END,
-                id
-            LIMIT 4
+            SELECT DISTINCT semaine_id FROM matches
+            WHERE is_active = 1 AND score_final_home IS NULL
+            ORDER BY semaine_id DESC LIMIT 1
         """)
+        result = cursor.fetchone()
 
-    matchs = cursor.fetchall()
-    conn.close()
+        if result:
+            semaine_id = result[0]
+            # Recuperer les matchs de cette semaine
+            cursor.execute("""
+                SELECT id, championnat, equipe_home, equipe_away,
+                       cote_home, cote_draw, cote_away, date_match
+                FROM matches
+                WHERE semaine_id = ?
+                ORDER BY
+                    CASE WHEN championnat = 'FL1' THEN 0 ELSE 1 END,
+                    id
+                LIMIT 4
+            """, (semaine_id,))
+        else:
+            # Fallback: tous les matchs actifs
+            cursor.execute("""
+                SELECT id, championnat, equipe_home, equipe_away,
+                       cote_home, cote_draw, cote_away, date_match
+                FROM matches
+                WHERE is_active = 1
+                ORDER BY
+                    CASE WHEN championnat = 'FL1' THEN 0 ELSE 1 END,
+                    id
+                LIMIT 4
+            """)
 
-    return matchs
+        matchs = cursor.fetchall()
+        conn.close()
+        return matchs
+
+    except Exception as e:
+        conn.close()
+        return []
 
 
 def get_pronos_existants(user_id):
