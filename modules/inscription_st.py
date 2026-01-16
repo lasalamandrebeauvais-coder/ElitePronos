@@ -78,10 +78,18 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, avatar_path=N
     cursor = conn.cursor()
 
     try:
+        # Verifier si c'est le premier utilisateur (sera admin)
+        cursor.execute("SELECT COUNT(*) FROM utilisateurs")
+        nb_users = cursor.fetchone()[0]
+
+        # Premier utilisateur = admin automatiquement actif
+        statut = 'Actif' if nb_users == 0 else 'en_attente'
+        is_first_user = (nb_users == 0)
+
         cursor.execute('''
             INSERT INTO utilisateurs (prenom, pseudo, email, telephone, pin, statut)
-            VALUES (?, ?, ?, ?, ?, 'en_attente')
-        ''', (prenom, pseudo, email, telephone, pin))
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (prenom, pseudo, email, telephone, pin, statut))
         conn.commit()
 
         # Recuperer l'ID du nouvel utilisateur
@@ -97,7 +105,10 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, avatar_path=N
                 user_data = {'id': user_id, 'pseudo': pseudo, 'prenom': prenom, 'email': email}
                 envoyer_email_bienvenue(user_data)
 
-        return True, "Inscription reussie!"
+        # Message adapte selon le statut
+        if is_first_user:
+            return True, "Inscription reussie ! Vous etes le premier utilisateur et avez ete designe ADMIN."
+        return True, "Inscription reussie ! En attente de validation par un admin."
     except sqlite3.IntegrityError:
         conn.close()
         return False, "Ce pseudo est deja utilise."
