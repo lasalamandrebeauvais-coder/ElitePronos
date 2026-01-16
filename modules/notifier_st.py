@@ -243,81 +243,64 @@ def email_bienvenue(utilisateur):
     pseudo = utilisateur.get('pseudo')
 
     content = f'''
-    <h2>Bienvenue dans l'Elite !</h2>
+    <h2>Felicitations !</h2>
     <p>Bonjour <strong>{prenom}</strong>,</p>
-    <p>Votre inscription a Elite Pronos est enregistree.
-    Vous faites desormais partie de la ligue des experts !</p>
+    <p>Votre demande d'inscription a bien ete recue !</p>
+    <p>Pour rejoindre officiellement l'aventure <strong style="color: #FFD700;">Elite Pronos</strong>,
+    voici les modalites finales :</p>
 
-    <div class="highlight-box">
-        <p style="color: #FFD700; margin: 0;">Votre pseudo</p>
-        <div class="big-text">@{pseudo}</div>
-    </div>
-
-    <!-- TARIF ET PAIEMENT -->
-    <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid #333; border-radius: 10px; padding: 20px; margin: 25px 0;">
-        <h3 style="color: #FFD700; margin-top: 0;">Tarif de participation</h3>
-        <p style="color: #ffffff; font-size: 1.2em;">
-            <strong style="color: #FFD700;">55 euros</strong> (mise de 50 euros + 5 euros de frais de maintenance)
-        </p>
-        <p style="color: #cccccc;">
-            <strong>Paiement :</strong> Votre compte sera valide apres reception de votre cheque ou virement bancaire.
-        </p>
-        <p style="color: #888; font-size: 0.9em;">
-            Coordonnees de paiement communiquees par l'administrateur.
-        </p>
-    </div>
-
-    <!-- GAINS ET RECOMPENSES -->
-    <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #333; border-radius: 10px; padding: 20px; margin: 25px 0;">
-        <h3 style="color: #00FF00; margin-top: 0;">Gains et Recompenses</h3>
-
-        <p style="color: #FFD700;"><strong>Podium (selon nombre de joueurs) :</strong></p>
-        <ul style="color: #cccccc; margin-left: 20px;">
-            <li><strong>Jusqu'a 10 joueurs :</strong> Top 3 recompense</li>
-            <li><strong>11 a 15 joueurs :</strong> Top 5 recompense</li>
-            <li><strong>16 joueurs et plus :</strong> Top 7 recompense</li>
+    <!-- PARTICIPATION FINANCIERE -->
+    <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid #FFD700; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #FFD700; margin-top: 0;">Participation financiere</h3>
+        <ul style="color: #ffffff; font-size: 1.1em; list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Mise de jeu :</strong> 50 euros <span style="color: #888;">(integralement reverses dans la cagnotte)</span></li>
+            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Frais de maintenance :</strong> 5 euros <span style="color: #888;">(frais techniques)</span></li>
         </ul>
-        <p style="color: #888; font-size: 0.9em;">
-            Les sommes sont arrondies a la dizaine d'euros.
+        <p style="color: #00FF00; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+            Votre compte sera active par <strong>Baggio</strong> des reception de votre reglement par cheque ou virement.
         </p>
+    </div>
 
-        <p style="color: #FFD700; margin-top: 20px;"><strong>Prix Fixes :</strong></p>
-        <ul style="color: #cccccc; margin-left: 20px;">
-            <li><span style="color: #FFD700; font-weight: bold;">50 euros</span> : Meilleur score sur une semaine</li>
-            <li><span style="color: #FFD700; font-weight: bold;">25 euros</span> : Plus grand nombre de paris 1N2 reussis sur la saison</li>
+    <!-- REPARTITION DES RECOMPENSES -->
+    <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #00FF00; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #00FF00; margin-top: 0;">Repartition des Recompenses</h3>
+        <p style="color: #888; font-style: italic;">(Arrondies a la dizaine)</p>
+
+        <p style="color: #FFD700; margin-top: 15px;"><strong>Prix Fixes :</strong></p>
+        <ul style="color: #ffffff; margin-left: 20px;">
+            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Meilleur score :</span> 50 euros</li>
+            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Plus de paris reussis :</span> 25 euros</li>
         </ul>
 
-        <p style="color: #888; font-size: 0.9em; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
-            <strong>Reglement des gains :</strong> Les gains seront verses dans les 15 jours suivant la fin du championnat.
+        <p style="color: #FFD700; margin-top: 20px;"><strong>Cagnotte de fin de saison :</strong></p>
+        <ul style="color: #ffffff; margin-left: 20px;">
+            <li style="margin: 8px 0;"><strong>Jusqu'a 20 joueurs :</strong> Top 3 recompenses</li>
+            <li style="margin: 8px 0;"><strong>De 21 a 40 joueurs :</strong> Top 5 recompenses</li>
+            <li style="margin: 8px 0;"><strong>41 joueurs et plus :</strong> Top 7 recompenses</li>
+        </ul>
+
+        <p style="color: #888; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+            Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
         </p>
     </div>
-
-    <!-- VOS AVANTAGES -->
-    <p><strong>Vos avantages de joueur :</strong></p>
-    <ul style="color: #cccccc;">
-        <li>1 Joker Points Doubles (x2 sur vos gains de la semaine)</li>
-        <li>1 Joker Points Voles (copiez les pronos d'un rival)</li>
-        <li>Acces au classement en temps reel</li>
-        <li>Bonus Grand Chelem : +40 pts si 4/4 resultats corrects</li>
-    </ul>
 
     <!-- REGLEMENT -->
     <div style="background: #0a0a1a; border: 2px solid #D4AF37; border-radius: 10px; padding: 20px; margin: 25px 0;">
-        <h3 style="color: #D4AF37; margin-top: 0; text-align: center;">REGLEMENT OFFICIEL</h3>
+        <h3 style="color: #D4AF37; margin-top: 0; text-align: center;">REGLEMENT COMPLET DU CLUB</h3>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
             <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 1 - Participation et Inscription</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 Elite Pronos est une ligue privee reservee aux membres invites.
                 Inscription soumise a validation admin. Compte unique obligatoire (pseudo min. 3 car., email valide, PIN min. 4 car.).
-                Inscriptions ouvertes 30 jours avant la J1.
+                Inscriptions ouvertes 30 jours avant la J1. Aucune inscription apres le coup d'envoi du 1er match.
             </p>
         </div>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
             <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 2 - Pronostics Hebdomadaires</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
-                4 matchs par semaine. Budget de 100 points a repartir (mise min. 10, max. 60 par match).
+                4 matchs par semaine. Budget de 100 points a repartir (mise min. 10 pts, max. 60 pts par match).
                 Deadline : 1h avant le premier match. Defaut de pronostic = pronostics du dernier du classement attribues automatiquement.
             </p>
         </div>
@@ -337,7 +320,7 @@ def email_bienvenue(utilisateur):
                 2 jokers par saison :<br>
                 <strong>Points Doubles :</strong> x2 sur tous les gains de la semaine.<br>
                 <strong>Points Voles :</strong> Copie les pronostics d'un adversaire choisi.<br>
-                Activation avant la deadline, non annulable.
+                Activation avant la deadline, non annulable. Jokers non utilises perdus en fin de saison.
             </p>
         </div>
 
@@ -345,21 +328,25 @@ def email_bienvenue(utilisateur):
             <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 5 - Classement et Recompenses</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 Classement par cumul des points. Departage : scores exacts, Grand Chelems, confrontation directe.
-                <strong style="color: #ff6b6b;">Triche = disqualification immediate.</strong>
+                <strong style="color: #ff6b6b;">Tout comportement antisportif (multi-comptes, collusion, triche) = disqualification immediate et definitive.</strong>
             </p>
         </div>
     </div>
+
+    <p style="color: #cccccc; text-align: center;">
+        Preparez vos strategies, le <strong style="color: #9b59b6;">Bot Elite</strong> vous attend deja sur le terrain !
+    </p>
 
     <p style="text-align: center;">
         <a href="#" class="button">Acceder a Elite Pronos</a>
     </p>
 
-    <p style="color: #888; font-size: 0.9em; text-align: center;">
-        Que le meilleur pronostiqueur gagne !
+    <p style="color: #FFD700; font-weight: bold; text-align: right; margin-top: 30px;">
+        L'Admin Elite Pronos
     </p>
     '''
 
-    return get_base_template(content, "Bienvenue")
+    return get_base_template(content, "Bienvenue dans le Club")
 
 
 def email_rappel_j7(utilisateur):
@@ -651,7 +638,7 @@ def envoyer_email_bienvenue(utilisateur):
     html = email_bienvenue(utilisateur)
     return send_email(
         utilisateur['email'],
-        "Bienvenue dans Elite Pronos !",
+        "Bienvenue dans le Club Elite Pronos ! (Validation de votre compte)",
         html
     )
 
