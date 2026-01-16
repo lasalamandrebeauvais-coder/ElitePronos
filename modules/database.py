@@ -4,6 +4,11 @@ import os
 # Chemin vers la base de donnees (relatif a la racine du projet)
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
 
+# Creer le dossier database s'il n'existe pas (necessaire pour Streamlit Cloud)
+DB_DIR = os.path.dirname(DB_PATH)
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
+
 def get_db_path():
     """Retourne le chemin absolu vers la base de donnees"""
     return DB_PATH
