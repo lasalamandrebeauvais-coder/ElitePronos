@@ -40,14 +40,65 @@ def get_utilisateurs_en_attente():
     return users
 
 
+def is_admin(user_id):
+    """Verifie si un utilisateur est admin"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_admin FROM utilisateurs WHERE id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result and result[0] == 1
+
+
+def is_super_admin(pseudo):
+    """Verifie si c'est le super admin (Baggio)"""
+    return pseudo.lower() == 'baggio'
+
+
+def promouvoir_admin(user_id):
+    """Promouvoit un utilisateur en admin"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE utilisateurs SET is_admin = 1 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def revoquer_admin(user_id):
+    """Revoque les droits admin d'un utilisateur"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Verifier que ce n'est pas Baggio (super admin)
+    cursor.execute("SELECT pseudo FROM utilisateurs WHERE id = ?", (user_id,))
+    result = cursor.fetchone()
+    if result and result[0].lower() == 'baggio':
+        conn.close()
+        return False  # Ne peut pas revoquer le super admin
+    cursor.execute("UPDATE utilisateurs SET is_admin = 0 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_nombre_admins():
+    """Retourne le nombre d'administrateurs"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE is_admin = 1")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+
 def get_tous_utilisateurs():
-    """Recupere tous les utilisateurs"""
+    """Recupere tous les utilisateurs avec statut admin"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, pseudo, email, prenom, statut
+        SELECT id, pseudo, email, prenom, statut, COALESCE(is_admin, 0) as is_admin
         FROM utilisateurs
-        ORDER BY id DESC
+        ORDER BY is_admin DESC, id DESC
     """)
     users = cursor.fetchall()
     conn.close()
@@ -143,6 +194,10 @@ def afficher_panel_admin():
     with tab2:
         st.markdown("### Liste complete des utilisateurs")
 
+        # Afficher le nombre d'admins
+        nb_admins = get_nombre_admins()
+        st.info(f"**{nb_admins} administrateur(s)** dans le systeme")
+
         all_users = get_tous_utilisateurs()
 
         if not all_users:
@@ -152,49 +207,78 @@ def afficher_panel_admin():
             st.markdown(f"**{len(all_users)} utilisateur(s) au total**")
 
             # En-tete du tableau
-            header_cols = st.columns([1, 2, 3, 2, 2])
+            header_cols = st.columns([1, 2, 2, 1.5, 1.5, 2])
             header_cols[0].markdown("**ID**")
             header_cols[1].markdown("**Pseudo**")
             header_cols[2].markdown("**Email**")
             header_cols[3].markdown("**Statut**")
-            header_cols[4].markdown("**Actions**")
+            header_cols[4].markdown("**Role**")
+            header_cols[5].markdown("**Actions**")
 
             st.markdown("---")
 
             for user in all_users:
-                user_id, pseudo, email, prenom, statut = user
+                user_id, pseudo, email, prenom, statut, user_is_admin = user
 
-                cols = st.columns([1, 2, 3, 2, 2])
+                cols = st.columns([1, 2, 2, 1.5, 1.5, 2])
 
                 cols[0].write(user_id)
-                cols[1].write(pseudo)
+
+                # Pseudo avec badge admin
+                if user_is_admin:
+                    cols[1].markdown(f"**{pseudo}** 👑")
+                else:
+                    cols[1].write(pseudo)
+
                 cols[2].write(email or "N/A")
 
                 # Badge de statut avec couleur
                 if statut == "Actif":
                     cols[3].success(statut)
                 elif statut == "en_attente":
-                    cols[3].warning("En attente")
+                    cols[3].warning("Attente")
                 elif statut == "En pause":
                     cols[3].error(statut)
                 else:
                     cols[3].info(statut or "N/A")
 
-                # Actions
-                with cols[4]:
-                    action_cols = st.columns(2)
+                # Role admin
+                if user_is_admin:
+                    if is_super_admin(pseudo):
+                        cols[4].markdown("**SUPER ADMIN**")
+                    else:
+                        cols[4].markdown("*Admin*")
+                else:
+                    cols[4].write("Joueur")
 
+                # Actions
+                with cols[5]:
+                    action_cols = st.columns(3)
+
+                    # Activer/Suspendre
                     if statut != "Actif":
                         if action_cols[0].button("✓", key=f"act_{user_id}", help="Activer"):
                             activer_compte(user_id)
                             st.rerun()
-
-                    if statut == "Actif":
+                    else:
                         if action_cols[0].button("⏸", key=f"pause_{user_id}", help="Suspendre"):
                             suspendre_compte(user_id)
                             st.rerun()
 
-                    if action_cols[1].button("🗑", key=f"del_{user_id}", help="Supprimer"):
+                    # Bouton Promouvoir/Revoquer Admin (sauf pour super admin)
+                    if not is_super_admin(pseudo):
+                        if user_is_admin:
+                            if action_cols[1].button("👤", key=f"revoke_{user_id}", help="Revoquer Admin"):
+                                if revoquer_admin(user_id):
+                                    st.success(f"{pseudo} n'est plus admin")
+                                    st.rerun()
+                        else:
+                            if action_cols[1].button("👑", key=f"promote_{user_id}", help="Promouvoir Admin"):
+                                promouvoir_admin(user_id)
+                                st.success(f"{pseudo} est maintenant admin!")
+                                st.rerun()
+
+                    if action_cols[2].button("🗑", key=f"del_{user_id}", help="Supprimer"):
                         supprimer_compte(user_id)
                         st.rerun()
 
@@ -206,6 +290,37 @@ def afficher_panel_admin():
         journee = get_journee_courante(saison)
 
         st.info(f"**Saison:** {get_saison_label(saison)} | **Journee courante:** J{journee}")
+
+        # === SECTION 0: IMPORT CALENDRIER ===
+        st.markdown("#### 0. Import Calendrier Ligue 1")
+        st.caption("Importe le calendrier complet de la saison depuis l'API Football-Data.")
+
+        col_import1, col_import2 = st.columns(2)
+
+        with col_import1:
+            if st.button("IMPORTER CALENDRIER COMPLET", type="primary", use_container_width=True):
+                with st.spinner("Import du calendrier en cours..."):
+                    try:
+                        from modules.bot_sourcing import importer_calendrier_complet_l1
+                        success, message = importer_calendrier_complet_l1(saison)
+                        if success:
+                            st.success(f"✅ {message}")
+                        else:
+                            st.error(f"❌ {message}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        with col_import2:
+            if st.button("IMPORTER SEMAINE COURANTE", use_container_width=True):
+                with st.spinner("Import des matchs de la semaine..."):
+                    try:
+                        from modules.bot_sourcing import sourcing_semaine_courante
+                        nb = sourcing_semaine_courante()
+                        st.success(f"✅ {nb} match(s) importe(s) pour cette semaine")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        st.markdown("---")
 
         # Selection de la journee
         semaine_selectionnee = st.number_input(

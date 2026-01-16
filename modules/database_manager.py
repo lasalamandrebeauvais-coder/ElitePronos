@@ -36,7 +36,7 @@ JOURS_OUVERTURE_PRONOSTICS = 5     # J-5 avant chaque journee
 # CONFIGURATION SAISON FORCEE
 # ============================================
 # Mettre a None pour detection automatique, ou forcer une saison specifique
-SAISON_FORCEE = 2026  # Force la saison 2026-2027
+SAISON_FORCEE = 2025  # Force la saison 2025-2026 (Phase Test)
 
 
 # ============================================
@@ -266,6 +266,15 @@ def init_database():
         cursor.execute("ALTER TABLE predictions ADD COLUMN saison_id INTEGER DEFAULT 2024")
     except sqlite3.OperationalError:
         pass  # Colonne existe déjà
+
+    # Migration: Ajouter colonne is_admin aux utilisateurs
+    try:
+        cursor.execute("ALTER TABLE utilisateurs ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Colonne existe déjà
+
+    # S'assurer que Baggio est admin
+    cursor.execute("UPDATE utilisateurs SET is_admin = 1 WHERE pseudo = 'baggio'")
 
     # Initialiser la saison actuelle
     saison = get_saison_actuelle()
