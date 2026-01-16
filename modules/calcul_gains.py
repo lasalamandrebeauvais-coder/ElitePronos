@@ -17,8 +17,13 @@ from modules.database_manager import (
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
 
-# Bonus Grand Chelem (4/4 pronostics corrects)
-BONUS_GRAND_CHELEM = 50
+# ============================================
+# CONFIGURATION DES BONUS
+# ============================================
+# Formule: Points = (Mise × Cote) + Bonus
+
+BONUS_SCORE_EXACT = 10   # +10 pts fixes si score exact
+BONUS_GRAND_CHELEM = 40  # +40 pts appliques sur la semaine SUIVANTE
 
 
 def determiner_resultat_match(score_home, score_away):
@@ -30,9 +35,53 @@ def determiner_resultat_match(score_home, score_away):
     return 'N'
 
 
+def a_fait_grand_chelem_semaine_precedente(utilisateur_id, semaine_id):
+    """
+    Vérifie si l'utilisateur a fait un Grand Chelem la semaine précédente.
+    Retourne True si 4/4 résultats 1N2 corrects.
+    """
+    semaine_precedente = semaine_id - 1
+    if semaine_precedente < 1:
+        return False
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Compter les pronostics 1N2 corrects de la semaine précédente
+    cursor.execute('''
+        SELECT COUNT(*)
+        FROM predictions p
+        JOIN matches m ON p.match_id = m.id
+        WHERE p.user_id = ?
+          AND m.semaine_id = ?
+          AND m.score_final_home IS NOT NULL
+          AND (
+              (p.score_prono_home > p.score_prono_away AND m.score_final_home > m.score_final_away) OR
+              (p.score_prono_home < p.score_prono_away AND m.score_final_home < m.score_final_away) OR
+              (p.score_prono_home = p.score_prono_away AND m.score_final_home = m.score_final_away)
+          )
+    ''', (utilisateur_id, semaine_precedente))
+
+    nb_corrects = cursor.fetchone()[0]
+
+    # Compter le nombre total de matchs de cette semaine
+    cursor.execute('''
+        SELECT COUNT(*) FROM matches WHERE semaine_id = ? AND score_final_home IS NOT NULL
+    ''', (semaine_precedente,))
+
+    nb_matchs = cursor.fetchone()[0]
+    conn.close()
+
+    # Grand Chelem = 4/4 corrects
+    return nb_corrects >= 4 and nb_matchs >= 4
+
+
 def calculer_gain_match(prono_home, prono_away, score_home, score_away, mise, cote_home, cote_draw, cote_away):
     """
     Calcule le gain pour un match donné.
+
+    FORMULE: Points = (Mise × Cote) + Bonus
+    - Bonus score exact: +10 pts fixes
 
     Retourne:
         - gain: points gagnés (0 si prono incorrect)
@@ -66,9 +115,9 @@ def calculer_gain_match(prono_home, prono_away, score_home, score_away, mise, co
     # Gain de base: Mise × Cote
     gain = mise * cote
 
-    # Bonus score exact: on ajoute la mise × 2
+    # Bonus score exact: +10 pts FIXES
     if is_score_exact:
-        gain += mise * 2
+        gain += BONUS_SCORE_EXACT
 
     return round(gain, 2), is_1n2_correct, is_score_exact
 
@@ -153,9 +202,15 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
             'is_score_exact': is_exact
         })
 
-    # Grand Chelem: 4 pronostics 1N2 corrects
+    # Grand Chelem: 4 pronostics 1N2 corrects cette semaine
+    # Le bonus sera applique la semaine SUIVANTE
     grand_chelem = (nb_1n2_corrects == 4 and len(pronostics) >= 4)
-    if grand_chelem:
+
+    # Verifier si l'utilisateur a fait un Grand Chelem la semaine PRECEDENTE
+    # Si oui, appliquer le bonus +40 pts CETTE semaine
+    bonus_grand_chelem_precedent = 0
+    if a_fait_grand_chelem_semaine_precedente(utilisateur_id, semaine_id):
+        bonus_grand_chelem_precedent = BONUS_GRAND_CHELEM
         total_gains += BONUS_GRAND_CHELEM
 
     # Appliquer le joker Points Doubles (x2)
@@ -171,6 +226,7 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
         'nb_1n2_corrects': nb_1n2_corrects,
         'nb_scores_exacts': nb_scores_exacts,
         'grand_chelem': grand_chelem,
+        'bonus_grand_chelem_applique': bonus_grand_chelem_precedent,
         'joker_utilise': joker['type'] if joker else None,
         'multiplicateur': multiplicateur,
         'est_vol': est_vol,

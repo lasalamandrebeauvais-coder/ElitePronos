@@ -5,7 +5,7 @@ Saisie des pronostics de la semaine
 import streamlit as st
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Chemins
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
@@ -165,6 +165,69 @@ def get_championnat_nom(code):
     return championnats.get(code, code)
 
 
+def get_deadline_pronostics():
+    """
+    Retourne la date limite pour soumettre les pronostics
+    = date du premier match de la semaine - 1 heure
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        # Recuperer la date du premier match actif de la semaine
+        cursor.execute("""
+            SELECT MIN(date_match) FROM matches
+            WHERE is_active = 1 AND score_final_home IS NULL
+            AND date_match IS NOT NULL
+        """)
+        result = cursor.fetchone()
+        conn.close()
+
+        if result and result[0]:
+            # Parser la date
+            try:
+                first_match = datetime.strptime(result[0], "%Y-%m-%d %H:%M:%S")
+            except:
+                try:
+                    first_match = datetime.strptime(result[0], "%Y-%m-%d")
+                except:
+                    return None
+            # Deadline = 1h avant le premier match
+            return first_match - timedelta(hours=1)
+        return None
+    except:
+        conn.close()
+        return None
+
+
+def get_countdown_pronostics():
+    """
+    Retourne le temps restant avant la deadline
+    Format: {'days': X, 'hours': X, 'minutes': X, 'seconds': X, 'expired': bool}
+    """
+    deadline = get_deadline_pronostics()
+    if not deadline:
+        return None
+
+    now = datetime.now()
+    diff = deadline - now
+
+    if diff.total_seconds() <= 0:
+        return {'days': 0, 'hours': 0, 'minutes': 0, 'seconds': 0, 'expired': True}
+
+    days = diff.days
+    hours, remainder = divmod(diff.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    return {
+        'days': days,
+        'hours': hours,
+        'minutes': minutes,
+        'seconds': seconds,
+        'expired': False
+    }
+
+
 def afficher_pronostics(user):
     """Affiche l'interface de saisie des pronostics"""
 
@@ -257,6 +320,65 @@ def afficher_pronostics(user):
 
     st.markdown("---")
 
+    # === COUNTDOWN FIN VALIDITE ===
+    countdown = get_countdown_pronostics()
+    if countdown:
+        if countdown['expired']:
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+                border: 2px solid #FF4444;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <h3 style="color: #FFFFFF; margin: 0;">⏰ TEMPS ECOULE</h3>
+                <p style="color: #FFD700; margin: 10px 0 0 0;">
+                    Les pronostics sont clos pour cette semaine !
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                border: 2px solid #FFD700;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <h4 style="color: #FFD700; margin: 0 0 15px 0;">⏱️ TEMPS RESTANT POUR PRONOSTIQUER</h4>
+                <div style="
+                    display: flex;
+                    justify-content: center;
+                    gap: 20px;
+                ">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                            {countdown['days']:02d}
+                        </div>
+                        <div style="color: #888; font-size: 0.8em;">JOURS</div>
+                    </div>
+                    <div style="font-size: 2.5em; color: #FFD700;">:</div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                            {countdown['hours']:02d}
+                        </div>
+                        <div style="color: #888; font-size: 0.8em;">HEURES</div>
+                    </div>
+                    <div style="font-size: 2.5em; color: #FFD700;">:</div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                            {countdown['minutes']:02d}
+                        </div>
+                        <div style="color: #888; font-size: 0.8em;">MIN</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
     # Recuperer les matchs
     matchs = get_matchs_semaine()
 
@@ -287,7 +409,7 @@ def afficher_pronostics(user):
             st.session_state.pronos[match_id] = {
                 'home': 0,
                 'away': 0,
-                'mise': 25,
+                'mise': 20,
                 'choix': None
             }
 
@@ -337,16 +459,31 @@ def afficher_pronostics(user):
                 )
                 st.session_state.pronos[match_id]['away'] = score_away
 
-            # Cotes
-            st.markdown("**Cotes :**")
-            cote_col1, cote_col2, cote_col3 = st.columns(3)
-
-            with cote_col1:
-                st.metric("1 (Dom)", f"{cote_h:.2f}")
-            with cote_col2:
-                st.metric("N (Nul)", f"{cote_n:.2f}")
-            with cote_col3:
-                st.metric("2 (Ext)", f"{cote_a:.2f}")
+            # Cotes centrees sous les equipes
+            st.markdown(f"""
+            <div style="
+                display: flex;
+                justify-content: center;
+                gap: 40px;
+                margin: 15px 0;
+                padding: 10px;
+                background: rgba(0,32,64,0.5);
+                border-radius: 10px;
+            ">
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.8em;">1 (Dom)</div>
+                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_h:.2f}</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.8em;">N (Nul)</div>
+                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_n:.2f}</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.8em;">2 (Ext)</div>
+                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_a:.2f}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # Mise
             st.markdown("**💰 Mise (10-60 pts) :**")
@@ -355,7 +492,7 @@ def afficher_pronostics(user):
                 min_value=MISE_MIN,
                 max_value=MISE_MAX,
                 value=st.session_state.pronos[match_id]['mise'],
-                step=5,
+                step=10,
                 key=f"mise_{match_id}",
                 label_visibility="collapsed"
             )

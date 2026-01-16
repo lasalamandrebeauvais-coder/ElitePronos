@@ -16,21 +16,129 @@ if not os.path.exists(DB_DIR):
 
 
 # ============================================
+# CONFIGURATION CALENDRIER LFP
+# ============================================
+
+# Calendrier officiel Ligue 1 par saison
+# Format: {saison_id: {'debut': (mois, jour), 'fin': (mois, jour)}}
+CALENDRIER_LFP = {
+    2024: {'debut': (8, 16), 'fin': (5, 18)},   # 2024-2025
+    2025: {'debut': (8, 15), 'fin': (5, 23)},   # 2025-2026
+    2026: {'debut': (8, 23), 'fin': (5, 29)},   # 2026-2027 (demandé)
+    2027: {'debut': (8, 13), 'fin': (5, 21)},   # 2027-2028 (estimation)
+}
+
+# Parametres de chronologie
+JOURS_OUVERTURE_INSCRIPTIONS = 30  # J-30 avant debut championnat
+JOURS_OUVERTURE_PRONOSTICS = 5     # J-5 avant chaque journee
+
+# ============================================
+# CONFIGURATION SAISON FORCEE
+# ============================================
+# Mettre a None pour detection automatique, ou forcer une saison specifique
+SAISON_FORCEE = 2026  # Force la saison 2026-2027
+
+
+# ============================================
 # GESTION DES SAISONS
 # ============================================
 
 def get_saison_actuelle():
-    """Retourne l'ID de la saison actuelle (ex: 2024 pour 2024-2025)"""
+    """
+    Retourne l'ID de la saison actuelle (ex: 2026 pour 2026-2027).
+    Si SAISON_FORCEE est defini, utilise cette valeur.
+    Sinon, detection automatique basee sur le calendrier LFP.
+    """
+    # Si une saison est forcee, l'utiliser
+    if SAISON_FORCEE is not None:
+        return SAISON_FORCEE
+
     now = datetime.now()
-    # La saison commence en août
+
+    # Chercher la saison active dans le calendrier
+    for saison_id, dates in CALENDRIER_LFP.items():
+        debut_mois, debut_jour = dates['debut']
+        fin_mois, fin_jour = dates['fin']
+
+        # Date de debut de la saison
+        date_debut = datetime(saison_id, debut_mois, debut_jour)
+        # Date de fin de la saison (annee suivante)
+        date_fin = datetime(saison_id + 1, fin_mois, fin_jour)
+
+        if date_debut <= now <= date_fin:
+            return saison_id
+
+    # Fallback: logique standard (aout = nouvelle saison)
     if now.month >= 8:
         return now.year
     return now.year - 1
 
 
 def get_saison_label(saison_id):
-    """Retourne le label de la saison (ex: '2024-2025')"""
+    """Retourne le label de la saison (ex: '2026-2027')"""
     return f"{saison_id}-{saison_id + 1}"
+
+
+def get_dates_saison(saison_id=None):
+    """
+    Retourne les dates officielles de debut et fin de saison.
+    Basé sur le calendrier LFP.
+    """
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    if saison_id in CALENDRIER_LFP:
+        dates = CALENDRIER_LFP[saison_id]
+        debut = datetime(saison_id, dates['debut'][0], dates['debut'][1], 21, 0)  # 21h
+        fin = datetime(saison_id + 1, dates['fin'][0], dates['fin'][1], 21, 0)
+        return {'debut': debut, 'fin': fin}
+
+    # Fallback: estimation standard (mi-aout a mi-mai)
+    return {
+        'debut': datetime(saison_id, 8, 15, 21, 0),
+        'fin': datetime(saison_id + 1, 5, 20, 21, 0)
+    }
+
+
+def detecter_nouvelle_saison():
+    """
+    Detecte automatiquement si une nouvelle saison doit etre initialisee.
+    A appeler au demarrage de l'application.
+    """
+    saison_actuelle = get_saison_actuelle()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Verifier si la saison existe dans la BDD
+    cursor.execute("SELECT id FROM saisons WHERE id = ?", (saison_actuelle,))
+    existe = cursor.fetchone()
+
+    if not existe:
+        # Nouvelle saison detectee - initialiser
+        dates = get_dates_saison(saison_actuelle)
+        cursor.execute('''
+            INSERT INTO saisons (id, label, date_debut, date_fin, is_active)
+            VALUES (?, ?, ?, ?, 1)
+        ''', (saison_actuelle, get_saison_label(saison_actuelle),
+              dates['debut'].strftime('%Y-%m-%d'),
+              dates['fin'].strftime('%Y-%m-%d')))
+
+        # Desactiver les anciennes saisons
+        cursor.execute("UPDATE saisons SET is_active = 0 WHERE id != ?", (saison_actuelle,))
+
+        # Reinitialiser les jokers pour tous les utilisateurs
+        cursor.execute('''
+            INSERT OR IGNORE INTO stock_jokers (utilisateur_id, saison_id, jokers_doubles_disponibles, jokers_voles_disponibles)
+            SELECT id, ?, 1, 1 FROM utilisateurs WHERE statut = 'Actif'
+        ''', (saison_actuelle,))
+
+        conn.commit()
+        conn.close()
+        return True, f"Nouvelle saison {get_saison_label(saison_actuelle)} initialisee"
+
+    conn.close()
+    return False, "Saison deja initialisee"
 
 
 def get_connection():
@@ -693,6 +801,240 @@ def get_countdown_j1(saison_id=None):
         'passed': False,
         'date_j1': date_j1.strftime('%d/%m/%Y %H:%M')
     }
+
+
+# ============================================
+# CHRONOLOGIE PRONOSTICS (J-5)
+# ============================================
+
+def get_date_premiere_journee(semaine_id, saison_id=None):
+    """Retourne la date du premier match d'une journee"""
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT MIN(date_match) FROM matches
+        WHERE saison_id = ? AND semaine_id = ?
+    ''', (saison_id, semaine_id))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    if result and result[0]:
+        try:
+            return datetime.fromisoformat(result[0].replace('Z', '+00:00').replace('+00:00', ''))
+        except:
+            try:
+                return datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
+            except:
+                return None
+    return None
+
+
+def get_date_ouverture_pronostics(semaine_id, saison_id=None):
+    """Retourne la date d'ouverture des pronostics pour une journee (J-5)"""
+    date_journee = get_date_premiere_journee(semaine_id, saison_id)
+    if date_journee:
+        return date_journee - timedelta(days=JOURS_OUVERTURE_PRONOSTICS)
+    return None
+
+
+def pronostics_ouverts(semaine_id, saison_id=None):
+    """
+    Verifie si les pronostics sont ouverts pour une journee.
+    Ouverts J-5 avant la journee, fermes 1h avant le premier match.
+    """
+    date_ouverture = get_date_ouverture_pronostics(semaine_id, saison_id)
+    date_journee = get_date_premiere_journee(semaine_id, saison_id)
+
+    if date_ouverture is None or date_journee is None:
+        return True  # Mode test - toujours ouvert
+
+    now = datetime.now()
+    date_fermeture = date_journee - timedelta(hours=1)
+
+    return date_ouverture <= now < date_fermeture
+
+
+def get_countdown_pronostics_journee(semaine_id, saison_id=None):
+    """Retourne le temps restant avant fermeture des pronostics"""
+    date_journee = get_date_premiere_journee(semaine_id, saison_id)
+
+    if date_journee is None:
+        return None
+
+    now = datetime.now()
+    date_fermeture = date_journee - timedelta(hours=1)
+
+    if now >= date_fermeture:
+        return {'expired': True, 'days': 0, 'hours': 0, 'minutes': 0}
+
+    delta = date_fermeture - now
+    days = delta.days
+    hours = delta.seconds // 3600
+    minutes = (delta.seconds % 3600) // 60
+
+    return {
+        'expired': False,
+        'days': days,
+        'hours': hours,
+        'minutes': minutes,
+        'date_fermeture': date_fermeture.strftime('%d/%m/%Y %H:%M')
+    }
+
+
+def get_journee_courante(saison_id=None):
+    """
+    Retourne le numero de la journee courante.
+    = Prochaine journee avec des matchs a venir.
+    """
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Trouver la prochaine journee avec des matchs non joues
+    cursor.execute('''
+        SELECT MIN(semaine_id) FROM matches
+        WHERE saison_id = ? AND score_final_home IS NULL
+    ''', (saison_id,))
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0] if result and result[0] else 1
+
+
+# ============================================
+# MISE A JOUR HEBDOMADAIRE CALENDRIER
+# ============================================
+
+def mettre_a_jour_calendrier_reports(saison_id=None):
+    """
+    Met a jour le calendrier pour gerer les matchs reportes.
+    Appelle l'API Football-Data pour verifier les changements de dates.
+    """
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        import requests
+
+        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        headers = {'X-Auth-Token': API_TOKEN}
+
+        url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}'
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            return False, f"Erreur API: {response.status_code}"
+
+        data = response.json()
+        matchs_api = data.get('matches', [])
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        updates = 0
+        for m in matchs_api:
+            nouvelle_date = m.get('utcDate')
+            home = m.get('homeTeam', {}).get('name')
+            away = m.get('awayTeam', {}).get('name')
+            statut = m.get('status')
+
+            if statut == 'POSTPONED':
+                # Match reporte - marquer comme inactif
+                cursor.execute('''
+                    UPDATE matches SET is_active = 0
+                    WHERE equipe_home = ? AND equipe_away = ? AND saison_id = ?
+                ''', (home, away, saison_id))
+                updates += 1
+            elif nouvelle_date:
+                # Mettre a jour la date si differente
+                cursor.execute('''
+                    UPDATE matches SET date_match = ?
+                    WHERE equipe_home = ? AND equipe_away = ? AND saison_id = ?
+                    AND date_match != ?
+                ''', (nouvelle_date, home, away, saison_id, nouvelle_date))
+                if cursor.rowcount > 0:
+                    updates += 1
+
+        conn.commit()
+        conn.close()
+
+        return True, f"{updates} mise(s) a jour effectuee(s)"
+
+    except Exception as e:
+        return False, str(e)
+
+
+def valider_resultats_journee(semaine_id, saison_id=None):
+    """
+    Fige les scores d'une journee apres validation admin.
+    Met a jour les scores finaux depuis l'API.
+    """
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        import requests
+
+        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        headers = {'X-Auth-Token': API_TOKEN}
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Recuperer les matchs de la journee
+        cursor.execute('''
+            SELECT id, equipe_home, equipe_away FROM matches
+            WHERE semaine_id = ? AND saison_id = ?
+        ''', (semaine_id, saison_id))
+
+        matchs_db = cursor.fetchall()
+
+        # Appeler l'API pour les scores
+        url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            conn.close()
+            return False, f"Erreur API: {response.status_code}"
+
+        data = response.json()
+        matchs_api = data.get('matches', [])
+
+        # Creer un dictionnaire pour lookup rapide
+        scores_api = {}
+        for m in matchs_api:
+            home = m.get('homeTeam', {}).get('name')
+            away = m.get('awayTeam', {}).get('name')
+            score = m.get('score', {}).get('fullTime', {})
+            if score.get('home') is not None:
+                scores_api[(home, away)] = (score['home'], score['away'])
+
+        # Mettre a jour les scores dans la BDD
+        updates = 0
+        for match_id, home, away in matchs_db:
+            if (home, away) in scores_api:
+                score_h, score_a = scores_api[(home, away)]
+                cursor.execute('''
+                    UPDATE matches SET score_final_home = ?, score_final_away = ?, is_active = 0
+                    WHERE id = ?
+                ''', (score_h, score_a, match_id))
+                updates += 1
+
+        conn.commit()
+        conn.close()
+
+        return True, f"Journee {semaine_id} validee - {updates} score(s) fige(s)"
+
+    except Exception as e:
+        return False, str(e)
 
 
 def get_utilisateurs_emails():
