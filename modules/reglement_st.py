@@ -8,15 +8,16 @@ import streamlit as st
 def afficher_reglement():
     """Affiche le reglement officiel d'Elite Pronos"""
 
-    # Style CSS specifique pour le reglement
+    # Style CSS specifique pour le reglement - Design Cartes Blanches
     st.markdown("""
     <style>
         .reglement-container {
-            background: linear-gradient(135deg, #001529 0%, #002040 100%);
-            border: 2px solid #D4AF37;
+            background: #FFFFFF !important;
+            border: 3px solid #D4AF37;
             border-radius: 15px;
             padding: 25px;
             margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
         }
 
         .article-title {
@@ -29,8 +30,12 @@ def afficher_reglement():
         }
 
         .article-content {
-            color: #FFFFFF !important;
+            color: #001529 !important;
             line-height: 1.8;
+        }
+
+        .article-content p {
+            color: #001529 !important;
         }
 
         .article-content ul {
@@ -39,25 +44,42 @@ def afficher_reglement():
 
         .article-content li {
             margin: 8px 0;
-            color: #FFFFFF !important;
+            color: #001529 !important;
+        }
+
+        .article-content ol li {
+            color: #001529 !important;
+        }
+
+        .article-content strong {
+            color: #001529 !important;
         }
 
         .highlight-gold {
-            color: #FFD700 !important;
+            color: #D4AF37 !important;
             font-weight: bold;
         }
 
         .highlight-box {
-            background: rgba(212, 175, 55, 0.1);
-            border: 1px solid #D4AF37;
+            background: rgba(212, 175, 55, 0.15);
+            border: 2px solid #D4AF37;
             border-radius: 10px;
             padding: 15px;
             margin: 15px 0;
         }
 
+        .highlight-box p {
+            color: #001529 !important;
+        }
+
+        .highlight-box li {
+            color: #001529 !important;
+        }
+
         .emoji-big {
             font-size: 1.5em;
             margin-right: 10px;
+            color: #D4AF37 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -152,14 +174,14 @@ def afficher_reglement():
                 <p>Si le participant trouve le bon resultat (Victoire domicile / Nul / Victoire exterieur) :</p>
                 <div class="highlight-box">
                     <p><span class="highlight-gold">Points gagnes = Mise x Cote du resultat</span></p>
-                    <p style="color: #888; font-size: 0.9em;">Exemple : Mise 30 pts sur PSG gagnant, cote 1.50 → 30 x 1.50 = 45 pts</p>
+                    <p style="color: #555555; font-size: 0.9em;">Exemple : Mise 30 pts sur PSG gagnant, cote 1.50 → 30 x 1.50 = 45 pts</p>
                 </div>
 
                 <p><span class="emoji-big">3.2</span> <strong>Score Exact</strong></p>
                 <p>Si le participant trouve le <span class="highlight-gold">score exact</span> du match :</p>
                 <div class="highlight-box">
                     <p><span class="highlight-gold">BONUS : +10 POINTS FIXES</span></p>
-                    <p style="color: #888; font-size: 0.9em;">Exemple : Mise 20, cote 2.0 avec score exact → (20 x 2.0) + 10 = 50 pts</p>
+                    <p style="color: #555555; font-size: 0.9em;">Exemple : Mise 20, cote 2.0 avec score exact → (20 x 2.0) + 10 = 50 pts</p>
                 </div>
 
                 <p><span class="emoji-big">3.3</span> <strong>Mauvais pronostic</strong></p>
@@ -173,7 +195,7 @@ def afficher_reglement():
                 sur une meme semaine :</p>
                 <div class="highlight-box" style="border-color: #00FF00; background: rgba(0, 255, 0, 0.1);">
                     <p style="color: #00FF00;"><strong>BONUS GRAND CHELEM : +40 POINTS</strong></p>
-                    <p style="color: #888; font-size: 0.9em;">Applique sur la semaine SUIVANTE</p>
+                    <p style="color: #555555; font-size: 0.9em;">Applique sur la semaine SUIVANTE</p>
                 </div>
             </div>
         </div>
@@ -255,17 +277,17 @@ def afficher_reglement():
                         <div>
                             <div style="font-size: 2em;">🥇</div>
                             <div style="color: #FFD700; font-weight: bold;">1er</div>
-                            <div style="color: #888; font-size: 0.9em;">Champion</div>
+                            <div style="color: #555555; font-size: 0.9em;">Champion</div>
                         </div>
                         <div>
                             <div style="font-size: 2em;">🥈</div>
                             <div style="color: #C0C0C0; font-weight: bold;">2eme</div>
-                            <div style="color: #888; font-size: 0.9em;">Vice-Champion</div>
+                            <div style="color: #555555; font-size: 0.9em;">Vice-Champion</div>
                         </div>
                         <div>
                             <div style="font-size: 2em;">🥉</div>
                             <div style="color: #CD7F32; font-weight: bold;">3eme</div>
-                            <div style="color: #888; font-size: 0.9em;">Bronze</div>
+                            <div style="color: #555555; font-size: 0.9em;">Bronze</div>
                         </div>
                     </div>
                 </div>
@@ -280,8 +302,8 @@ def afficher_reglement():
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #888; font-size: 0.9em;">
-        <p>Reglement officiel Elite Pronos - Saison 2024-2025</p>
+    <div style="text-align: center; color: #555555; font-size: 0.9em;">
+        <p>Reglement officiel Elite Pronos - Saison 2025-2026</p>
         <p style="color: #D4AF37;">Que le meilleur pronostiqueur gagne !</p>
     </div>
     """, unsafe_allow_html=True)

@@ -17,7 +17,9 @@ from modules.database_manager import (
     get_utilisateurs_sans_pronos_j1,
     get_date_j1,
     get_saison_actuelle,
-    get_saison_label
+    get_saison_label,
+    get_joker_actif_semaine,
+    get_connection
 )
 
 
@@ -80,6 +82,191 @@ def send_email(destinataire, sujet, html_content):
 
     except Exception as e:
         return False, f"Erreur envoi email: {str(e)}"
+
+
+# ============================================
+# BIBLIOTHEQUE DE PHRASES IRONIQUES
+# ============================================
+
+import random
+
+PHRASES_IRONIQUES = {
+    'premier': [
+        "Le roi de la semaine ! Enfin, jusqu'a ce qu'il se plante lamentablement...",
+        "Bravo champion ! Les debutants ont parfois de la chance...",
+        "Impressionnant ! Tu as du regarder les matchs au lieu de deviner ?",
+        "Attention, on a un expert parmi nous... ou juste un coup de bol ?",
+        "Tel un aigle, tu domines... pour l'instant.",
+        "La place est chaude, profites-en avant qu'elle refroidisse !",
+    ],
+    'dernier': [
+        "Au moins, tu es constant dans la mediocrite !",
+        "Tu devrais peut-etre essayer les echecs a la place ?",
+        "Ton joker aurait ete plus utile que tes pronostics...",
+        "Meme un singe avec des flechettes aurait fait mieux !",
+        "Le fond du classement te dit merci pour ta fidelite.",
+        "Tu collectionnes les defaites comme d'autres les timbres.",
+    ],
+    'progresse': [
+        "Tiens, tu as enfin trouve comment marche le foot ?",
+        "Belle remontee ! Tu lisais des tutos sur YouTube ?",
+        "Miracle ! Il y a de l'espoir pour toi finalement.",
+        "Tu as change de lunettes ou quoi ?",
+        "Enfin reveille ! On commencait a s'inquieter.",
+    ],
+    'regresse': [
+        "La chute est rude ! Tu etais en vacances mentales ?",
+        "De heros a zero en une semaine, chapeau !",
+        "Retour sur Terre brutal... ca fait mal ?",
+        "Tu redescends aussi vite que tu es monte.",
+        "L'ascenseur etait en panne ? Tu as pris l'escalier... vers le bas.",
+    ],
+    'stable': [
+        "Stable comme un diesel... qui ne demarre pas.",
+        "Ni bon ni mauvais, juste... la.",
+        "La regularite dans la mediocrite, c'est presque un talent.",
+        "Tu fais du surplace, mais au moins tu ne recules pas.",
+        "Comme un meuble : present mais pas remarque.",
+    ],
+    'grand_chelem': [
+        "4/4 ! Tu as vendu ton ame au diable ou tu savais vraiment ?",
+        "GRAND CHELEM ! Meme Nostradamus est jaloux !",
+        "Perfection ! C'est louche... on verifie les cameras.",
+        "4 sur 4 ! Tu as des informateurs dans les vestiaires ?",
+        "Le sans-faute ! Profite, ca n'arrivera plus avant longtemps.",
+        "Grand Chelem ! Ta boule de cristal fonctionne encore ?",
+        "LEGENDAIRE ! On devrait t'appeler Madame Irma.",
+    ],
+    'score_exact': [
+        "Score exact ! Tu as un don ou c'est de la triche ?",
+        "Dans le mille ! Meme le bookmaker est impressionne.",
+        "Score parfait ! Tu as soudoye l'arbitre ?",
+        "Precision chirurgicale ! On t'engage comme consultant.",
+        "Score exact ! La chance sourit aux audacieux... ou aux tricheurs.",
+        "Bullseye ! Tu devrais jouer aux flechettes aussi.",
+    ],
+    'joker_vole_reussi': [
+        "Ton vol a paye ! Le crime parfait existe donc.",
+        "Braquage reussi ! Ta victime doit s'en mordre les doigts.",
+        "Points voles avec succes ! Tel un pickpocket de genie.",
+        "Le casse du siecle ! Ocean's Eleven peut aller se rhabiller.",
+        "Vol qualifie et assume ! Pas de remords, que des points.",
+        "Tu as vole ses pronos ET sa dignite. Bien joue !",
+    ],
+    'joker_vole_rate': [
+        "Tu as vole les pronos d'un nul... Bien joue, genie !",
+        "Bravo, tu as copie sur le plus mauvais de la classe !",
+        "Vol rate ! Tu aurais du choisir une meilleure cible...",
+        "Felicitations, tu as herite des pires pronos. Karma ?",
+        "Comme voler une voiture en panne... Quelle strategie !",
+        "Tu as vole a l'aveugle et tu es tombe sur un borgne.",
+        "Le voleur vole ! La cible etait encore plus nulle que toi.",
+    ],
+    'lanterne_rouge': [
+        "Lanterne rouge ! Tu eclaires le chemin... par le bas.",
+        "Dernier ! Mais bon, quelqu'un doit bien fermer la marche.",
+        "La cave t'attend, tu y es deja installe confortablement.",
+        "Tu touches le fond ? Non, tu creuses encore !",
+        "Bonnet d'ane ! Au moins tu es premier... en partant de la fin.",
+        "Le sous-sol du classement te connait bien maintenant.",
+        "Dernier ! On dit que la vue est belle d'en bas... non en fait.",
+        "Tu as trouve ta place : tout en bas, bien au chaud.",
+    ],
+    'oubli_prono': [
+        "Oubli de pronos ! Le systeme t'a attribue ceux du dernier. Malin !",
+        "Pas de pronos ? Felicitations, tu herites des pires predictions !",
+        "Tu as oublie de jouer... Le Bot a joue pour toi. Spoiler : c'est pas fou.",
+        "Absence injustifiee ! Tu as les pronos du bonnet d'ane maintenant.",
+        "Oups ! Oubli de deadline = cadeau empoisonne automatique.",
+        "Le reveil n'a pas sonne ? Pas grave, le dernier du classement t'a prete ses pronos.",
+        "Memoire de poisson rouge ! Le systeme t'a mis d'office les pires pronos.",
+    ],
+    'holdup': [
+        "HOLD-UP ! Tu as braque la banque des pronos !",
+        "Le casse du siecle ! Ta victime ne s'en remettra pas.",
+        "Braquage en regle ! Ocean's Eleven peut aller se rhabiller.",
+        "Hold-up reussi ! Le crime parfait, ca existe.",
+        "Tu as cambriole les pronos comme un pro. Respect... ou pas.",
+        "HOLD-UP MAGISTRAL ! La cible n'a rien vu venir.",
+    ],
+    'joker_double_gagnant': [
+        "Joker x2 au bon moment ! Tu as double la mise et le butin !",
+        "Points doubles actives et ca paye ! Stratege ou chanceux ?",
+        "Le x2 etait parfait ! Tu as fait sauter la banque.",
+        "Joker double bien place ! Les autres peuvent pleurer.",
+        "Multiplication des points ! Ta semaine est en or.",
+    ],
+    'joker_double_perdant': [
+        "Joker x2 sur une semaine pourrie... Double peine !",
+        "Tu as double... tes echecs. Bravo champion !",
+        "Le x2 sur une catastrophe, c'etait vraiment l'idee du siecle ?",
+        "Points doubles sur zero points = toujours zero. Les maths, c'est cruel.",
+        "Joker gaspille ! Tu aurais du le garder pour une bonne semaine.",
+    ]
+}
+
+
+def get_phrase_ironique(categorie):
+    """Retourne une phrase ironique aleatoire pour une categorie donnee"""
+    if categorie in PHRASES_IRONIQUES:
+        return random.choice(PHRASES_IRONIQUES[categorie])
+    return random.choice(PHRASES_IRONIQUES['stable'])
+
+
+def generer_commentaire_joueur(joueur_data):
+    """
+    Genere un commentaire ironique personnalise selon les performances du joueur.
+    joueur_data: dict avec rang, evolution, grand_chelem, scores_exacts, joker_vol,
+                 oubli_prono, joker_double_utilise, joker_double_reussi, etc.
+    """
+    # Priorite 0: Oubli de pronostic (le plus honteux!)
+    if joueur_data.get('oubli_prono'):
+        return get_phrase_ironique('oubli_prono')
+
+    # Priorite 1: Grand Chelem (4/4)
+    if joueur_data.get('grand_chelem'):
+        return get_phrase_ironique('grand_chelem')
+
+    # Priorite 2: Joker Double (x2)
+    if joueur_data.get('joker_double_utilise'):
+        if joueur_data.get('joker_double_reussi'):
+            return get_phrase_ironique('joker_double_gagnant')
+        else:
+            return get_phrase_ironique('joker_double_perdant')
+
+    # Priorite 3: Joker Vole (Hold-up!)
+    if joueur_data.get('joker_vol_utilise'):
+        if joueur_data.get('joker_vol_reussi'):
+            # Alterner entre holdup et joker_vole_reussi pour varier
+            return get_phrase_ironique(random.choice(['holdup', 'joker_vole_reussi']))
+        else:
+            return get_phrase_ironique('joker_vole_rate')
+
+    # Priorite 4: Lanterne rouge (dernier du classement general)
+    if joueur_data.get('lanterne_rouge'):
+        return get_phrase_ironique('lanterne_rouge')
+
+    # Priorite 5: Score exact
+    if joueur_data.get('scores_exacts', 0) > 0:
+        return get_phrase_ironique('score_exact')
+
+    # Priorite 5: Position dans le classement de la semaine
+    rang = joueur_data.get('rang', 0)
+    total_joueurs = joueur_data.get('total_joueurs', 10)
+
+    if rang == 1:
+        return get_phrase_ironique('premier')
+    elif rang == total_joueurs:
+        return get_phrase_ironique('dernier')
+
+    # Priorite 6: Evolution
+    evolution = joueur_data.get('evolution', 0)
+    if evolution > 2:
+        return get_phrase_ironique('progresse')
+    elif evolution < -2:
+        return get_phrase_ironique('regresse')
+
+    return get_phrase_ironique('stable')
 
 
 # ============================================
@@ -416,27 +603,126 @@ def email_rappel_j1(utilisateur):
 # EMAILS ADMIN : SYNTHESE & RESULTATS
 # ============================================
 
-def email_synthese_paris(semaine_id, data_paris):
+def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_matchs=None):
     """
     Email de synthese des paris de tous les joueurs
     Envoye 15min apres la deadline
     data_paris: liste de dicts {pseudo, matchs: [{equipes, prono, mise}]}
+    jokers_actifs: liste de dicts {pseudo, type_joker, cible_pseudo}
+    stats_matchs: dict {equipes: {dom: %, nul: %, ext: %}}
     """
-    # Construire le tableau des pronostics
+    if jokers_actifs is None:
+        jokers_actifs = []
+    if stats_matchs is None:
+        stats_matchs = {}
+
+    # === SECTION JOKERS ACTIFS ===
+    jokers_html = ""
+    if jokers_actifs:
+        jokers_items = ""
+        for joker in jokers_actifs:
+            pseudo = joker.get('pseudo', '?')
+            type_j = joker.get('type_joker', '')
+            cible = joker.get('cible_pseudo', '')
+
+            if type_j == 'double':
+                jokers_items += f'''
+                <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border-left: 4px solid #FFD700;">
+                    <span style="font-size: 24px; margin-right: 12px;">x2</span>
+                    <div>
+                        <div style="color: #FFD700; font-weight: bold;">@{pseudo}</div>
+                        <div style="color: #888; font-size: 12px;">Points Doubles actives</div>
+                    </div>
+                </div>
+                '''
+            elif type_j == 'vol':
+                jokers_items += f'''
+                <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: rgba(155, 89, 182, 0.1); border-radius: 8px; border-left: 4px solid #9b59b6;">
+                    <span style="font-size: 24px; margin-right: 12px;">🎭</span>
+                    <div>
+                        <div style="color: #9b59b6; font-weight: bold;">@{pseudo}</div>
+                        <div style="color: #888; font-size: 12px;">Vole les pronos de <strong style="color: #fff;">@{cible}</strong></div>
+                    </div>
+                </div>
+                '''
+
+        jokers_html = f'''
+        <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">🃏 Jokers Actives cette semaine</h3>
+            {jokers_items}
+        </div>
+        '''
+    else:
+        jokers_html = '''
+        <div style="background: #0a0a1a; border: 1px solid #333; border-radius: 10px; padding: 15px; margin: 20px 0; text-align: center;">
+            <p style="color: #666; margin: 0;">Aucun joker active cette semaine</p>
+        </div>
+        '''
+
+    # === SECTION STATISTIQUES PAR MATCH ===
+    stats_html = ""
+    if stats_matchs:
+        stats_rows = ""
+        for match_name, tendances in stats_matchs.items():
+            pct_dom = tendances.get('dom', 0)
+            pct_nul = tendances.get('nul', 0)
+            pct_ext = tendances.get('ext', 0)
+
+            stats_rows += f'''
+            <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+                <div style="color: #ccc; font-size: 13px; margin-bottom: 8px;">{match_name}</div>
+                <div style="display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: #333;">
+                    <div style="width: {pct_dom}%; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_dom}%</span>
+                    </div>
+                    <div style="width: {pct_nul}%; background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_nul}%</span>
+                    </div>
+                    <div style="width: {pct_ext}%; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_ext}%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #666;">
+                    <span>🏠 Dom</span>
+                    <span>🤝 Nul</span>
+                    <span>✈️ Ext</span>
+                </div>
+            </div>
+            '''
+
+        stats_html = f'''
+        <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #FFD700; margin: 0 0 10px 0; font-size: 16px;">📊 Tendances des Pronos</h3>
+            <p style="color: #888; font-size: 12px; margin: 0 0 15px 0;">Repartition des pronostics par match</p>
+            {stats_rows}
+        </div>
+        '''
+
+    # === TABLEAU DES PRONOSTICS ===
     rows_html = ""
     for joueur in data_paris:
         pseudo = joueur['pseudo']
+        joker_badge = ""
+
+        # Verifier si ce joueur a un joker actif
+        for j in jokers_actifs:
+            if j.get('pseudo') == pseudo:
+                if j.get('type_joker') == 'double':
+                    joker_badge = ' <span style="background: #FFD700; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px;">x2</span>'
+                elif j.get('type_joker') == 'vol':
+                    joker_badge = ' <span style="background: #9b59b6; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px;">🎭</span>'
+                break
+
         for i, match in enumerate(joueur.get('matchs', [])):
             equipes = match.get('equipes', 'Match inconnu')
             prono = f"{match.get('home', '?')}-{match.get('away', '?')}"
             mise = match.get('mise', 0)
 
             if i == 0:
-                # Premiere ligne avec le pseudo
                 rows_html += f'''
                 <tr style="border-bottom: 1px solid #333;">
                     <td rowspan="{len(joueur.get('matchs', []))}" style="padding: 10px; color: #FFD700; font-weight: bold; vertical-align: top; border-right: 1px solid #333;">
-                        @{pseudo}
+                        @{pseudo}{joker_badge}
                     </td>
                     <td style="padding: 8px; color: #ccc;">{equipes}</td>
                     <td style="padding: 8px; color: #fff; text-align: center; font-weight: bold;">{prono}</td>
@@ -456,7 +742,12 @@ def email_synthese_paris(semaine_id, data_paris):
     <h2>Synthese des Paris - Semaine {semaine_id}</h2>
     <p>Les pronostics sont clos ! Voici le recapitulatif complet des paris de la semaine.</p>
 
+    {jokers_html}
+
+    {stats_html}
+
     <div style="background: #0a0a1a; border-radius: 10px; padding: 15px; margin: 20px 0; overflow-x: auto;">
+        <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">📋 Tableau des Mises</h3>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
             <thead>
                 <tr style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);">
@@ -483,40 +774,17 @@ def email_synthese_paris(semaine_id, data_paris):
     return get_base_template(content, "Synthese des Paris")
 
 
-def email_resultats_ironiques(semaine_id, classement, commentaires):
+def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_speciales=None):
     """
     Email de resultats avec commentaires ironiques
-    classement: liste de dicts {pseudo, points, rang, evolution}
-    commentaires: dict {pseudo: commentaire_ironique}
+    classement: liste de dicts {pseudo, points, rang, evolution, grand_chelem, scores_exacts, joker_vol_utilise, joker_vol_reussi, lanterne_rouge}
+    commentaires: dict {pseudo: commentaire_ironique} (surcharge manuelle)
+    donnees_speciales: dict optionnel avec infos supplementaires par pseudo
     """
-    # Phrases ironiques predefinies
-    phrases_ironiques = {
-        'premier': [
-            "Le roi de la semaine ! Enfin, jusqu'a ce qu'il se plante lamentablement...",
-            "Bravo champion ! Les debutants ont parfois de la chance...",
-            "Impressionnant ! Tu as du regarder les matchs au lieu de deviner ?",
-        ],
-        'dernier': [
-            "Au moins, tu es constant dans la mediocrite !",
-            "Tu devrais peut-etre essayer les echecs a la place ?",
-            "Ton joker aurait ete plus utile que tes pronostics...",
-            "Meme un singe avec des flechettes aurait fait mieux !",
-        ],
-        'progresse': [
-            "Tiens, tu as enfin trouve comment marche le foot ?",
-            "Belle remontee ! Tu lisais des tutos sur YouTube ?",
-        ],
-        'regresse': [
-            "La chute est rude ! Tu etais en vacances mentales ?",
-            "De heros a zero en une semaine, chapeau !",
-        ],
-        'stable': [
-            "Stable comme un diesel... qui ne demarre pas.",
-            "Ni bon ni mauvais, juste... la.",
-        ]
-    }
+    if donnees_speciales is None:
+        donnees_speciales = {}
 
-    import random
+    total_joueurs = len(classement)
 
     # Construire le classement HTML
     classement_html = ""
@@ -529,28 +797,41 @@ def email_resultats_ironiques(semaine_id, classement, commentaires):
         # Emoji d'evolution
         if evolution > 0:
             evo_emoji = f"<span style='color: #00FF00;'>↑ +{evolution}</span>"
-            evo_type = 'progresse'
         elif evolution < 0:
             evo_emoji = f"<span style='color: #FF4444;'>↓ {evolution}</span>"
-            evo_type = 'regresse'
         else:
             evo_emoji = "<span style='color: #888;'>→ 0</span>"
-            evo_type = 'stable'
 
         # Couleur selon le rang
         if rang == 1:
             rang_style = "background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #0a0a1a;"
-            evo_type = 'premier'
-        elif rang == len(classement):
+        elif rang == total_joueurs:
             rang_style = "background: #8B0000; color: #fff;"
-            evo_type = 'dernier'
         elif rang <= 3:
             rang_style = "background: #C0C0C0; color: #0a0a1a;"
         else:
             rang_style = "background: #333; color: #fff;"
 
-        # Commentaire ironique
-        commentaire = commentaires.get(pseudo, random.choice(phrases_ironiques.get(evo_type, phrases_ironiques['stable'])))
+        # Generer commentaire ironique intelligent
+        if pseudo in commentaires:
+            commentaire = commentaires[pseudo]
+        else:
+            # Preparer les donnees du joueur pour le generateur
+            joueur_data = {
+                'rang': rang,
+                'total_joueurs': total_joueurs,
+                'evolution': evolution,
+                'grand_chelem': joueur.get('grand_chelem', False),
+                'scores_exacts': joueur.get('scores_exacts', 0),
+                'joker_vol_utilise': joueur.get('joker_vol_utilise', False),
+                'joker_vol_reussi': joueur.get('joker_vol_reussi', False),
+                'lanterne_rouge': joueur.get('lanterne_rouge', False),
+            }
+            # Fusionner avec donnees speciales si disponibles
+            if pseudo in donnees_speciales:
+                joueur_data.update(donnees_speciales[pseudo])
+
+            commentaire = generer_commentaire_joueur(joueur_data)
 
         classement_html += f'''
         <div style="
@@ -731,7 +1012,7 @@ def envoyer_synthese_paris(semaine_id):
 
     # Recuperer tous les pronostics de la semaine
     cursor.execute("""
-        SELECT u.pseudo, m.equipe_home, m.equipe_away,
+        SELECT u.pseudo, u.id, m.equipe_home, m.equipe_away,
                p.score_prono_home, p.score_prono_away, p.mise_points
         FROM predictions p
         JOIN utilisateurs u ON p.user_id = u.id
@@ -741,26 +1022,76 @@ def envoyer_synthese_paris(semaine_id):
     """, (semaine_id,))
 
     rows = cursor.fetchall()
+
+    # === RECUPERER LES JOKERS ACTIFS ===
+    cursor.execute("""
+        SELECT u.pseudo, jh.type_joker, u2.pseudo as cible_pseudo
+        FROM jokers_historique jh
+        JOIN utilisateurs u ON jh.utilisateur_id = u.id
+        LEFT JOIN utilisateurs u2 ON jh.cible_vol_id = u2.id
+        WHERE jh.semaine_id = ?
+    """, (semaine_id,))
+
+    jokers_rows = cursor.fetchall()
+    jokers_actifs = []
+    for jrow in jokers_rows:
+        jokers_actifs.append({
+            'pseudo': jrow[0],
+            'type_joker': jrow[1],
+            'cible_pseudo': jrow[2] or ''
+        })
+
     conn.close()
 
     # Organiser par joueur
     data_paris = {}
+    stats_brut = {}  # Pour calculer les tendances
+
     for row in rows:
-        pseudo, home, away, prono_h, prono_a, mise = row
+        pseudo, user_id, home, away, prono_h, prono_a, mise = row
+        match_key = f"{home} vs {away}"
+
         if pseudo not in data_paris:
             data_paris[pseudo] = {'pseudo': pseudo, 'matchs': []}
         data_paris[pseudo]['matchs'].append({
-            'equipes': f"{home} vs {away}",
+            'equipes': match_key,
             'home': prono_h,
             'away': prono_a,
             'mise': mise
         })
 
+        # Calculer les tendances 1/N/2
+        if match_key not in stats_brut:
+            stats_brut[match_key] = {'dom': 0, 'nul': 0, 'ext': 0, 'total': 0}
+
+        stats_brut[match_key]['total'] += 1
+        if prono_h > prono_a:
+            stats_brut[match_key]['dom'] += 1
+        elif prono_h == prono_a:
+            stats_brut[match_key]['nul'] += 1
+        else:
+            stats_brut[match_key]['ext'] += 1
+
+    # Convertir en pourcentages
+    stats_matchs = {}
+    for match_key, counts in stats_brut.items():
+        total = counts['total']
+        if total > 0:
+            stats_matchs[match_key] = {
+                'dom': round(counts['dom'] * 100 / total),
+                'nul': round(counts['nul'] * 100 / total),
+                'ext': round(counts['ext'] * 100 / total)
+            }
+            # Ajuster pour que la somme fasse 100%
+            diff = 100 - (stats_matchs[match_key]['dom'] + stats_matchs[match_key]['nul'] + stats_matchs[match_key]['ext'])
+            if diff != 0:
+                stats_matchs[match_key]['nul'] += diff
+
     # Envoyer a tous les utilisateurs
     utilisateurs = get_utilisateurs_emails()
     resultats = []
 
-    html = email_synthese_paris(semaine_id, list(data_paris.values()))
+    html = email_synthese_paris(semaine_id, list(data_paris.values()), jokers_actifs, stats_matchs)
 
     for user in utilisateurs:
         success, msg = send_email(
