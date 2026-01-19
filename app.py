@@ -425,23 +425,30 @@ else:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE statut = 'Actif'")
                 nb_users = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM matches WHERE is_active = 1")
-                nb_matchs = cursor.fetchone()[0]
 
-                # Recuperer la saison dynamiquement
-                from modules.database_manager import get_saison_actuelle, get_saison_label
-                saison_label = get_saison_label(get_saison_actuelle())
+                # Recuperer la saison et journee dynamiquement
+                from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante
+                saison_id = get_saison_actuelle()
+                saison_label = get_saison_label(saison_id)
+                journee_courante = get_journee_courante(saison_id)
+
+                # Compter uniquement les matchs de la journee courante
+                cursor.execute("""
+                    SELECT COUNT(*) FROM matches
+                    WHERE saison_id = ? AND semaine_id = ? AND is_active = 1
+                """, (saison_id, journee_courante))
+                nb_matchs_journee = cursor.fetchone()[0]
 
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Joueurs actifs", nb_users)
-                col2.metric("Matchs en cours", nb_matchs)
+                col2.metric(f"Matchs J{journee_courante}", nb_matchs_journee)
                 col3.metric("Saison", saison_label)
 
                 # === COUNTDOWN / MESSAGE ATTENTE CALENDRIER ===
                 st.markdown("---")
 
-                if nb_matchs == 0:
-                    # Aucun match en base - afficher message d'attente
+                if nb_matchs_journee == 0:
+                    # Aucun match pour cette journee - afficher message d'attente
                     st.markdown(f"""
                     <div style="
                         background: linear-gradient(135deg, #001529 0%, #002040 100%);
@@ -463,12 +470,26 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    # Matchs disponibles - afficher countdown prochain match
-                    from modules.database_manager import get_journee_courante, get_countdown_pronostics_journee
-                    journee = get_journee_courante()
-                    countdown = get_countdown_pronostics_journee(journee)
+                    # === TUNNEL DE TRANSITION TEMPOREL ===
+                    from modules.database_manager import get_countdown_pronostics_journee, get_date_premiere_journee
+                    from datetime import datetime, timedelta
 
+                    countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
+                    date_journee = get_date_premiere_journee(journee_courante, saison_id)
+
+                    # Verifier si des scores sont disponibles pour cette journee
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM matches
+                        WHERE saison_id = ? AND semaine_id = ? AND score_final_home IS NOT NULL
+                    """, (saison_id, journee_courante))
+                    nb_matchs_avec_score = cursor.fetchone()[0]
+
+                    now = datetime.now()
+                    date_fermeture = date_journee - timedelta(hours=1) if date_journee else now
+
+                    # Determiner l'etat du tunnel
                     if countdown and not countdown.get('expired', False):
+                        # ETAT 1: Countdown actif - Pronostics ouverts
                         st.markdown(f"""
                         <div style="
                             background: linear-gradient(135deg, #001529 0%, #002040 100%);
@@ -478,7 +499,7 @@ else:
                             text-align: center;
                             margin: 20px 0;
                         ">
-                            <h4 style="color: #D4AF37; margin: 0 0 15px 0;">⏱️ PRONOSTICS J{journee} - TEMPS RESTANT</h4>
+                            <h4 style="color: #D4AF37; margin: 0 0 15px 0;">⏱️ PRONOSTICS J{journee_courante} - TEMPS RESTANT</h4>
                             <div style="display: flex; justify-content: center; gap: 20px;">
                                 <div style="text-align: center;">
                                     <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">{countdown['days']:02d}</div>
@@ -495,13 +516,61 @@ else:
                                     <div style="color: #D4AF37; font-size: 0.8em;">MIN</div>
                                 </div>
                             </div>
-                            <p style="color: #888; font-size: 0.8em; margin-top: 15px;">
+                            <p style="color: #FFFFFF; font-size: 0.8em; margin-top: 15px;">
                                 Fermeture : {countdown.get('date_fermeture', 'N/A')}
                             </p>
                         </div>
                         """, unsafe_allow_html=True)
-                    elif countdown and countdown.get('expired', False):
-                        st.markdown("""
+
+                    elif nb_matchs_avec_score > 0:
+                        # ETAT 4: Des scores sont disponibles - Afficher RESULTATS
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #1a472a 0%, #2d5a3c 100%);
+                            border: 2px solid #00FF00;
+                            border-radius: 15px;
+                            padding: 20px;
+                            text-align: center;
+                            margin: 20px 0;
+                        ">
+                            <h4 style="color: #00FF00; margin: 0;">📊 RESULTATS J{journee_courante} EN COURS</h4>
+                            <p style="color: #FFFFFF; margin: 10px 0 0 0;">
+                                {nb_matchs_avec_score}/{nb_matchs_journee} match(s) termine(s)
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # Afficher les scores des matchs termines
+                        cursor.execute("""
+                            SELECT equipe_home, equipe_away, score_final_home, score_final_away
+                            FROM matches
+                            WHERE saison_id = ? AND semaine_id = ? AND score_final_home IS NOT NULL
+                            ORDER BY date_match
+                        """, (saison_id, journee_courante))
+                        matchs_termines = cursor.fetchall()
+
+                        if matchs_termines:
+                            scores_html = ""
+                            for home, away, score_h, score_a in matchs_termines:
+                                scores_html += f"""
+                                <div style="display: flex; justify-content: space-between; align-items: center;
+                                            padding: 10px; margin: 5px 0; background: #002040; border-radius: 8px;">
+                                    <span style="color: #FFFFFF; flex: 1; text-align: right;">{home}</span>
+                                    <span style="color: #FFD700; font-weight: bold; padding: 0 15px; font-size: 1.2em;">
+                                        {score_h} - {score_a}
+                                    </span>
+                                    <span style="color: #FFFFFF; flex: 1; text-align: left;">{away}</span>
+                                </div>
+                                """
+                            st.markdown(f"""
+                            <div style="background: #001529; border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                                {scores_html}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    elif date_journee and now < date_fermeture + timedelta(hours=1):
+                        # ETAT 2: H+0 a H+1 apres deadline - Rectangle rouge PRONOSTICS CLOS
+                        st.markdown(f"""
                         <div style="
                             background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
                             border: 2px solid #FF4444;
@@ -512,10 +581,56 @@ else:
                         ">
                             <h4 style="color: #FFFFFF; margin: 0;">⏰ PRONOSTICS CLOS</h4>
                             <p style="color: #FFD700; margin: 10px 0 0 0;">
-                                Les pronostics de cette journee sont fermes. Resultats bientot !
+                                Les pronostics de la J{journee_courante} sont fermes.<br>
+                                <span style="color: #FFFFFF;">Premier match dans moins d'une heure !</span>
                             </p>
                         </div>
                         """, unsafe_allow_html=True)
+
+                    else:
+                        # ETAT 3: H+1+ apres deadline, pas encore de scores - Afficher SYNTHESE
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                            border: 2px solid #9b59b6;
+                            border-radius: 15px;
+                            padding: 20px;
+                            text-align: center;
+                            margin: 20px 0;
+                        ">
+                            <h4 style="color: #9b59b6; margin: 0;">📋 SYNTHESE DES PRONOS J{journee_courante}</h4>
+                            <p style="color: #FFFFFF; margin: 10px 0 0 0;">
+                                Les matchs sont en cours. Resultats a venir !
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        # Afficher un apercu des pronostics
+                        cursor.execute("""
+                            SELECT u.pseudo, COUNT(p.id) as nb_pronos
+                            FROM utilisateurs u
+                            LEFT JOIN predictions p ON p.user_id = u.id
+                            LEFT JOIN matches m ON p.match_id = m.id AND m.semaine_id = ?
+                            WHERE u.statut = 'Actif'
+                            GROUP BY u.id
+                            HAVING nb_pronos > 0
+                            ORDER BY u.pseudo
+                            LIMIT 10
+                        """, (journee_courante,))
+                        joueurs_pronos = cursor.fetchall()
+
+                        if joueurs_pronos:
+                            joueurs_list = ", ".join([f"@{j[0]}" for j in joueurs_pronos])
+                            st.markdown(f"""
+                            <div style="background: #002040; border-radius: 8px; padding: 15px; margin: 10px 0;">
+                                <p style="color: #D4AF37; margin: 0; font-size: 0.9em;">
+                                    <strong>Joueurs en lice :</strong>
+                                </p>
+                                <p style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 0.85em;">
+                                    {joueurs_list}
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
 
                 # === DEBRIEF BOT ===
                 cursor.execute("SELECT valeur FROM app_settings WHERE cle = 'debrief_accueil'")
