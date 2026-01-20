@@ -9,9 +9,51 @@ import streamlit as st
 def afficher_reglement():
     """Affiche le reglement officiel d'Elite Pronos"""
 
-    # Style CSS - Texte BLANC, Titres OR, AUCUN fond blanc
+    # Style CSS - Texte BLANC, Titres OR, Expanders TRANSPARENTS
     st.markdown("""
     <style>
+        /* ===== EXPANDERS STREAMLIT - FOND TRANSPARENT ===== */
+        div[data-testid="stExpander"] {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        div[data-testid="stExpander"] > div {
+            background-color: transparent !important;
+            border: none !important;
+        }
+
+        .streamlit-expanderHeader {
+            background-color: transparent !important;
+            border: none !important;
+            color: #D4AF37 !important;
+            font-weight: bold !important;
+        }
+
+        .streamlit-expanderContent {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Cibler aussi les elements internes des expanders */
+        [data-testid="stExpander"] details {
+            background-color: transparent !important;
+            border: none !important;
+        }
+
+        [data-testid="stExpander"] summary {
+            background-color: transparent !important;
+            border: none !important;
+            color: #D4AF37 !important;
+        }
+
+        [data-testid="stExpander"] details > div {
+            background-color: transparent !important;
+            border: none !important;
+        }
+
         /* ===== TITRES D'ARTICLES - OR ===== */
         .article-title {
             color: #D4AF37 !important;
