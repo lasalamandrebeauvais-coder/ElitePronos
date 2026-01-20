@@ -658,7 +658,7 @@ else:
                             for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
                                 # Recuperer les pronostics pour ce match
                                 cursor.execute("""
-                                    SELECT u.pseudo, p.score_home, p.score_away, p.mise
+                                    SELECT u.pseudo, p.score_prono_home, p.score_prono_away, p.mise_points
                                     FROM predictions p
                                     JOIN utilisateurs u ON p.user_id = u.id
                                     WHERE p.match_id = ?
@@ -719,7 +719,7 @@ else:
                         if matchs_synthese:
                             for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
                                 cursor.execute("""
-                                    SELECT u.pseudo, p.score_home, p.score_away, p.mise
+                                    SELECT u.pseudo, p.score_prono_home, p.score_prono_away, p.mise_points
                                     FROM predictions p
                                     JOIN utilisateurs u ON p.user_id = u.id
                                     WHERE p.match_id = ?
