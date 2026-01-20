@@ -522,6 +522,51 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
 
+                        # Afficher les matchs de la semaine a pronostiquer
+                        cursor.execute("""
+                            SELECT equipe_home, equipe_away, cote_home, cote_draw, cote_away, date_match
+                            FROM matches
+                            WHERE saison_id = ? AND semaine_id = ? AND is_active = 1
+                            ORDER BY date_match
+                        """, (saison_id, journee_courante))
+                        matchs_semaine = cursor.fetchall()
+
+                        if matchs_semaine:
+                            st.markdown(f"""
+                            <div style="
+                                background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                                border: 2px solid #D4AF37;
+                                border-radius: 15px;
+                                padding: 20px;
+                                margin: 15px 0;
+                            ">
+                                <h4 style="color: #D4AF37; margin: 0 0 15px 0; text-align: center;">
+                                    ⚽ MATCHS J{journee_courante} A PRONOSTIQUER
+                                </h4>
+                            """, unsafe_allow_html=True)
+
+                            for home, away, cote_h, cote_n, cote_a, date_m in matchs_semaine:
+                                date_str = date_m[:16] if date_m else "Date TBD"
+                                st.markdown(f"""
+                                <div style="
+                                    display: flex; justify-content: space-between; align-items: center;
+                                    padding: 12px; margin: 8px 0; background: #002040; border-radius: 8px;
+                                    border-left: 3px solid #D4AF37;
+                                ">
+                                    <div style="flex: 1; text-align: center;">
+                                        <span style="color: #FFFFFF; font-weight: bold;">{home}</span>
+                                        <span style="color: #888; font-size: 0.8em;"> ({cote_h})</span>
+                                    </div>
+                                    <div style="color: #D4AF37; font-weight: bold; padding: 0 10px;">VS</div>
+                                    <div style="flex: 1; text-align: center;">
+                                        <span style="color: #FFFFFF; font-weight: bold;">{away}</span>
+                                        <span style="color: #888; font-size: 0.8em;"> ({cote_a})</span>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            st.markdown("</div>", unsafe_allow_html=True)
+
                     elif nb_matchs_avec_score > 0:
                         # ETAT 4: Des scores sont disponibles - Afficher RESULTATS
                         st.markdown(f"""
@@ -587,6 +632,63 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
 
+                        # Afficher la synthese des pronostics apres cloture
+                        cursor.execute("""
+                            SELECT m.id, m.equipe_home, m.equipe_away, m.cote_home, m.cote_draw, m.cote_away
+                            FROM matches m
+                            WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
+                            ORDER BY m.date_match
+                        """, (saison_id, journee_courante))
+                        matchs_synthese = cursor.fetchall()
+
+                        if matchs_synthese:
+                            st.markdown(f"""
+                            <div style="
+                                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                                border: 2px solid #9b59b6;
+                                border-radius: 15px;
+                                padding: 20px;
+                                margin: 15px 0;
+                            ">
+                                <h4 style="color: #9b59b6; margin: 0 0 15px 0; text-align: center;">
+                                    📋 SYNTHESE DES PRONOS J{journee_courante}
+                                </h4>
+                            """, unsafe_allow_html=True)
+
+                            for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
+                                # Recuperer les pronostics pour ce match
+                                cursor.execute("""
+                                    SELECT u.pseudo, p.score_home, p.score_away, p.mise
+                                    FROM predictions p
+                                    JOIN utilisateurs u ON p.user_id = u.id
+                                    WHERE p.match_id = ?
+                                    ORDER BY u.pseudo
+                                """, (match_id,))
+                                pronos_match = cursor.fetchall()
+
+                                st.markdown(f"""
+                                <div style="background: #002040; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 3px solid #D4AF37;">
+                                    <div style="color: #D4AF37; font-weight: bold; margin-bottom: 10px; text-align: center;">
+                                        {home} vs {away}
+                                    </div>
+                                """, unsafe_allow_html=True)
+
+                                if pronos_match:
+                                    for pseudo, score_h, score_a, mise in pronos_match:
+                                        st.markdown(f"""
+                                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #333;">
+                                            <span style="color: #FFFFFF;">@{pseudo}</span>
+                                            <span style="color: #FFD700; font-weight: bold;">{score_h}-{score_a}</span>
+                                            <span style="color: #888; font-size: 0.9em;">{mise} pts</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                else:
+                                    st.markdown("""<p style="color: #888; text-align: center; font-size: 0.9em;">Aucun pronostic</p>""", unsafe_allow_html=True)
+
+                                st.markdown("</div>", unsafe_allow_html=True)
+
+                            st.markdown("</div>", unsafe_allow_html=True)
+
                     else:
                         # ETAT 3: H+1+ apres deadline, pas encore de scores - Afficher SYNTHESE
                         st.markdown(f"""
@@ -605,32 +707,46 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Afficher un apercu des pronostics
+                        # Afficher la synthese complete des pronostics
                         cursor.execute("""
-                            SELECT u.pseudo, COUNT(p.id) as nb_pronos
-                            FROM utilisateurs u
-                            LEFT JOIN predictions p ON p.user_id = u.id
-                            LEFT JOIN matches m ON p.match_id = m.id AND m.semaine_id = ?
-                            WHERE u.statut = 'Actif'
-                            GROUP BY u.id
-                            HAVING nb_pronos > 0
-                            ORDER BY u.pseudo
-                            LIMIT 10
-                        """, (journee_courante,))
-                        joueurs_pronos = cursor.fetchall()
+                            SELECT m.id, m.equipe_home, m.equipe_away, m.cote_home, m.cote_draw, m.cote_away
+                            FROM matches m
+                            WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
+                            ORDER BY m.date_match
+                        """, (saison_id, journee_courante))
+                        matchs_synthese = cursor.fetchall()
 
-                        if joueurs_pronos:
-                            joueurs_list = ", ".join([f"@{j[0]}" for j in joueurs_pronos])
-                            st.markdown(f"""
-                            <div style="background: #002040; border-radius: 8px; padding: 15px; margin: 10px 0;">
-                                <p style="color: #D4AF37; margin: 0; font-size: 0.9em;">
-                                    <strong>Joueurs en lice :</strong>
-                                </p>
-                                <p style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 0.85em;">
-                                    {joueurs_list}
-                                </p>
-                            </div>
-                            """, unsafe_allow_html=True)
+                        if matchs_synthese:
+                            for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
+                                cursor.execute("""
+                                    SELECT u.pseudo, p.score_home, p.score_away, p.mise
+                                    FROM predictions p
+                                    JOIN utilisateurs u ON p.user_id = u.id
+                                    WHERE p.match_id = ?
+                                    ORDER BY u.pseudo
+                                """, (match_id,))
+                                pronos_match = cursor.fetchall()
+
+                                st.markdown(f"""
+                                <div style="background: #002040; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 3px solid #9b59b6;">
+                                    <div style="color: #D4AF37; font-weight: bold; margin-bottom: 10px; text-align: center;">
+                                        {home} vs {away}
+                                    </div>
+                                """, unsafe_allow_html=True)
+
+                                if pronos_match:
+                                    for pseudo, score_h, score_a, mise in pronos_match:
+                                        st.markdown(f"""
+                                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #333;">
+                                            <span style="color: #FFFFFF;">@{pseudo}</span>
+                                            <span style="color: #FFD700; font-weight: bold;">{score_h}-{score_a}</span>
+                                            <span style="color: #888; font-size: 0.9em;">{mise} pts</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                else:
+                                    st.markdown("""<p style="color: #888; text-align: center; font-size: 0.9em;">Aucun pronostic</p>""", unsafe_allow_html=True)
+
+                                st.markdown("</div>", unsafe_allow_html=True)
 
                 # === MESSAGE BOT ELITE ===
                 cursor.execute("SELECT valeur FROM app_settings WHERE cle = 'debrief_accueil'")
