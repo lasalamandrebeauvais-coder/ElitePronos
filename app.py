@@ -347,8 +347,8 @@ st.title("ELITE PRONOS")
 # Initialiser la session state pour la navigation
 if 'page' not in st.session_state:
     # Si non connecte, commencer par la page Connexion
-    # Si connecte, aller au Tableau de bord
-    st.session_state.page = "Tableau de bord" if is_logged_in() else "Connexion"
+    # Si connecte, aller a la page Accueil
+    st.session_state.page = "Accueil" if is_logged_in() else "Connexion"
 
 # =====================================================
 # SI NON CONNECTE : Afficher Login ou Inscription

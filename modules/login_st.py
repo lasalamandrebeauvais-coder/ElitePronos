@@ -170,7 +170,7 @@ def afficher_formulaire_login():
                         if success:
                             st.session_state.logged_in = True
                             st.session_state.user = user_data
-                            st.session_state.page = "Tableau de bord"
+                            st.session_state.page = "Accueil"
                             st.success(message)
                             st.rerun()
                         else:
