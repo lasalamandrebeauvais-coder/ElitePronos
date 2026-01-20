@@ -632,26 +632,33 @@ else:
                             </div>
                             """, unsafe_allow_html=True)
 
-                # === DEBRIEF BOT ===
+                # === MESSAGE BOT ELITE ===
                 cursor.execute("SELECT valeur FROM app_settings WHERE cle = 'debrief_accueil'")
                 debrief_result = cursor.fetchone()
                 conn.close()
 
+                # Message par defaut si pas de debrief
                 if debrief_result and debrief_result[0]:
-                    st.markdown("""
-                    <div style="
-                        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                        border: 2px solid #9b59b6;
-                        border-radius: 15px;
-                        padding: 20px;
-                        margin: 15px 0;
-                    ">
-                        <div style="color: #9b59b6; font-size: 0.9em; margin-bottom: 10px;">
-                            🤖 LE BOT ELITE
-                        </div>
-                    """, unsafe_allow_html=True)
-                    st.markdown(debrief_result[0].replace('\\n', '\n'))
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    message_bot = debrief_result[0].replace('\\n', '\n')
+                else:
+                    message_bot = "Bienvenue dans l'arene des pronostiqueurs ! Que les cotes soient en votre faveur cette semaine. Bonne chance a tous !"
+
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border: 2px solid #9b59b6;
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin: 15px 0;
+                ">
+                    <div style="color: #9b59b6; font-size: 0.9em; margin-bottom: 10px;">
+                        🤖 LE BOT ELITE
+                    </div>
+                    <div style="color: #FFFFFF; line-height: 1.6;">
+                        {message_bot}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"Erreur de lecture: {e}")
