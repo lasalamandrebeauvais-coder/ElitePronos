@@ -209,7 +209,7 @@ def inject_jokers_css():
 
         .joker-description {
             font-size: 0.85em;
-            color: #888;
+            color: #AAAAAA;
         }
 
         .joker-stock {
@@ -300,7 +300,7 @@ def inject_jokers_css():
 
         .cible-rang {
             font-size: 0.85em;
-            color: #888;
+            color: #AAAAAA;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -404,6 +404,6 @@ def afficher_banner_grand_chelem():
     st.markdown("""
     <div class="grand-chelem-banner">
         🏆 GRAND CHELEM ! 🏆<br>
-        <small>+50 points bonus</small>
+        <small>+40 points bonus</small>
     </div>
     """, unsafe_allow_html=True)

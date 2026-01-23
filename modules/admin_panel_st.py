@@ -9,6 +9,7 @@ from datetime import datetime
 
 # Chemin vers la base de donnees
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 # Imports pour la gestion des journees
 from modules.database_manager import (
@@ -146,7 +147,16 @@ def supprimer_compte(user_id):
 def afficher_panel_admin():
     """Affiche le panneau d'administration"""
 
-    st.markdown("## Panel Administration")
+    # Header avec mascotte
+    col_title, col_mascot = st.columns([4, 1])
+    with col_title:
+        st.markdown("## Panel Administration")
+    with col_mascot:
+        mascot_path = os.path.join(ASSETS_PATH, "kingo administration.png")
+        if os.path.exists(mascot_path):
+            from PIL import Image
+            mascot_img = Image.open(mascot_path)
+            st.image(mascot_img, width=80)
     st.markdown("---")
 
     # Onglets
@@ -222,7 +232,13 @@ def afficher_panel_admin():
 
                 cols = st.columns([1, 2, 2, 1.5, 1.5, 2])
 
-                cols[0].write(user_id)
+                # ID avec style bloc
+                cols[0].markdown(f"""
+                <div style="background: #002040; border: 1px solid #D4AF37; border-radius: 5px;
+                     padding: 5px 10px; text-align: center; color: #D4AF37; font-weight: bold;">
+                    {user_id}
+                </div>
+                """, unsafe_allow_html=True)
 
                 # Pseudo avec badge admin
                 if user_is_admin:
@@ -251,8 +267,13 @@ def afficher_panel_admin():
                 else:
                     cols[4].write("Joueur")
 
-                # Actions
+                # Actions avec style bloc
                 with cols[5]:
+                    st.markdown("""
+                    <div style="background: #002040; border: 1px solid #D4AF37; border-radius: 5px;
+                         padding: 3px; display: flex; justify-content: center; gap: 5px;">
+                    """, unsafe_allow_html=True)
+
                     action_cols = st.columns(3)
 
                     # Activer/Suspendre
@@ -281,6 +302,8 @@ def afficher_panel_admin():
                     if action_cols[2].button("🗑", key=f"del_{user_id}", help="Supprimer"):
                         supprimer_compte(user_id)
                         st.rerun()
+
+                    st.markdown("</div>", unsafe_allow_html=True)
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:
@@ -317,8 +340,58 @@ def afficher_panel_admin():
                         from modules.bot_sourcing import sourcing_semaine_courante
                         nb = sourcing_semaine_courante()
                         st.success(f"✅ {nb} match(s) importe(s) pour cette semaine")
+
+                        # Kingo fait ses pronostics automatiquement
+                        from modules.kingo_bot import kingo_pronostique_semaine
+                        if kingo_pronostique_semaine():
+                            st.info("👑 Kingo a fait ses pronostics!")
                     except Exception as e:
                         st.error(f"❌ Erreur: {str(e)}")
+
+        # === SECTION KINGO ===
+        st.markdown("---")
+        st.markdown("#### 👑 Kingo - Le Roi des Pronostics")
+
+        col_kingo1, col_kingo2 = st.columns(2)
+
+        with col_kingo1:
+            if st.button("KINGO PRONOSTIQUE", use_container_width=True):
+                with st.spinner("Kingo analyse les matchs..."):
+                    try:
+                        from modules.kingo_bot import kingo_pronostique_semaine
+                        if kingo_pronostique_semaine(semaine_selectionnee if 'semaine_selectionnee' in dir() else None, saison):
+                            st.success("👑 Kingo a fait ses pronostics pour cette semaine!")
+                        else:
+                            st.warning("Kingo a deja pronostique ou aucun match disponible.")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        with col_kingo2:
+            # Afficher les pronostics de Kingo
+            if st.button("VOIR PRONOS KINGO", use_container_width=True):
+                try:
+                    from modules.kingo_bot import get_or_create_kingo
+                    kingo_id = get_or_create_kingo()
+
+                    conn = sqlite3.connect(DB_PATH)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT m.equipe_home, m.equipe_away, p.score_prono_home, p.score_prono_away, p.mise_points
+                        FROM predictions p
+                        JOIN matches m ON p.match_id = m.id
+                        WHERE p.user_id = ? AND m.semaine_id = ?
+                    """, (kingo_id, journee))
+                    pronos = cursor.fetchall()
+                    conn.close()
+
+                    if pronos:
+                        st.markdown("**Pronostics de Kingo:**")
+                        for home, away, sh, sa, mise in pronos:
+                            st.write(f"• {home} vs {away}: **{sh}-{sa}** ({mise} pts)")
+                    else:
+                        st.info("Kingo n'a pas encore pronostique cette semaine.")
+                except Exception as e:
+                    st.error(f"Erreur: {str(e)}")
 
         st.markdown("---")
 

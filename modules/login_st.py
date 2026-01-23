@@ -132,8 +132,15 @@ def afficher_formulaire_login():
         </style>
         """, unsafe_allow_html=True)
 
+        # Message de bienvenue
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #D4AF37; margin-bottom: 5px;">Elite Pronos</h2>
+            <p style="color: #FFFFFF;">Votre plateforme de pronostics football entre amis !</p>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.markdown("## Connexion")
-        st.markdown("Entrez vos identifiants pour acceder a votre espace")
         st.markdown("---")
 
         # === FORMULAIRE DE CONNEXION ===
@@ -213,22 +220,22 @@ def afficher_formulaire_login():
                                 <span style="font-size: 1.8em; color: #FFD700; font-weight: bold;">
                                     {countdown['days']}
                                 </span>
-                                <span style="color: #888; font-size: 0.7em;">J</span>
+                                <span style="color: #AAAAAA; font-size: 0.7em;">J</span>
                             </div>
                             <div>
                                 <span style="font-size: 1.8em; color: #FFD700; font-weight: bold;">
                                     {countdown['hours']}
                                 </span>
-                                <span style="color: #888; font-size: 0.7em;">H</span>
+                                <span style="color: #AAAAAA; font-size: 0.7em;">H</span>
                             </div>
                             <div>
                                 <span style="font-size: 1.8em; color: #FFD700; font-weight: bold;">
                                     {countdown['minutes']}
                                 </span>
-                                <span style="color: #888; font-size: 0.7em;">M</span>
+                                <span style="color: #AAAAAA; font-size: 0.7em;">M</span>
                             </div>
                         </div>
-                        <div style="color: #888; font-size: 0.8em; margin-top: 5px;">
+                        <div style="color: #AAAAAA; font-size: 0.8em; margin-top: 5px;">
                             {countdown.get('date_j1', '')}
                         </div>
                     </div>

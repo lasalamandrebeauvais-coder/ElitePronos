@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 # Chemins
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 # Budget hebdomadaire
 BUDGET_TOTAL = 100
@@ -229,392 +230,203 @@ def get_countdown_pronostics():
 
 
 def afficher_pronostics(user):
-    """Affiche l'interface de saisie des pronostics"""
+    """Affiche l'interface de saisie des pronostics - Version COMPACTE"""
 
-    # Style CSS Elite pour les cartes
-    st.markdown("""
-    <style>
-        .match-card {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #FFD700;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-        }
+    # Verifier si des pronos existent deja
+    pronos_existants = get_pronos_existants(user['id'])
+    mode_edition = st.session_state.get('mode_edition_pronos', False)
 
-        .match-header {
-            text-align: center;
-            color: #FFD700;
-            font-size: 0.8em;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-
-        .team-name {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: white;
-        }
-
-        .cote-box {
-            background: #0a0a1a;
-            border: 1px solid #FFD700;
-            border-radius: 8px;
-            padding: 8px 15px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .cote-box:hover {
-            background: #FFD700;
-            color: #0a0a1a;
-        }
-
-        .cote-selected {
-            background: #FFD700 !important;
-            color: #0a0a1a !important;
-        }
-
-        .budget-bar {
-            background: #1a1a2e;
-            border-radius: 10px;
-            height: 20px;
-            overflow: hidden;
-        }
-
-        .budget-fill {
-            background: linear-gradient(90deg, #FFD700, #FFA500);
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .joker-card {
-            background: linear-gradient(135deg, #2d1f3d 0%, #1a1a2e 100%);
-            border: 2px solid #9b59b6;
-            border-radius: 15px;
-            padding: 15px;
-            text-align: center;
-        }
-
-        .success-message {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #0a0a1a;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            font-weight: bold;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Header
-    col_back, col_title = st.columns([1, 5])
+    # Header compact avec mascotte
+    col_back, col_mascot, col_title, col_countdown = st.columns([0.8, 0.8, 2.5, 2])
     with col_back:
         if st.button("← Retour"):
             st.session_state.dashboard_section = None
+            st.session_state.mode_edition_pronos = False
             st.rerun()
-
+    with col_mascot:
+        mascot_path = os.path.join(ASSETS_PATH, "kingo pronostics.png")
+        if os.path.exists(mascot_path):
+            from PIL import Image
+            mascot_img = Image.open(mascot_path)
+            st.image(mascot_img, width=60)
     with col_title:
-        st.markdown("## ⚽ Mes Pronostics")
+        st.markdown("### ⚽ Pronostics")
 
-    st.markdown("---")
-
-    # === COUNTDOWN FIN VALIDITE ===
+    # Countdown compact
     countdown = get_countdown_pronostics()
-    if countdown:
-        if countdown['expired']:
-            st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
-                border: 2px solid #FF4444;
-                border-radius: 15px;
-                padding: 20px;
-                text-align: center;
-                margin-bottom: 20px;
-            ">
-                <h3 style="color: #FFFFFF; margin: 0;">⏰ TEMPS ECOULE</h3>
-                <p style="color: #FFD700; margin: 10px 0 0 0;">
-                    Les pronostics sont clos pour cette semaine !
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
+    with col_countdown:
+        if countdown and not countdown.get('expired'):
             st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #001529 0%, #002040 100%);
-                border: 2px solid #FFD700;
-                border-radius: 15px;
-                padding: 20px;
-                text-align: center;
-                margin-bottom: 20px;
-            ">
-                <h4 style="color: #FFD700; margin: 0 0 15px 0;">⏱️ TEMPS RESTANT POUR PRONOSTIQUER</h4>
-                <div style="
-                    display: flex;
-                    justify-content: center;
-                    gap: 20px;
-                ">
-                    <div style="text-align: center;">
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['days']:02d}
-                        </div>
-                        <div style="color: #888; font-size: 0.8em;">JOURS</div>
-                    </div>
-                    <div style="font-size: 2.5em; color: #FFD700;">:</div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['hours']:02d}
-                        </div>
-                        <div style="color: #888; font-size: 0.8em;">HEURES</div>
-                    </div>
-                    <div style="font-size: 2.5em; color: #FFD700;">:</div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['minutes']:02d}
-                        </div>
-                        <div style="color: #888; font-size: 0.8em;">MIN</div>
-                    </div>
-                </div>
+            <div style="text-align: right; color: #FFD700; font-size: 0.9em;">
+                ⏱️ <b>{countdown['days']}j {countdown['hours']}h {countdown['minutes']}m</b>
             </div>
             """, unsafe_allow_html=True)
+        elif countdown and countdown.get('expired'):
+            st.markdown("<div style='text-align: right; color: #FF4444;'>⏰ CLOS</div>", unsafe_allow_html=True)
 
     # Recuperer les matchs
     matchs = get_matchs_semaine()
-
     if not matchs:
-        st.warning("Aucun match disponible cette semaine. L'admin doit charger les matchs.")
+        st.warning("Aucun match disponible.")
         return
 
-    # Initialiser les variables de session pour les pronos
-    if 'pronos' not in st.session_state:
-        # Charger les pronostics existants de l'utilisateur
-        pronos_existants = get_pronos_existants(user['id'])
-        st.session_state.pronos = pronos_existants if pronos_existants else {}
+    # === SI PRONOS DEJA VALIDES ET PAS EN MODE EDITION ===
+    if pronos_existants and not mode_edition:
+        st.markdown("### ✅ Vos pronostics validés")
 
+        for match in matchs:
+            match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
+            if match_id in pronos_existants:
+                p = pronos_existants[match_id]
+                st.markdown(f"""
+                <div style="
+                    background: #0A183D;
+                    border: 1px solid #00FF00;
+                    border-radius: 8px;
+                    padding: 10px;
+                    margin: 5px 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span style="color: #FFFFFF;">{home}</span>
+                    <span style="color: #4488FF; font-weight: bold; font-size: 1.2em;">{p['home']} - {p['away']}</span>
+                    <span style="color: #FFFFFF;">{away}</span>
+                    <span style="color: #00FF00; font-weight: bold;">{p['mise']} pts</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Bouton Modifier
+        st.markdown("")
+        if st.button("✏️ MODIFIER MES PRONOSTICS", type="secondary", use_container_width=True):
+            st.session_state.mode_edition_pronos = True
+            st.session_state.pronos = pronos_existants.copy()
+            st.rerun()
+        return
+
+    # === MODE SAISIE / EDITION ===
+    if 'pronos' not in st.session_state or not st.session_state.pronos:
+        st.session_state.pronos = pronos_existants if pronos_existants else {}
     if 'joker_selected' not in st.session_state:
         st.session_state.joker_selected = "AUCUN"
-
-    # === AFFICHAGE DES MATCHS ===
-    st.markdown("### 📋 Matchs de la Semaine")
 
     total_mise = 0
     pronos_valides = True
 
-    for match in matchs:
-        match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
+    # === AFFICHAGE COMPACT: 2 MATCHS PAR LIGNE ===
+    for i in range(0, len(matchs), 2):
+        cols = st.columns(2)
 
-        # Initialiser le prono pour ce match si pas encore fait
-        if match_id not in st.session_state.pronos:
-            st.session_state.pronos[match_id] = {
-                'home': 0,
-                'away': 0,
-                'mise': 20,
-                'choix': None
-            }
+        for j, col in enumerate(cols):
+            if i + j < len(matchs):
+                match = matchs[i + j]
+                match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
 
-        with st.container():
-            # En-tete du match
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                border: 2px solid #FFD700;
-                border-radius: 15px 15px 0 0;
-                padding: 10px;
-                text-align: center;
-            ">
-                <span style="color: #FFD700; font-size: 0.9em;">
-                    🏆 {get_championnat_nom(championnat)}
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
+                # Init prono
+                if match_id not in st.session_state.pronos:
+                    st.session_state.pronos[match_id] = {'home': 0, 'away': 0, 'mise': 25}
 
-            # Corps du match
-            col1, col2, col3 = st.columns([2, 1, 2])
+                with col:
+                    # Carte match - Equipes + COTES EN ROUGE
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, #0A183D 0%, #001529 100%);
+                        border: 1px solid #D4AF37;
+                        border-radius: 10px;
+                        padding: 10px;
+                        margin-bottom: 5px;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{home}</div>
+                                <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_h:.2f}</div>
+                            </div>
+                            <div style="color: #D4AF37; font-weight: bold; padding: 0 5px;">VS</div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{away}</div>
+                                <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_a:.2f}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; color: #FF0000; font-size: 0.8em; margin-top: 3px;">
+                            N: {cote_n:.2f}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            with col1:
-                st.markdown(f"### 🏠 {home}")
-                score_home = st.number_input(
-                    "Buts",
-                    min_value=0,
-                    max_value=9,
-                    value=st.session_state.pronos[match_id]['home'],
-                    key=f"home_{match_id}"
-                )
-                st.session_state.pronos[match_id]['home'] = score_home
+                    # Scores en BLEU
+                    sc1, sc2, sc3 = st.columns([1, 0.5, 1])
+                    with sc1:
+                        score_home = st.number_input(
+                            f"H{match_id}", min_value=0, max_value=9,
+                            value=st.session_state.pronos[match_id]['home'],
+                            key=f"h_{match_id}", label_visibility="collapsed"
+                        )
+                        st.session_state.pronos[match_id]['home'] = score_home
+                    with sc2:
+                        st.markdown("<div style='text-align:center; padding-top:5px; color:#0066FF; font-size:1.5em; font-weight:bold;'>-</div>", unsafe_allow_html=True)
+                    with sc3:
+                        score_away = st.number_input(
+                            f"A{match_id}", min_value=0, max_value=9,
+                            value=st.session_state.pronos[match_id]['away'],
+                            key=f"a_{match_id}", label_visibility="collapsed"
+                        )
+                        st.session_state.pronos[match_id]['away'] = score_away
 
-            with col2:
-                st.markdown("<div style='text-align: center; padding-top: 30px;'>", unsafe_allow_html=True)
-                st.markdown("### VS")
-                st.markdown("</div>", unsafe_allow_html=True)
+                    # Points en VERT (en dessous)
+                    mise = st.number_input(
+                        f"M{match_id}", min_value=MISE_MIN, max_value=MISE_MAX,
+                        value=st.session_state.pronos[match_id]['mise'],
+                        step=5, key=f"m_{match_id}", label_visibility="collapsed"
+                    )
+                    st.session_state.pronos[match_id]['mise'] = mise
+                    st.markdown(f"<div style='text-align:center; color:#00FF00; font-size: 1em; font-weight: bold;'>{mise} pts</div>", unsafe_allow_html=True)
 
-            with col3:
-                st.markdown(f"### 🏃 {away}")
-                score_away = st.number_input(
-                    "Buts",
-                    min_value=0,
-                    max_value=9,
-                    value=st.session_state.pronos[match_id]['away'],
-                    key=f"away_{match_id}"
-                )
-                st.session_state.pronos[match_id]['away'] = score_away
+                    total_mise += st.session_state.pronos[match_id]['mise']
 
-            # Cotes centrees sous les equipes
-            st.markdown(f"""
-            <div style="
-                display: flex;
-                justify-content: center;
-                gap: 40px;
-                margin: 15px 0;
-                padding: 10px;
-                background: rgba(0,32,64,0.5);
-                border-radius: 10px;
-            ">
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 0.8em;">1 (Dom)</div>
-                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_h:.2f}</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 0.8em;">N (Nul)</div>
-                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_n:.2f}</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 0.8em;">2 (Ext)</div>
-                    <div style="color: #FFD700; font-size: 1.3em; font-weight: bold;">{cote_a:.2f}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Mise
-            st.markdown("**💰 Mise (10-60 pts) :**")
-            mise = st.slider(
-                "Mise",
-                min_value=MISE_MIN,
-                max_value=MISE_MAX,
-                value=st.session_state.pronos[match_id]['mise'],
-                step=10,
-                key=f"mise_{match_id}",
-                label_visibility="collapsed"
-            )
-            st.session_state.pronos[match_id]['mise'] = mise
-            total_mise += mise
-
-            st.markdown("---")
-
-    # === BARRE DE BUDGET ===
-    st.markdown("### 💰 Budget")
-
-    budget_pct = min((total_mise / BUDGET_TOTAL) * 100, 100)
-    budget_color = "#00FF00" if total_mise == BUDGET_TOTAL else ("#FFD700" if total_mise < BUDGET_TOTAL else "#FF0000")
+    # === BUDGET ===
+    st.markdown("---")
+    budget_ok = total_mise == BUDGET_TOTAL
+    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < BUDGET_TOTAL else "#FF4444")
 
     st.markdown(f"""
-    <div style="
-        background: #1a1a2e;
-        border-radius: 10px;
-        padding: 3px;
-        margin: 10px 0;
-    ">
-        <div style="
-            background: {budget_color};
-            width: {budget_pct}%;
-            height: 25px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        "></div>
+    <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
+        <div style="background: {budget_color}; width: {min(total_mise/BUDGET_TOTAL*100, 100)}%; height: 18px; border-radius: 6px;"></div>
     </div>
-    <div style="text-align: center; color: {'#00FF00' if total_mise == BUDGET_TOTAL else '#FFD700'};">
-        <strong>{total_mise} / {BUDGET_TOTAL} points utilises</strong>
+    <div style="text-align: center; color: {budget_color}; font-size: 0.9em;">
+        <b>{total_mise} / {BUDGET_TOTAL} pts</b> {' ✓' if budget_ok else ''}
     </div>
     """, unsafe_allow_html=True)
 
-    if total_mise != BUDGET_TOTAL:
-        if total_mise < BUDGET_TOTAL:
-            st.warning(f"Il vous reste {BUDGET_TOTAL - total_mise} points a repartir.")
-        else:
-            st.error(f"Vous depassez le budget de {total_mise - BUDGET_TOTAL} points!")
+    if not budget_ok:
         pronos_valides = False
 
-    st.markdown("")
-
-    # === JOKERS ===
-    st.markdown("### 🃏 Joker de la Semaine")
-    st.caption("Un seul joker peut etre active par semaine")
-
-    joker_col1, joker_col2, joker_col3 = st.columns(3)
-
-    with joker_col1:
-        if st.button("❌ AUCUN", use_container_width=True,
-                     type="primary" if st.session_state.joker_selected == "AUCUN" else "secondary"):
-            st.session_state.joker_selected = "AUCUN"
-            st.rerun()
-
-    with joker_col2:
-        if st.button("⚡ POINTS DOUBLES", use_container_width=True,
+    # === JOKERS (sans Aucun) ===
+    st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+    jk1, jk2 = st.columns(2)
+    with jk1:
+        if st.button("⚡ Points Doublés", use_container_width=True,
                      type="primary" if st.session_state.joker_selected == "DOUBLE" else "secondary"):
-            st.session_state.joker_selected = "DOUBLE"
+            st.session_state.joker_selected = "DOUBLE" if st.session_state.joker_selected != "DOUBLE" else "AUCUN"
             st.rerun()
-
-    with joker_col3:
-        if st.button("🎯 POINTS VOLES", use_container_width=True,
+    with jk2:
+        if st.button("🎯 Points Volés", use_container_width=True,
                      type="primary" if st.session_state.joker_selected == "VOLE" else "secondary"):
-            st.session_state.joker_selected = "VOLE"
+            st.session_state.joker_selected = "VOLE" if st.session_state.joker_selected != "VOLE" else "AUCUN"
             st.rerun()
-
-    if st.session_state.joker_selected != "AUCUN":
-        st.info(f"Joker selectionne : **{st.session_state.joker_selected}**")
-
-    st.markdown("---")
 
     # === VALIDATION ===
-    st.markdown("### ✅ Validation")
-
-    if st.button("VALIDER MES PRONOSTICS", type="primary", use_container_width=True, disabled=not pronos_valides):
+    st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+    if st.button("✅ VALIDER", type="primary", use_container_width=True, disabled=not pronos_valides):
         if pronos_valides:
-            # Preparer les donnees
-            pronos_data = {}
-            for match_id, data in st.session_state.pronos.items():
-                pronos_data[match_id] = {
-                    'home': data['home'],
-                    'away': data['away'],
-                    'mise': data['mise']
-                }
-
-            # Sauvegarder
-            success, message = sauvegarder_pronostics(
-                user['id'],
-                pronos_data,
-                st.session_state.joker_selected
-            )
-
+            pronos_data = {mid: {'home': d['home'], 'away': d['away'], 'mise': d['mise']}
+                          for mid, d in st.session_state.pronos.items()}
+            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected)
             if success:
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-                    color: #0a0a1a;
-                    padding: 20px;
-                    border-radius: 15px;
-                    text-align: center;
-                    font-weight: bold;
-                    margin: 20px 0;
-                ">
-                    ✅ {message}
-                </div>
-                """, unsafe_allow_html=True)
+                st.success(message)
                 st.balloons()
-
-                # Reset pour prochaine saisie
                 st.session_state.pronos = {}
                 st.session_state.joker_selected = "AUCUN"
+                st.session_state.mode_edition_pronos = False
             else:
                 st.error(message)
-
-    # Recap des pronos
-    if st.session_state.pronos:
-        st.markdown("### 📝 Recapitulatif")
-        for match in matchs:
-            match_id = match[0]
-            home = match[2]
-            away = match[3]
-            if match_id in st.session_state.pronos:
-                p = st.session_state.pronos[match_id]
-                st.write(f"**{home}** {p['home']} - {p['away']} **{away}** | Mise: {p['mise']} pts")

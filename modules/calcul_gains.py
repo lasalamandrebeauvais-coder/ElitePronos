@@ -129,7 +129,7 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
     Prend en compte:
     - Les chaînes de vol (pronostics effectifs)
     - Le joker Points Doubles (x2 personnel)
-    - Le Grand Chelem (bonus 50 pts si 4/4)
+    - Le Grand Chelem (bonus 40 pts si 4/4)
     """
     conn = get_connection()
     cursor = conn.cursor()

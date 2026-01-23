@@ -10,6 +10,7 @@ from datetime import datetime
 # Chemins
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
+ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
 def get_avatar_path(pseudo):
@@ -229,13 +230,18 @@ def afficher_classement(user):
     </style>
     """, unsafe_allow_html=True)
 
-    # Header avec bouton retour
-    col_back, col_title = st.columns([1, 5])
+    # Header avec bouton retour et mascotte
+    col_back, col_mascot, col_title = st.columns([0.8, 0.8, 4.5])
     with col_back:
         if st.button("← Retour"):
             st.session_state.dashboard_section = None
             st.rerun()
-
+    with col_mascot:
+        mascot_path = os.path.join(ASSETS_PATH, "kingo classements.png")
+        if os.path.exists(mascot_path):
+            from PIL import Image
+            mascot_img = Image.open(mascot_path)
+            st.image(mascot_img, width=60)
     with col_title:
         st.markdown("## 🏆 Classement Elite")
 
@@ -277,7 +283,7 @@ def afficher_classement(user):
 
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #888; padding: 10px;">
+    <div style="text-align: center; color: #AAAAAA; padding: 10px;">
         <small>Classements mis à jour en temps réel</small>
     </div>
     """, unsafe_allow_html=True)

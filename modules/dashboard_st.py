@@ -229,7 +229,7 @@ def afficher_dashboard(user):
         <div class="stat-box">
             <div class="stat-label">Classement</div>
             <div class="stat-value">#{stats['rang']}</div>
-            <div style="color: #888; font-size: 0.8em;">sur 100 joueurs</div>
+            <div style="color: #AAAAAA; font-size: 0.8em;">sur 100 joueurs</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -253,7 +253,7 @@ def afficher_dashboard(user):
         <div class="stat-box">
             <div class="stat-label">Forme</div>
             <div style="font-size: 1.8em; margin: 10px 0;">{forme_display}</div>
-            <div style="color: #888; font-size: 0.8em;">{stats['nb_semaines']} semaines jouees</div>
+            <div style="color: #AAAAAA; font-size: 0.8em;">{stats['nb_semaines']} semaines jouees</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -270,7 +270,7 @@ def afficher_dashboard(user):
                 <span style="margin: 0 10px; color: #444;">|</span>
                 <span style="{vole_style}" title="Points Voles">🎯</span>
             </div>
-            <div style="color: #888; font-size: 0.7em;">⚡ Doubles | 🎯 Voles</div>
+            <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles | 🎯 Voles</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -347,19 +347,19 @@ def afficher_dashboard(user):
                         <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                             {countdown['days']}
                         </div>
-                        <div style="color: #888; font-size: 0.8em;">JOURS</div>
+                        <div style="color: #AAAAAA; font-size: 0.8em;">JOURS</div>
                     </div>
                     <div>
                         <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                             {countdown['hours']}
                         </div>
-                        <div style="color: #888; font-size: 0.8em;">HEURES</div>
+                        <div style="color: #AAAAAA; font-size: 0.8em;">HEURES</div>
                     </div>
                     <div>
                         <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                             {countdown['minutes']}
                         </div>
-                        <div style="color: #888; font-size: 0.8em;">MIN</div>
+                        <div style="color: #AAAAAA; font-size: 0.8em;">MIN</div>
                     </div>
                 </div>
                 <div style="color: #aaa; font-size: 0.9em; margin-top: 10px;">
@@ -371,7 +371,7 @@ def afficher_dashboard(user):
     # === FOOTER ===
     st.markdown("---")
     st.markdown(f"""
-    <div style="text-align: center; color: #888; padding: 20px;">
+    <div style="text-align: center; color: #AAAAAA; padding: 20px;">
         <strong style="color: #FFD700;">Semaine {semaine['numero']}</strong><br>
         <span style="font-size: 0.9em;">Date limite de saisie : {semaine['date_limite']}</span>
     </div>

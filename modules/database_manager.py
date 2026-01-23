@@ -128,9 +128,10 @@ def detecter_nouvelle_saison():
         cursor.execute("UPDATE saisons SET is_active = 0 WHERE id != ?", (saison_actuelle,))
 
         # Reinitialiser les jokers pour tous les utilisateurs
+        # Quota règlement: 3 Jokers Points Doubles + 2 Jokers Points Volés par saison
         cursor.execute('''
             INSERT OR IGNORE INTO stock_jokers (utilisateur_id, saison_id, jokers_doubles_disponibles, jokers_voles_disponibles)
-            SELECT id, ?, 1, 1 FROM utilisateurs WHERE statut = 'Actif'
+            SELECT id, ?, 3, 2 FROM utilisateurs WHERE statut = 'Actif'
         ''', (saison_actuelle,))
 
         conn.commit()
@@ -212,8 +213,8 @@ def init_database():
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     utilisateur_id INTEGER NOT NULL,
                     saison_id INTEGER NOT NULL DEFAULT 2024,
-                    jokers_doubles_disponibles INTEGER DEFAULT 1,
-                    jokers_voles_disponibles INTEGER DEFAULT 1,
+                    jokers_doubles_disponibles INTEGER DEFAULT 3,
+                    jokers_voles_disponibles INTEGER DEFAULT 2,
                     derniere_mise_a_jour TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(utilisateur_id, saison_id),
                     FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id)
@@ -233,8 +234,8 @@ def init_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 utilisateur_id INTEGER NOT NULL,
                 saison_id INTEGER NOT NULL DEFAULT 2024,
-                jokers_doubles_disponibles INTEGER DEFAULT 1,
-                jokers_voles_disponibles INTEGER DEFAULT 1,
+                jokers_doubles_disponibles INTEGER DEFAULT 3,
+                jokers_voles_disponibles INTEGER DEFAULT 2,
                 derniere_mise_a_jour TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(utilisateur_id, saison_id),
                 FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id)
@@ -292,7 +293,7 @@ def init_database():
     # Initialiser le stock pour les utilisateurs existants (saison actuelle)
     cursor.execute('''
         INSERT OR IGNORE INTO stock_jokers (utilisateur_id, saison_id, jokers_doubles_disponibles, jokers_voles_disponibles)
-        SELECT id, ?, 1, 1 FROM utilisateurs WHERE statut = 'Actif'
+        SELECT id, ?, 3, 2 FROM utilisateurs WHERE statut = 'Actif'
     ''', (saison,))
 
     conn.commit()
@@ -373,10 +374,11 @@ def reset_jokers_nouvelle_saison(saison_id):
     cursor = conn.cursor()
 
     # Créer le stock pour tous les utilisateurs actifs
+    # Quota règlement: 3 Jokers Points Doubles + 2 Jokers Points Volés par saison
     cursor.execute('''
         INSERT OR REPLACE INTO stock_jokers
         (utilisateur_id, saison_id, jokers_doubles_disponibles, jokers_voles_disponibles)
-        SELECT id, ?, 1, 1 FROM utilisateurs WHERE statut = 'Actif'
+        SELECT id, ?, 3, 2 FROM utilisateurs WHERE statut = 'Actif'
     ''', (saison_id,))
 
     conn.commit()
@@ -740,13 +742,14 @@ def get_semaine_actuelle():
 
 def ajouter_jokers_nouvel_utilisateur(utilisateur_id):
     """Ajoute le stock de jokers pour un nouvel utilisateur"""
+    # Quota règlement: 3 Jokers Points Doubles + 2 Jokers Points Volés par saison
     saison = get_saison_actuelle()
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute('''
         INSERT OR IGNORE INTO stock_jokers (utilisateur_id, saison_id, jokers_doubles_disponibles, jokers_voles_disponibles)
-        VALUES (?, ?, 1, 1)
+        VALUES (?, ?, 3, 2)
     ''', (utilisateur_id, saison))
 
     conn.commit()

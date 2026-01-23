@@ -125,6 +125,14 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
 def afficher_formulaire_inscription():
     """Affiche le formulaire d'inscription"""
 
+    # Message de bienvenue
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #D4AF37; margin-bottom: 5px;">Elite Pronos</h2>
+        <p style="color: #FFFFFF;">Votre plateforme de pronostics football entre amis !</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("## Inscription")
     st.markdown("---")
 
@@ -160,19 +168,19 @@ def afficher_formulaire_inscription():
                     <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                         {countdown['days']}
                     </div>
-                    <div style="color: #888;">JOURS</div>
+                    <div style="color: #AAAAAA;">JOURS</div>
                 </div>
                 <div style="text-align: center;">
                     <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                         {countdown['hours']}
                     </div>
-                    <div style="color: #888;">HEURES</div>
+                    <div style="color: #AAAAAA;">HEURES</div>
                 </div>
                 <div style="text-align: center;">
                     <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
                         {countdown['minutes']}
                     </div>
-                    <div style="color: #888;">MIN</div>
+                    <div style="color: #AAAAAA;">MIN</div>
                 </div>
             </div>
             <p style="color: #FFD700;">Ouverture: J1 - 30 jours</p>

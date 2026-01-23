@@ -412,7 +412,7 @@ def email_lancement_saison(utilisateur):
         <li>4 matchs a pronostiquer chaque semaine</li>
         <li>100 points de budget a repartir</li>
         <li>2 jokers a utiliser strategiquement</li>
-        <li>Bonus Grand Chelem : +50 pts si 4/4 corrects</li>
+        <li>Bonus Grand Chelem : +40 pts si 4/4 corrects</li>
     </ul>
 
     <p>Que la meilleure strategie gagne !</p>
@@ -440,8 +440,8 @@ def email_bienvenue(utilisateur):
     <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid #FFD700; border-radius: 10px; padding: 20px; margin: 25px 0;">
         <h3 style="color: #FFD700; margin-top: 0;">Participation financiere</h3>
         <ul style="color: #ffffff; font-size: 1.1em; list-style: none; padding: 0;">
-            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Mise de jeu :</strong> 50 euros <span style="color: #888;">(integralement reverses dans la cagnotte)</span></li>
-            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Frais de maintenance :</strong> 5 euros <span style="color: #888;">(frais techniques)</span></li>
+            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Mise de jeu :</strong> 50 euros <span style="color: #AAAAAA;">(integralement reverses dans la cagnotte)</span></li>
+            <li style="margin: 10px 0;"><strong style="color: #FFD700;">Frais de maintenance :</strong> 5 euros <span style="color: #AAAAAA;">(frais techniques)</span></li>
         </ul>
         <p style="color: #00FF00; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
             Votre compte sera active par <strong>Baggio</strong> des reception de votre reglement par cheque ou virement.
@@ -451,7 +451,7 @@ def email_bienvenue(utilisateur):
     <!-- REPARTITION DES RECOMPENSES -->
     <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #00FF00; border-radius: 10px; padding: 20px; margin: 25px 0;">
         <h3 style="color: #00FF00; margin-top: 0;">Repartition des Recompenses</h3>
-        <p style="color: #888; font-style: italic;">(Arrondies a la dizaine)</p>
+        <p style="color: #AAAAAA; font-style: italic;">(Arrondies a la dizaine)</p>
 
         <p style="color: #FFD700; margin-top: 15px;"><strong>Prix Fixes :</strong></p>
         <ul style="color: #ffffff; margin-left: 20px;">
@@ -466,7 +466,7 @@ def email_bienvenue(utilisateur):
             <li style="margin: 8px 0;"><strong>41 joueurs et plus :</strong> Top 7 recompenses</li>
         </ul>
 
-        <p style="color: #888; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+        <p style="color: #AAAAAA; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
             Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
         </p>
     </div>
@@ -591,7 +591,7 @@ def email_rappel_j1(utilisateur):
         </a>
     </p>
 
-    <p style="color: #888; font-size: 12px; text-align: center;">
+    <p style="color: #AAAAAA; font-size: 12px; text-align: center;">
         Vous avez jusqu'au coup d'envoi du premier match.
     </p>
     '''
@@ -631,7 +631,7 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
                     <span style="font-size: 24px; margin-right: 12px;">x2</span>
                     <div>
                         <div style="color: #FFD700; font-weight: bold;">@{pseudo}</div>
-                        <div style="color: #888; font-size: 12px;">Points Doubles actives</div>
+                        <div style="color: #AAAAAA; font-size: 12px;">Points Doubles actives</div>
                     </div>
                 </div>
                 '''
@@ -641,7 +641,7 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
                     <span style="font-size: 24px; margin-right: 12px;">🎭</span>
                     <div>
                         <div style="color: #9b59b6; font-weight: bold;">@{pseudo}</div>
-                        <div style="color: #888; font-size: 12px;">Vole les pronos de <strong style="color: #fff;">@{cible}</strong></div>
+                        <div style="color: #AAAAAA; font-size: 12px;">Vole les pronos de <strong style="color: #fff;">@{cible}</strong></div>
                     </div>
                 </div>
                 '''
@@ -693,7 +693,7 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
         stats_html = f'''
         <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
             <h3 style="color: #FFD700; margin: 0 0 10px 0; font-size: 16px;">📊 Tendances des Pronos</h3>
-            <p style="color: #888; font-size: 12px; margin: 0 0 15px 0;">Repartition des pronostics par match</p>
+            <p style="color: #AAAAAA; font-size: 12px; margin: 0 0 15px 0;">Repartition des pronostics par match</p>
             {stats_rows}
         </div>
         '''
@@ -765,7 +765,7 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
 
     <div class="highlight-box">
         <p style="color: #FFD700; margin: 0;">Que le meilleur gagne !</p>
-        <p style="color: #888; font-size: 12px; margin: 5px 0 0 0;">
+        <p style="color: #AAAAAA; font-size: 12px; margin: 5px 0 0 0;">
             Les resultats seront calcules automatiquement apres les matchs.
         </p>
     </div>
@@ -800,7 +800,7 @@ def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_spec
         elif evolution < 0:
             evo_emoji = f"<span style='color: #FF4444;'>↓ {evolution}</span>"
         else:
-            evo_emoji = "<span style='color: #888;'>→ 0</span>"
+            evo_emoji = "<span style='color: #AAAAAA;'>→ 0</span>"
 
         # Couleur selon le rang
         if rang == 1:
@@ -885,7 +885,7 @@ def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_spec
         <a href="#" class="button">Voir le classement complet</a>
     </p>
 
-    <p style="color: #888; font-size: 12px; text-align: center;">
+    <p style="color: #AAAAAA; font-size: 12px; text-align: center;">
         Rendez-vous la semaine prochaine pour de nouveaux pronostics !
     </p>
     '''
@@ -938,7 +938,7 @@ def email_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
             <p style="margin: 5px 0;"><strong style="color: #FFD700;">Prenom :</strong> <span style="color: #fff;">{prenom or "Non renseigne"}</span></p>
             <p style="margin: 5px 0;"><strong style="color: #FFD700;">Email :</strong> <span style="color: #fff;">{email}</span></p>
             <p style="margin: 5px 0;"><strong style="color: #FFD700;">Parrain :</strong> <span style="color: #00FF00; font-weight: bold;">{parrain}</span></p>
-            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Date :</strong> <span style="color: #888;">{date_inscription}</span></p>
+            <p style="margin: 5px 0;"><strong style="color: #FFD700;">Date :</strong> <span style="color: #AAAAAA;">{date_inscription}</span></p>
         </div>
     </div>
 
