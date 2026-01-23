@@ -237,20 +237,20 @@ def afficher_pronostics(user):
     mode_edition = st.session_state.get('mode_edition_pronos', False)
 
     # Header compact avec mascotte
-    col_back, col_mascot, col_title, col_countdown = st.columns([0.8, 0.8, 2.5, 2])
+    col_back, col_title, col_mascot, col_countdown = st.columns([0.6, 2.5, 0.8, 2])
     with col_back:
-        if st.button("← Retour"):
+        if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
             st.session_state.mode_edition_pronos = False
             st.rerun()
+    with col_title:
+        st.markdown("### ⚽ Pronostics")
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo pronostics.png")
         if os.path.exists(mascot_path):
             from PIL import Image
             mascot_img = Image.open(mascot_path)
-            st.image(mascot_img, width=60)
-    with col_title:
-        st.markdown("### ⚽ Pronostics")
+            st.image(mascot_img, width=70)
 
     # Countdown compact
     countdown = get_countdown_pronostics()
@@ -403,21 +403,40 @@ def afficher_pronostics(user):
     # === JOKERS (sans Aucun) ===
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+
+    # Utiliser des checkboxes au lieu de boutons pour eviter les problemes de rerun
     jk1, jk2 = st.columns(2)
     with jk1:
-        if st.button("⚡ Points Doublés", use_container_width=True,
-                     type="primary" if st.session_state.joker_selected == "DOUBLE" else "secondary"):
-            st.session_state.joker_selected = "DOUBLE" if st.session_state.joker_selected != "DOUBLE" else "AUCUN"
-            st.rerun()
+        joker_double = st.checkbox("⚡ Points Doublés",
+                                   value=(st.session_state.joker_selected == "DOUBLE"),
+                                   key="chk_joker_double")
+        if joker_double:
+            st.session_state.joker_selected = "DOUBLE"
+        elif st.session_state.joker_selected == "DOUBLE":
+            st.session_state.joker_selected = "AUCUN"
     with jk2:
-        if st.button("🎯 Points Volés", use_container_width=True,
-                     type="primary" if st.session_state.joker_selected == "VOLE" else "secondary"):
-            st.session_state.joker_selected = "VOLE" if st.session_state.joker_selected != "VOLE" else "AUCUN"
-            st.rerun()
+        joker_vole = st.checkbox("🎯 Points Volés",
+                                 value=(st.session_state.joker_selected == "VOLE"),
+                                 key="chk_joker_vole")
+        if joker_vole:
+            st.session_state.joker_selected = "VOLE"
+        elif st.session_state.joker_selected == "VOLE":
+            st.session_state.joker_selected = "AUCUN"
+
+    # Un seul joker a la fois
+    if joker_double and joker_vole:
+        st.warning("⚠️ Un seul joker a la fois!")
+        pronos_valides = False
 
     # === VALIDATION ===
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-    if st.button("✅ VALIDER", type="primary", use_container_width=True, disabled=not pronos_valides):
+
+    # Afficher l'etat du joker selectionne
+    if st.session_state.joker_selected != "AUCUN":
+        joker_label = "⚡ Points Doublés" if st.session_state.joker_selected == "DOUBLE" else "🎯 Points Volés"
+        st.markdown(f"<div style='text-align:center; color:#FFD700; font-size:0.9em;'>Joker actif: <b>{joker_label}</b></div>", unsafe_allow_html=True)
+
+    if st.button("✅ VALIDER MES PRONOSTICS", type="primary", use_container_width=True, disabled=not pronos_valides):
         if pronos_valides:
             pronos_data = {mid: {'home': d['home'], 'away': d['away'], 'mise': d['mise']}
                           for mid, d in st.session_state.pronos.items()}

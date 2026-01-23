@@ -1,7 +1,7 @@
 """
 Module Reglement pour Elite Pronos
 Affichage des 5 articles du reglement officiel
-Format: Articles entourés, points soulignés
+Format: Articles en couleur, points soulignes, sans blocs
 """
 import streamlit as st
 import os
@@ -13,59 +13,50 @@ ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 def afficher_reglement():
     """Affiche le reglement officiel d'Elite Pronos"""
 
-    # Header avec mascotte
-    col_title, col_mascot = st.columns([3, 1])
+    # Header avec mascotte en haut a droite
+    col_title, col_mascot = st.columns([4, 1])
     with col_title:
         st.markdown("## Reglement Officiel")
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo reglement.png")
         if os.path.exists(mascot_path):
-            st.image(mascot_path, width=100)
+            st.image(mascot_path, width=80)
 
     st.markdown("---")
 
-    # Style CSS pour les articles
+    # Style CSS - Articles en couleur, points soulignes, sans blocs
     st.markdown("""
     <style>
-        .article-box {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #D4AF37;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-        }
-        .article-title {
+        .article-titre {
             color: #D4AF37;
-            font-size: 1.3em;
+            font-size: 1.4em;
             font-weight: bold;
+            margin-top: 25px;
             margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #D4AF37;
         }
-        .point-title {
+        .point-titre {
             color: #FFD700;
             font-weight: bold;
             text-decoration: underline;
-            margin-top: 12px;
+            font-size: 1.05em;
+            margin-top: 15px;
+            margin-bottom: 5px;
         }
-        .point-content {
+        .point-texte {
             color: #FFFFFF;
-            margin: 5px 0 10px 0;
+            margin-left: 10px;
+            margin-bottom: 10px;
             line-height: 1.6;
         }
-        .point-list {
-            color: #FFFFFF;
-            margin-left: 20px;
-        }
-        .highlight-gold {
+        .valeur-or {
             color: #FFD700;
             font-weight: bold;
         }
-        .highlight-green {
+        .valeur-vert {
             color: #00FF00;
             font-weight: bold;
         }
-        .highlight-red {
+        .valeur-rouge {
             color: #FF6B6B;
             font-weight: bold;
         }
@@ -75,212 +66,99 @@ def afficher_reglement():
     # =====================================================
     # ARTICLE 1 : PARTICIPATION
     # =====================================================
-    st.markdown("""
-    <div class="article-box">
-        <div class="article-title">Article 1 - Participation et Inscription</div>
+    st.markdown('<div class="article-titre">Article 1 - Participation et Inscription</div>', unsafe_allow_html=True)
 
-        <div class="point-title">1.1 Eligibilite</div>
-        <div class="point-content">
-            Elite Pronos est une ligue privee de pronostics football reservee aux membres invites.
-            Toute inscription est soumise a validation par un administrateur.
-        </div>
+    st.markdown('<div class="point-titre">1.1 Eligibilite</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Elite Pronos est une ligue privee de pronostics football reservee aux membres invites. Toute inscription est soumise a validation par un administrateur.</div>', unsafe_allow_html=True)
 
-        <div class="point-title">1.2 Periode d'inscription</div>
-        <div class="point-content">
-            Les inscriptions sont ouvertes <span class="highlight-gold">30 jours avant la Journee 1</span>
-            de chaque saison (J1 - 30). Aucune nouvelle inscription n'est acceptee apres le coup d'envoi
-            du premier match de la saison.
-        </div>
+    st.markdown('<div class="point-titre">1.2 Periode d\'inscription</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Les inscriptions sont ouvertes <span class="valeur-or">30 jours avant la Journee 1</span> de chaque saison. Aucune nouvelle inscription apres le coup d\'envoi du premier match.</div>', unsafe_allow_html=True)
 
-        <div class="point-title">1.3 Compte utilisateur</div>
-        <div class="point-content">
-            Chaque participant doit creer un compte unique avec :
-            <ul class="point-list">
-                <li>Un pseudo (minimum 3 caracteres, unique)</li>
-                <li>Une adresse email valide</li>
-                <li>Un code PIN personnel (minimum 4 caracteres)</li>
-            </ul>
-        </div>
+    st.markdown('<div class="point-titre">1.3 Compte utilisateur</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Chaque participant doit creer un compte unique avec : un pseudo (min 3 caracteres), une adresse email valide, un code PIN personnel (min 4 caracteres).</div>', unsafe_allow_html=True)
 
-        <div class="point-title">1.4 Engagement</div>
-        <div class="point-content">
-            En s'inscrivant, le participant s'engage a respecter l'ensemble du present reglement
-            et a participer de bonne foi a la competition.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">1.4 Engagement</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">En s\'inscrivant, le participant s\'engage a respecter le present reglement et a participer de bonne foi.</div>', unsafe_allow_html=True)
 
     # =====================================================
     # ARTICLE 2 : PRONOSTICS HEBDOMADAIRES
     # =====================================================
-    st.markdown("""
-    <div class="article-box">
-        <div class="article-title">Article 2 - Pronostics Hebdomadaires</div>
+    st.markdown('<div class="article-titre">Article 2 - Pronostics Hebdomadaires</div>', unsafe_allow_html=True)
 
-        <div class="point-title">2.1 Selection des matchs</div>
-        <div class="point-content">
-            Chaque semaine, <span class="highlight-gold">4 matchs sont proposes</span> aux participants.
-            Les matchs sont selectionnes prioritairement en Ligue 1, puis dans les autres grands championnats
-            europeens (Premier League, Liga, Serie A, Bundesliga).
-        </div>
+    st.markdown('<div class="point-titre">2.1 Selection des matchs</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Chaque semaine, <span class="valeur-or">4 matchs sont proposes</span>. Priorite Ligue 1, puis autres championnats europeens.</div>', unsafe_allow_html=True)
 
-        <div class="point-title">2.2 Format du pronostic</div>
-        <div class="point-content">
-            Pour chaque match, le participant doit indiquer :
-            <ul class="point-list">
-                <li>Le <span class="highlight-gold">score exact</span> qu'il predit (ex: 2-1)</li>
-                <li>La <span class="highlight-gold">mise en points</span> qu'il souhaite engager</li>
-            </ul>
-        </div>
+    st.markdown('<div class="point-titre">2.2 Format du pronostic</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Pour chaque match : le <span class="valeur-or">score exact</span> predit (ex: 2-1) et la <span class="valeur-or">mise en points</span> engagee.</div>', unsafe_allow_html=True)
 
-        <div class="point-title">2.3 Budget hebdomadaire</div>
-        <div class="point-content">
-            Chaque semaine, le participant dispose d'un budget de <span class="highlight-gold">100 POINTS</span>
-            a repartir obligatoirement sur les 4 matchs.
-            <ul class="point-list">
-                <li>Mise minimum par match : <span class="highlight-gold">10 points</span></li>
-                <li>Mise maximum par match : <span class="highlight-gold">60 points</span></li>
-                <li>Total des mises : exactement 100 points</li>
-            </ul>
-        </div>
+    st.markdown('<div class="point-titre">2.3 Budget hebdomadaire</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Budget : <span class="valeur-or">100 POINTS</span> a repartir sur 4 matchs. Mise min : <span class="valeur-or">10 pts</span> / Mise max : <span class="valeur-or">60 pts</span> par match.</div>', unsafe_allow_html=True)
 
-        <div class="point-title">2.4 Deadline</div>
-        <div class="point-content">
-            Les pronostics doivent etre valides <span class="highlight-gold">1 heure avant</span>
-            le coup d'envoi du premier match de la semaine. Passe ce delai, aucune modification n'est possible.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">2.4 Deadline</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Pronostics a valider <span class="valeur-or">1 heure avant</span> le coup d\'envoi du premier match. Aucune modification possible apres.</div>', unsafe_allow_html=True)
 
     # =====================================================
     # ARTICLE 3 : SYSTEME DE POINTS
     # =====================================================
-    st.markdown("""
-    <div class="article-box">
-        <div class="article-title">Article 3 - Systeme de Points</div>
+    st.markdown('<div class="article-titre">Article 3 - Systeme de Points</div>', unsafe_allow_html=True)
 
-        <div class="point-title">3.1 Resultat 1N2</div>
-        <div class="point-content">
-            Si le participant trouve le bon resultat (Victoire domicile / Nul / Victoire exterieur) :<br>
-            <span class="highlight-gold">Points gagnes = Mise x Cote du resultat</span><br>
-            <em>Exemple : Mise 30 pts sur PSG gagnant, cote 1.50 → 30 x 1.50 = 45 pts</em>
-        </div>
+    st.markdown('<div class="point-titre">3.1 Resultat 1N2 correct</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte"><span class="valeur-or">Points = Mise x Cote</span> (Ex: 30 pts x cote 1.50 = 45 pts)</div>', unsafe_allow_html=True)
 
-        <div class="point-title">3.2 Score Exact</div>
-        <div class="point-content">
-            Si le participant trouve le score exact du match : <span class="highlight-green">+10 POINTS bonus</span>
-        </div>
+    st.markdown('<div class="point-titre">3.2 Score Exact</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Bonus <span class="valeur-vert">+10 POINTS</span> si score exact trouve</div>', unsafe_allow_html=True)
 
-        <div class="point-title">3.3 Mauvais pronostic</div>
-        <div class="point-content">
-            Si le resultat 1N2 est incorrect : <span class="highlight-red">0 point gagne</span> (la mise est perdue)
-        </div>
+    st.markdown('<div class="point-titre">3.3 Mauvais pronostic</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte"><span class="valeur-rouge">0 point</span> si le resultat 1N2 est incorrect</div>', unsafe_allow_html=True)
 
-        <div class="point-title">3.4 Bonus Grand Chelem</div>
-        <div class="point-content">
-            Si un participant trouve <span class="highlight-gold">4/4 resultats 1N2 corrects</span> sur une meme semaine :
-            <span class="highlight-green">+40 POINTS BONUS</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">3.4 Grand Chelem</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Bonus <span class="valeur-vert">+40 POINTS</span> si 4/4 resultats corrects sur une semaine</div>', unsafe_allow_html=True)
 
     # =====================================================
     # ARTICLE 4 : JOKERS
     # =====================================================
+    st.markdown('<div class="article-titre">Article 4 - Les Jokers</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-texte">Stock par saison : <span class="valeur-or">3 jokers Points Doubles</span> + <span class="valeur-or">2 jokers Points Voles</span></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">4.1 Joker POINTS DOUBLES</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Multiplie par 2 TOUS les points gagnes de la semaine (bonus Grand Chelem inclus).</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">4.2 Joker POINTS VOLES</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Copie les pronostics d\'un adversaire choisi. Vous gagnez les memes points que lui.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">4.3 Oubli de pronostics</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">1 joker Points Voles <span class="valeur-or">automatiquement utilise</span> sur le dernier du classement.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">4.4 Regles</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Un seul joker par semaine, a activer AVANT la deadline, non annulable, perdu en fin de saison.</div>', unsafe_allow_html=True)
+
+    # =====================================================
+    # ARTICLE 5 : CLASSEMENT
+    # =====================================================
+    st.markdown('<div class="article-titre">Article 5 - Classement et Recompenses</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">5.1 Classement general</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Base sur le <span class="valeur-or">cumul des points</span>. Departage : scores exacts, Grand Chelems, confrontation directe.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">5.2 Classement hebdomadaire</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Publie apres chaque journee pour suivre les performances.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">5.3 Fin de saison</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Termine a l\'issue de la derniere journee de Ligue 1. Classement final fige.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">5.4 Podium</div>', unsafe_allow_html=True)
     st.markdown("""
-    <div class="article-box">
-        <div class="article-title">Article 4 - Les Jokers</div>
-
-        <div class="point-content" style="margin-bottom: 15px;">
-            Chaque participant dispose de <span class="highlight-gold">3 jokers Points Doubles</span>
-            et <span class="highlight-gold">2 jokers Points Voles</span> par saison.
-        </div>
-
-        <div class="point-title">4.1 Joker POINTS DOUBLES (x3 par saison)</div>
-        <div class="point-content">
-            Multiplie par 2 TOUS les points gagnes sur les 4 matchs de la semaine.
-            <ul class="point-list">
-                <li>Active avant la deadline des pronostics</li>
-                <li>Le bonus Grand Chelem est egalement double</li>
-            </ul>
-        </div>
-
-        <div class="point-title">4.2 Joker POINTS VOLES (x2 par saison)</div>
-        <div class="point-content">
-            Copie les pronostics d'un adversaire choisi.
-            <ul class="point-list">
-                <li>Choisissez un adversaire AVANT la deadline</li>
-                <li>Vos pronostics sont remplaces par les siens</li>
-                <li>Vous gagnez les memes points que lui cette semaine</li>
-                <li>L'adversaire n'est pas prevenu</li>
-            </ul>
-        </div>
-
-        <div class="point-title">4.3 Oubli de pronostics</div>
-        <div class="point-content">
-            Si un joueur oublie de faire ses pronostics, 1 joker Points Voles sera
-            <span class="highlight-gold">automatiquement utilise</span> sur le
-            <span class="highlight-gold">dernier du classement</span>.
-        </div>
-
-        <div class="point-title">4.4 Regles d'utilisation</div>
-        <div class="point-content">
-            <ul class="point-list">
-                <li>Un seul joker peut etre active par semaine</li>
-                <li>Le joker doit etre active AVANT la deadline</li>
-                <li>Une fois active, le joker ne peut pas etre annule</li>
-                <li>Les jokers non utilises sont perdus en fin de saison</li>
-            </ul>
-        </div>
+    <div class="point-texte" style="text-align: center;">
+        <span style="color: #FFD700; font-size: 1.2em;">🥇 1er - Champion</span> &nbsp;&nbsp;
+        <span style="color: #C0C0C0; font-size: 1.2em;">🥈 2eme</span> &nbsp;&nbsp;
+        <span style="color: #CD7F32; font-size: 1.2em;">🥉 3eme</span>
     </div>
     """, unsafe_allow_html=True)
 
-    # =====================================================
-    # ARTICLE 5 : CLASSEMENT ET RECOMPENSES
-    # =====================================================
-    st.markdown("""
-    <div class="article-box">
-        <div class="article-title">Article 5 - Classement et Recompenses</div>
-
-        <div class="point-title">5.1 Classement general</div>
-        <div class="point-content">
-            Le classement est etabli selon le <span class="highlight-gold">cumul des points</span>
-            gagnes depuis le debut de la saison. En cas d'egalite, les criteres de departage sont :
-            <ol class="point-list">
-                <li>Nombre de scores exacts trouves</li>
-                <li>Nombre de Grand Chelems realises</li>
-                <li>Confrontation directe (semaines en commun)</li>
-            </ol>
-        </div>
-
-        <div class="point-title">5.2 Classement hebdomadaire</div>
-        <div class="point-content">
-            Un classement de la semaine est publie apres chaque journee,
-            permettant de suivre les performances individuelles.
-        </div>
-
-        <div class="point-title">5.3 Fin de saison</div>
-        <div class="point-content">
-            La saison se termine a l'issue de la derniere journee de Ligue 1.
-            Le classement final est alors fige.
-        </div>
-
-        <div class="point-title">5.4 Podium</div>
-        <div class="point-content" style="text-align: center; font-size: 1.2em;">
-            🥇 <span style="color: #FFD700;">1er - Champion</span> &nbsp;&nbsp;
-            🥈 <span style="color: #C0C0C0;">2eme - Vice-Champion</span> &nbsp;&nbsp;
-            🥉 <span style="color: #CD7F32;">3eme - Bronze</span>
-        </div>
-
-        <div class="point-title">5.5 Fair-play</div>
-        <div class="point-content">
-            Tout comportement antisportif (multi-comptes, collusion, triche) entraine la
-            <span class="highlight-red">disqualification immediate</span> et definitive du participant.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">5.5 Fair-play</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Triche = <span class="valeur-rouge">disqualification immediate</span> et definitive.</div>', unsafe_allow_html=True)
 
     # Footer
     st.markdown("---")
     st.caption("Reglement officiel Elite Pronos - Saison 2025-2026")
-    st.markdown("**Que le meilleur pronostiqueur gagne !**")

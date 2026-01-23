@@ -442,16 +442,9 @@ else:
                 else:
                     message_bot = "Bienvenue dans l'arene des pronostiqueurs ! Que les cotes soient en votre faveur cette semaine."
 
-                # Afficher Kingo avec mascotte
-                kingo_col1, kingo_col2 = st.columns([1, 4])
+                # Afficher Kingo avec mascotte (message a gauche, Kingo a droite plus grand)
+                kingo_col1, kingo_col2 = st.columns([4, 1])
                 with kingo_col1:
-                    kingo_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
-                    if os.path.exists(kingo_path):
-                        from PIL import Image
-                        kingo_img = Image.open(kingo_path)
-                        st.image(kingo_img, width=80)
-
-                with kingo_col2:
                     st.markdown(f"""
                     <div style="
                         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -468,6 +461,13 @@ else:
                         <div style="color: #FFFFFF; font-size: 0.95em;">{message_bot}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                with kingo_col2:
+                    kingo_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
+                    if os.path.exists(kingo_path):
+                        from PIL import Image
+                        kingo_img = Image.open(kingo_path)
+                        st.image(kingo_img, width=120)
 
                 if nb_matchs_journee == 0:
                     # Aucun match - verifier si c'est juillet (attente nouveau calendrier)
@@ -574,13 +574,19 @@ else:
                             for match_id, home, away, score_h, score_a, mise in mes_pronos:
                                 st.markdown(f"""
                                 <div style="
-                                    display: flex; justify-content: space-between; align-items: center;
-                                    padding: 8px; margin: 5px 0; background: #002040; border-radius: 6px;
+                                    display: grid;
+                                    grid-template-columns: 1fr 80px 1fr 60px;
+                                    align-items: center;
+                                    padding: 10px;
+                                    margin: 5px 0;
+                                    background: #002040;
+                                    border-radius: 6px;
+                                    gap: 10px;
                                 ">
-                                    <span style="color: #FFFFFF; flex: 1; font-size: 0.9em;">{home}</span>
-                                    <span style="color: #4488FF; font-weight: bold;">{score_h} - {score_a}</span>
-                                    <span style="color: #FFFFFF; flex: 1; text-align: right; font-size: 0.9em;">{away}</span>
-                                    <span style="color: #00FF00; font-weight: bold; margin-left: 10px;">{mise}pts</span>
+                                    <span style="color: #FFFFFF; font-size: 0.85em; text-align: right;">{home}</span>
+                                    <span style="color: #4488FF; font-weight: bold; font-size: 1.1em; text-align: center;">{score_h} - {score_a}</span>
+                                    <span style="color: #FFFFFF; font-size: 0.85em; text-align: left;">{away}</span>
+                                    <span style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pts</span>
                                 </div>
                                 """, unsafe_allow_html=True)
 

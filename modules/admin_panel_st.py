@@ -267,43 +267,41 @@ def afficher_panel_admin():
                 else:
                     cols[4].write("Joueur")
 
-                # Actions avec style bloc
+                # Actions avec style bloc (comme ID)
                 with cols[5]:
-                    st.markdown("""
-                    <div style="background: #002040; border: 1px solid #D4AF37; border-radius: 5px;
-                         padding: 3px; display: flex; justify-content: center; gap: 5px;">
-                    """, unsafe_allow_html=True)
-
-                    action_cols = st.columns(3)
+                    action_cols = st.columns(4)
 
                     # Activer/Suspendre
-                    if statut != "Actif":
-                        if action_cols[0].button("✓", key=f"act_{user_id}", help="Activer"):
-                            activer_compte(user_id)
-                            st.rerun()
-                    else:
-                        if action_cols[0].button("⏸", key=f"pause_{user_id}", help="Suspendre"):
-                            suspendre_compte(user_id)
-                            st.rerun()
-
-                    # Bouton Promouvoir/Revoquer Admin (sauf pour super admin)
-                    if not is_super_admin(pseudo):
-                        if user_is_admin:
-                            if action_cols[1].button("👤", key=f"revoke_{user_id}", help="Revoquer Admin"):
-                                if revoquer_admin(user_id):
-                                    st.success(f"{pseudo} n'est plus admin")
-                                    st.rerun()
+                    with action_cols[0]:
+                        if statut != "Actif":
+                            if st.button("✓", key=f"act_{user_id}", help="Activer", use_container_width=True):
+                                activer_compte(user_id)
+                                st.rerun()
                         else:
-                            if action_cols[1].button("👑", key=f"promote_{user_id}", help="Promouvoir Admin"):
-                                promouvoir_admin(user_id)
-                                st.success(f"{pseudo} est maintenant admin!")
+                            if st.button("⏸", key=f"pause_{user_id}", help="Suspendre", use_container_width=True):
+                                suspendre_compte(user_id)
                                 st.rerun()
 
-                    if action_cols[2].button("🗑", key=f"del_{user_id}", help="Supprimer"):
-                        supprimer_compte(user_id)
-                        st.rerun()
+                    # Bouton Admin toggle (sauf pour super admin)
+                    with action_cols[1]:
+                        if not is_super_admin(pseudo):
+                            if user_is_admin:
+                                if st.button("👤", key=f"revoke_{user_id}", help="Retirer Admin", use_container_width=True):
+                                    if revoquer_admin(user_id):
+                                        st.rerun()
+                            else:
+                                if st.button("👑", key=f"promote_{user_id}", help="Rendre Admin", use_container_width=True):
+                                    promouvoir_admin(user_id)
+                                    st.rerun()
+                        else:
+                            st.markdown('<div style="text-align:center; color:#FFD700;">👑</div>', unsafe_allow_html=True)
 
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    # Supprimer (sauf super admin)
+                    with action_cols[2]:
+                        if not is_super_admin(pseudo):
+                            if st.button("🗑", key=f"del_{user_id}", help="Supprimer", use_container_width=True):
+                                supprimer_compte(user_id)
+                                st.rerun()
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:

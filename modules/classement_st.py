@@ -231,19 +231,19 @@ def afficher_classement(user):
     """, unsafe_allow_html=True)
 
     # Header avec bouton retour et mascotte
-    col_back, col_mascot, col_title = st.columns([0.8, 0.8, 4.5])
+    col_back, col_title, col_mascot = st.columns([0.6, 4.5, 0.8])
     with col_back:
-        if st.button("← Retour"):
+        if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
             st.rerun()
+    with col_title:
+        st.markdown("## 🏆 Classement Elite")
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo classements.png")
         if os.path.exists(mascot_path):
             from PIL import Image
             mascot_img = Image.open(mascot_path)
-            st.image(mascot_img, width=60)
-    with col_title:
-        st.markdown("## 🏆 Classement Elite")
+            st.image(mascot_img, width=70)
 
     st.markdown("---")
 

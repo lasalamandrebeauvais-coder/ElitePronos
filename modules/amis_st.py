@@ -126,9 +126,9 @@ def afficher_amis(user):
     """Affiche le module de gestion des amis/rivaux"""
 
     # Header avec bouton retour
-    col_back, col_title = st.columns([1, 5])
+    col_back, col_title = st.columns([0.6, 5])
     with col_back:
-        if st.button("← Retour"):
+        if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
             st.rerun()
 
