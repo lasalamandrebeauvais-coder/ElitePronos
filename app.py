@@ -470,27 +470,46 @@ else:
                     """, unsafe_allow_html=True)
 
                 if nb_matchs_journee == 0:
-                    # Aucun match pour cette journee - afficher message d'attente
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #001529 0%, #002040 100%);
-                        border: 2px solid #D4AF37;
-                        border-radius: 15px;
-                        padding: 30px;
-                        text-align: center;
-                        margin: 20px 0;
-                    ">
-                        <div style="font-size: 3em; margin-bottom: 15px;">⏳</div>
-                        <h3 style="color: #D4AF37; margin: 0;">En attente du calendrier {saison_label}</h3>
-                        <p style="color: #FFFFFF; margin-top: 15px;">
-                            Le calendrier officiel de la Ligue 1 sera bientot disponible.<br>
-                            <strong style="color: #FFD700;">Debut prevu : 23 aout 2026</strong>
-                        </p>
-                        <p style="color: #D4AF37; font-size: 0.9em; margin-top: 20px;">
-                            Les inscriptions ouvriront 30 jours avant le coup d'envoi !
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Aucun match - verifier si c'est juillet (attente nouveau calendrier)
+                    from datetime import datetime
+                    mois_actuel = datetime.now().month
+
+                    if mois_actuel == 7:
+                        # Juillet = attente du calendrier de la PROCHAINE saison
+                        prochaine_saison = saison_id + 1
+                        prochain_label = f"{prochaine_saison}-{prochaine_saison + 1}"
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                            border: 2px solid #D4AF37;
+                            border-radius: 15px;
+                            padding: 30px;
+                            text-align: center;
+                            margin: 20px 0;
+                        ">
+                            <div style="font-size: 3em; margin-bottom: 15px;">⏳</div>
+                            <h3 style="color: #D4AF37; margin: 0;">En attente du calendrier {prochain_label}</h3>
+                            <p style="color: #FFFFFF; margin-top: 15px;">
+                                Le calendrier officiel de la Ligue 1 sera bientot disponible.<br>
+                                <strong style="color: #FFD700;">Debut prevu : mi-aout {prochaine_saison}</strong>
+                            </p>
+                            <p style="color: #D4AF37; font-size: 0.9em; margin-top: 20px;">
+                                Les inscriptions ouvriront 30 jours avant le coup d'envoi !
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Pas juillet = essayer de charger les matchs automatiquement
+                        try:
+                            from modules.bot_sourcing import sourcing_journee
+                            nb_importes = sourcing_journee(force_reimport=False)
+                            if nb_importes > 0:
+                                st.rerun()  # Recharger la page avec les nouveaux matchs
+                            else:
+                                st.info(f"📅 Chargement des matchs J{journee_courante} en cours...")
+                                st.button("🔄 Actualiser", on_click=lambda: st.rerun())
+                        except Exception as e:
+                            st.warning(f"⚠️ Impossible de charger les matchs: {e}")
                 else:
                     # === TUNNEL DE TRANSITION TEMPOREL ===
                     from modules.database_manager import get_countdown_pronostics_journee, get_date_premiere_journee
