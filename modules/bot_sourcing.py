@@ -101,6 +101,91 @@ def generer_cotes_equilibrees():
     return cote_h, cote_n, cote_a
 
 
+def valider_et_corriger_cotes():
+    """
+    Verifie tous les matchs actifs et corrige ceux avec ecart > MAX_ECART_COTES
+    Retourne le nombre de matchs corriges
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Trouver les matchs avec ecart trop grand
+    cursor.execute('''
+        SELECT id, equipe_home, equipe_away, cote_home, cote_away
+        FROM matches
+        WHERE is_active = 1 AND ABS(cote_home - cote_away) > ?
+    ''', (MAX_ECART_COTES,))
+
+    matchs_invalides = cursor.fetchall()
+    nb_corriges = 0
+
+    for match in matchs_invalides:
+        match_id, home, away, cote_h, cote_a = match
+
+        # Generer de nouvelles cotes equilibrees
+        nouvelle_cote_h, nouvelle_cote_n, nouvelle_cote_a = generer_cotes_equilibrees()
+
+        cursor.execute('''
+            UPDATE matches
+            SET cote_home = ?, cote_draw = ?, cote_away = ?
+            WHERE id = ?
+        ''', (nouvelle_cote_h, nouvelle_cote_n, nouvelle_cote_a, match_id))
+
+        print(f"[CORRIGE] {home} vs {away}: {cote_h}/{cote_a} -> {nouvelle_cote_h}/{nouvelle_cote_a}")
+        nb_corriges += 1
+
+    conn.commit()
+    conn.close()
+
+    return nb_corriges
+
+
+def selectionner_4_matchs_valides():
+    """
+    S'assure qu'il y a exactement 4 matchs actifs avec ecart <= MAX_ECART_COTES
+    Desactive les matchs en surplus ou avec ecart invalide
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # D'abord corriger les cotes invalides
+    valider_et_corriger_cotes()
+
+    # Recuperer tous les matchs actifs tries par ecart
+    cursor.execute('''
+        SELECT id, equipe_home, equipe_away, cote_home, cote_away,
+               ABS(cote_home - cote_away) as ecart
+        FROM matches
+        WHERE is_active = 1
+        ORDER BY ecart ASC
+    ''')
+
+    matchs = cursor.fetchall()
+
+    # Filtrer les matchs valides (ecart <= 2.5)
+    matchs_valides = [m for m in matchs if m[5] <= MAX_ECART_COTES]
+
+    # Garder seulement les 4 premiers
+    matchs_gardes = matchs_valides[:4]
+    ids_gardes = [m[0] for m in matchs_gardes]
+
+    # Desactiver tous les autres
+    if ids_gardes:
+        cursor.execute(f'''
+            UPDATE matches SET is_active = 0
+            WHERE is_active = 1 AND id NOT IN ({','.join(map(str, ids_gardes))})
+        ''')
+        nb_desactives = cursor.rowcount
+    else:
+        nb_desactives = 0
+
+    conn.commit()
+    conn.close()
+
+    print(f"[INFO] {len(matchs_gardes)} matchs gardes, {nb_desactives} desactives")
+    return len(matchs_gardes)
+
+
 def get_saison_actuelle():
     """Retourne l'ID de la saison actuelle (ex: 2024 pour 2024-2025)"""
     now = datetime.now()
