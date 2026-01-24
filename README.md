@@ -6,7 +6,7 @@ Plateforme de pronostics football entre amis, developpee avec Streamlit.
 
 - **Pronostics hebdomadaires** : 4 matchs par semaine, 100 points de budget
 - **Systeme de Jokers** : Points Doubles (x2) et Points Voles
-- **Grand Chelem** : Bonus +50 pts si 4/4 pronostics corrects
+- **Grand Chelem** : Bonus +40 pts si 4/4 pronostics corrects
 - **Classement en temps reel** : General, Hebdomadaire, Records
 - **Gestion pluriannuelle** : Support de plusieurs saisons
 

@@ -204,6 +204,23 @@ def afficher_panel_admin():
     with tab2:
         st.markdown("### Liste complete des utilisateurs")
 
+        # Style CSS pour les boutons d'action - fond bleu, texte blanc
+        st.markdown("""
+        <style>
+            /* Boutons actions admin - fond bleu marine, texte blanc */
+            div[data-testid="stHorizontalBlock"] button {
+                background-color: #001529 !important;
+                color: #FFFFFF !important;
+                border: 1px solid #D4AF37 !important;
+                border-radius: 5px !important;
+            }
+            div[data-testid="stHorizontalBlock"] button:hover {
+                background-color: #002855 !important;
+                border-color: #FFD700 !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
         # Afficher le nombre d'admins
         nb_admins = get_nombre_admins()
         st.info(f"**{nb_admins} administrateur(s)** dans le systeme")
@@ -216,92 +233,104 @@ def afficher_panel_admin():
             # Afficher sous forme de tableau
             st.markdown(f"**{len(all_users)} utilisateur(s) au total**")
 
-            # En-tete du tableau
-            header_cols = st.columns([1, 2, 2, 1.5, 1.5, 2])
-            header_cols[0].markdown("**ID**")
-            header_cols[1].markdown("**Pseudo**")
-            header_cols[2].markdown("**Email**")
-            header_cols[3].markdown("**Statut**")
-            header_cols[4].markdown("**Role**")
-            header_cols[5].markdown("**Actions**")
-
-            st.markdown("---")
+            # En-tete du tableau avec style
+            st.markdown("""
+            <div style="
+                display: grid;
+                grid-template-columns: 0.5fr 1.5fr 2fr 1fr 1fr 1.5fr;
+                gap: 10px;
+                padding: 10px;
+                background: #D4AF37;
+                border-radius: 8px 8px 0 0;
+                font-weight: bold;
+                color: #001529;
+                font-size: 0.85em;
+            ">
+                <span style="text-align: center;">ID</span>
+                <span>Pseudo</span>
+                <span>Email</span>
+                <span style="text-align: center;">Statut</span>
+                <span style="text-align: center;">Role</span>
+                <span style="text-align: center;">Actions</span>
+            </div>
+            """, unsafe_allow_html=True)
 
             for user in all_users:
                 user_id, pseudo, email, prenom, statut, user_is_admin = user
 
-                cols = st.columns([1, 2, 2, 1.5, 1.5, 2])
+                # Determiner les couleurs
+                if user_is_admin:
+                    pseudo_display = f"{pseudo} 👑"
+                    pseudo_color = "#FFD700"
+                else:
+                    pseudo_display = pseudo
+                    pseudo_color = "#FFFFFF"
 
-                # ID avec style bloc
-                cols[0].markdown(f"""
-                <div style="background: #002040; border: 1px solid #D4AF37; border-radius: 5px;
-                     padding: 5px 10px; text-align: center; color: #D4AF37; font-weight: bold;">
-                    {user_id}
+                if statut == "Actif":
+                    statut_color = "#00FF00"
+                elif statut == "en_attente":
+                    statut_color = "#FFA500"
+                else:
+                    statut_color = "#FF4444"
+
+                role_text = "SUPER ADMIN" if is_super_admin(pseudo) else ("Admin" if user_is_admin else "Joueur")
+                role_color = "#FFD700" if user_is_admin else "#AAAAAA"
+
+                # Ligne du tableau
+                st.markdown(f"""
+                <div style="
+                    display: grid;
+                    grid-template-columns: 0.5fr 1.5fr 2fr 1fr 1fr 1.5fr;
+                    gap: 10px;
+                    padding: 8px 10px;
+                    background: #001529;
+                    border-bottom: 1px solid #333;
+                    font-size: 0.8em;
+                    align-items: center;
+                ">
+                    <span style="color: #D4AF37; text-align: center; font-weight: bold;">{user_id}</span>
+                    <span style="color: {pseudo_color}; font-weight: bold;">{pseudo_display}</span>
+                    <span style="color: #AAAAAA;">{email or 'N/A'}</span>
+                    <span style="color: {statut_color}; text-align: center;">{statut or 'N/A'}</span>
+                    <span style="color: {role_color}; text-align: center;">{role_text}</span>
+                    <span></span>
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Pseudo avec badge admin
-                if user_is_admin:
-                    cols[1].markdown(f"**{pseudo}** 👑")
-                else:
-                    cols[1].write(pseudo)
+                # Boutons d'action sur une ligne separee
+                action_cols = st.columns([1, 1, 1, 1, 2])
 
-                cols[2].write(email or "N/A")
-
-                # Badge de statut avec couleur
-                if statut == "Actif":
-                    cols[3].success(statut)
-                elif statut == "en_attente":
-                    cols[3].warning("Attente")
-                elif statut == "En pause":
-                    cols[3].error(statut)
-                else:
-                    cols[3].info(statut or "N/A")
-
-                # Role admin
-                if user_is_admin:
-                    if is_super_admin(pseudo):
-                        cols[4].markdown("**SUPER ADMIN**")
+                # Activer/Suspendre
+                with action_cols[0]:
+                    if statut != "Actif":
+                        if st.button("✓ Activer", key=f"act_{user_id}", use_container_width=True):
+                            activer_compte(user_id)
+                            st.rerun()
                     else:
-                        cols[4].markdown("*Admin*")
-                else:
-                    cols[4].write("Joueur")
+                        if st.button("⏸ Pause", key=f"pause_{user_id}", use_container_width=True):
+                            suspendre_compte(user_id)
+                            st.rerun()
 
-                # Actions avec style bloc (comme ID)
-                with cols[5]:
-                    action_cols = st.columns(4)
-
-                    # Activer/Suspendre
-                    with action_cols[0]:
-                        if statut != "Actif":
-                            if st.button("✓", key=f"act_{user_id}", help="Activer", use_container_width=True):
-                                activer_compte(user_id)
-                                st.rerun()
-                        else:
-                            if st.button("⏸", key=f"pause_{user_id}", help="Suspendre", use_container_width=True):
-                                suspendre_compte(user_id)
-                                st.rerun()
-
-                    # Bouton Admin toggle (sauf pour super admin)
-                    with action_cols[1]:
-                        if not is_super_admin(pseudo):
-                            if user_is_admin:
-                                if st.button("👤", key=f"revoke_{user_id}", help="Retirer Admin", use_container_width=True):
-                                    if revoquer_admin(user_id):
-                                        st.rerun()
-                            else:
-                                if st.button("👑", key=f"promote_{user_id}", help="Rendre Admin", use_container_width=True):
-                                    promouvoir_admin(user_id)
+                # Bouton Admin toggle (sauf pour super admin)
+                with action_cols[1]:
+                    if not is_super_admin(pseudo):
+                        if user_is_admin:
+                            if st.button("👤 Retirer", key=f"revoke_{user_id}", use_container_width=True):
+                                if revoquer_admin(user_id):
                                     st.rerun()
                         else:
-                            st.markdown('<div style="text-align:center; color:#FFD700;">👑</div>', unsafe_allow_html=True)
-
-                    # Supprimer (sauf super admin)
-                    with action_cols[2]:
-                        if not is_super_admin(pseudo):
-                            if st.button("🗑", key=f"del_{user_id}", help="Supprimer", use_container_width=True):
-                                supprimer_compte(user_id)
+                            if st.button("👑 Admin", key=f"promote_{user_id}", use_container_width=True):
+                                promouvoir_admin(user_id)
                                 st.rerun()
+
+                # Supprimer (sauf super admin)
+                with action_cols[2]:
+                    if not is_super_admin(pseudo):
+                        if st.button("🗑 Suppr", key=f"del_{user_id}", use_container_width=True):
+                            supprimer_compte(user_id)
+                            st.rerun()
+
+                st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:

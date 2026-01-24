@@ -235,13 +235,7 @@ def generer_synthese_html(stats, saison_id, semaine_id):
         </div>
         """
 
-    # Jokers utilises
-    if stats['jokers']:
-        html += '<div style="color: #FFD700; font-size: 0.85em; margin-top: 10px;">'
-        for j in stats['jokers']:
-            icon = "⚡" if j['type'] == "DOUBLE" else "🎯"
-            html += f"{icon} {j['pseudo']} "
-        html += '</div>'
+    # Jokers affiches separement dans app.py (eviter doublon)
 
     return html
 

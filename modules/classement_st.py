@@ -1,6 +1,6 @@
 """
 Module Classement Streamlit pour Elite Pronos
-Classements avec 4 onglets : Général, Ma Semaine, Records, Assiduité
+Classements avec 3 onglets : General, Ma Semaine, Records
 """
 import streamlit as st
 import sqlite3
@@ -13,211 +13,181 @@ AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets'
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
-def get_avatar_path(pseudo):
-    """Retourne le chemin de l'avatar du joueur"""
-    avatar_file = os.path.join(AVATARS_PATH, f"{pseudo}.png")
-    if os.path.exists(avatar_file):
-        return avatar_file
-    return None
-
-
-def get_classement_general():
-    """Récupère le classement général (cumul total des points)"""
+def get_classement_general_complet():
+    """
+    Recupere le classement general avec toutes les stats:
+    - Place, Pseudo, Points, Bons pronos, Scores exacts, Grand Chelem
+    - Jokers restants (Doubles, Voles), Meilleure place
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     try:
-        # La table pronostics n'a pas de colonne utilisateur_id
-        # On utilise la table predictions si elle existe, sinon fallback
+        # Recuperer les stats de base pour chaque joueur
         cursor.execute("""
-            SELECT u.id, u.pseudo, u.prenom,
-                   COALESCE(SUM(p.points_gagnes), 0) as total_points
+            SELECT
+                u.id,
+                u.pseudo,
+                COALESCE(SUM(p.points_gagnes), 0) as total_points,
+                COUNT(CASE WHEN p.points_gagnes > 0 THEN 1 END) as bons_pronos,
+                COUNT(CASE WHEN p.is_score_exact = 1 THEN 1 END) as scores_exacts
             FROM utilisateurs u
             LEFT JOIN predictions p ON u.id = p.user_id
             WHERE u.statut = 'Actif'
-            GROUP BY u.id, u.pseudo, u.prenom
+            GROUP BY u.id, u.pseudo
             ORDER BY total_points DESC
         """)
-        classement = cursor.fetchall()
-    except Exception:
-        # Fallback: juste les utilisateurs avec 0 points
-        cursor.execute("""
-            SELECT id, pseudo, prenom, 0 as total_points
-            FROM utilisateurs
-            WHERE statut = 'Actif'
-            ORDER BY pseudo
-        """)
-        classement = cursor.fetchall()
-    finally:
+        joueurs_base = cursor.fetchall()
+
+        classement = []
+        for idx, (user_id, pseudo, points, bons_pronos, scores_exacts) in enumerate(joueurs_base):
+            # Compter les Grand Chelem (4/4 bons pronos sur une semaine)
+            cursor.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT m.semaine_id
+                    FROM predictions p
+                    JOIN matches m ON p.match_id = m.id
+                    WHERE p.user_id = ? AND p.points_gagnes > 0
+                    GROUP BY m.semaine_id
+                    HAVING COUNT(*) >= 4
+                )
+            """, (user_id,))
+            nb_grand_chelem = cursor.fetchone()[0]
+
+            # Jokers restants - Points Doubles
+            cursor.execute("""
+                SELECT COALESCE(jokers_double, 2) FROM stock_jokers WHERE utilisateur_id = ?
+            """, (user_id,))
+            row = cursor.fetchone()
+            jokers_double = row[0] if row else 2
+
+            # Jokers restants - Points Voles
+            cursor.execute("""
+                SELECT COALESCE(jokers_vol, 2) FROM stock_jokers WHERE utilisateur_id = ?
+            """, (user_id,))
+            row = cursor.fetchone()
+            jokers_vol = row[0] if row else 2
+
+            # Meilleure place (simulation basee sur le rang actuel)
+            meilleure_place = idx + 1  # Pour l'instant = rang actuel
+
+            classement.append({
+                'place': idx + 1,
+                'user_id': user_id,
+                'pseudo': pseudo,
+                'points': points,
+                'bons_pronos': bons_pronos,
+                'scores_exacts': scores_exacts,
+                'grand_chelem': nb_grand_chelem,
+                'jokers_double': jokers_double,
+                'jokers_vol': jokers_vol,
+                'meilleure_place': meilleure_place
+            })
+
         conn.close()
-    return classement
+        return classement
+
+    except Exception as e:
+        conn.close()
+        return []
 
 
-def get_classement_semaine():
-    """Récupère le classement de la semaine en cours"""
+def get_historique_joueur(user_id):
+    """Recupere l'historique des pronostics par journee pour un joueur"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    semaine_actuelle = datetime.now().isocalendar()[1]
 
     try:
-        cursor.execute("""
-            SELECT u.id, u.pseudo, u.prenom,
-                   COALESCE(SUM(p.points_gagnes), 0) as points_semaine
-            FROM utilisateurs u
-            LEFT JOIN predictions p ON u.id = p.user_id
-            LEFT JOIN matches m ON p.match_id = m.id AND m.semaine_id = ?
-            WHERE u.statut = 'Actif'
-            GROUP BY u.id, u.pseudo, u.prenom
-            ORDER BY points_semaine DESC
-        """, (semaine_actuelle,))
-        classement = cursor.fetchall()
-    except Exception:
-        cursor.execute("""
-            SELECT id, pseudo, prenom, 0 as points_semaine
-            FROM utilisateurs
-            WHERE statut = 'Actif'
-            ORDER BY pseudo
-        """)
-        classement = cursor.fetchall()
-    finally:
-        conn.close()
-    return classement
+        # Recuperer la saison active
+        cursor.execute("SELECT id FROM saisons WHERE is_active = 1")
+        saison_row = cursor.fetchone()
+        saison_id = saison_row[0] if saison_row else 2025
 
-
-def get_classement_records():
-    """Récupère le classement des meilleurs scores en une semaine"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    try:
+        # Recuperer toutes les journees avec pronostics
         cursor.execute("""
-            SELECT u.id, u.pseudo, u.prenom,
-                   COALESCE(MAX(week_scores.week_total), 0) as record_points
-            FROM utilisateurs u
-            LEFT JOIN (
-                SELECT p.user_id, m.semaine_id, SUM(p.points_gagnes) as week_total
+            SELECT DISTINCT m.semaine_id
+            FROM predictions p
+            JOIN matches m ON p.match_id = m.id
+            WHERE p.user_id = ? AND m.saison_id = ?
+            ORDER BY m.semaine_id DESC
+        """, (user_id, saison_id))
+        journees = [row[0] for row in cursor.fetchall()]
+
+        historique = []
+        for journee in journees:
+            # Recuperer les pronostics de cette journee
+            cursor.execute("""
+                SELECT m.equipe_home, m.equipe_away,
+                       p.score_prono_home, p.score_prono_away,
+                       p.mise_points, p.points_gagnes,
+                       m.score_final_home, m.score_final_away,
+                       p.is_score_exact
                 FROM predictions p
                 JOIN matches m ON p.match_id = m.id
-                GROUP BY p.user_id, m.semaine_id
-            ) week_scores ON u.id = week_scores.user_id
-            WHERE u.statut = 'Actif'
-            GROUP BY u.id, u.pseudo, u.prenom
-            ORDER BY record_points DESC
-        """)
-        classement = cursor.fetchall()
-    except Exception:
-        cursor.execute("""
-            SELECT id, pseudo, prenom, 0 as record_points
-            FROM utilisateurs
-            WHERE statut = 'Actif'
-            ORDER BY pseudo
-        """)
-        classement = cursor.fetchall()
-    finally:
+                WHERE p.user_id = ? AND m.semaine_id = ? AND m.saison_id = ?
+                ORDER BY m.date_match
+            """, (user_id, journee, saison_id))
+            pronos = cursor.fetchall()
+
+            # Calculer le total de la journee
+            total_journee = sum(p[5] or 0 for p in pronos)
+
+            historique.append({
+                'journee': journee,
+                'pronos': pronos,
+                'total': total_journee
+            })
+
         conn.close()
-    return classement
+        return historique
+
+    except Exception as e:
+        conn.close()
+        return []
 
 
-def get_classement_assiduite():
-    """Récupère le classement par nombre de pronostics validés"""
+def get_records_joueur(user_id):
+    """Recupere les records d'un joueur"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     try:
+        # Nombre de scores exacts
         cursor.execute("""
-            SELECT u.id, u.pseudo, u.prenom,
-                   COUNT(p.id) as nb_pronos
-            FROM utilisateurs u
-            LEFT JOIN predictions p ON u.id = p.user_id
-            WHERE u.statut = 'Actif'
-            GROUP BY u.id, u.pseudo, u.prenom
-            ORDER BY nb_pronos DESC
-        """)
-        classement = cursor.fetchall()
-    except Exception:
+            SELECT COUNT(*) FROM predictions
+            WHERE user_id = ? AND is_score_exact = 1
+        """, (user_id,))
+        nb_scores_exacts = cursor.fetchone()[0]
+
+        # Nombre de bons pronostics (1N2 correct)
         cursor.execute("""
-            SELECT id, pseudo, prenom, 0 as nb_pronos
-            FROM utilisateurs
-            WHERE statut = 'Actif'
-            ORDER BY pseudo
-        """)
-        classement = cursor.fetchall()
-    finally:
+            SELECT COUNT(*) FROM predictions
+            WHERE user_id = ? AND points_gagnes > 0
+        """, (user_id,))
+        nb_bons_pronos = cursor.fetchone()[0]
+
+        # Meilleur score en une journee
+        cursor.execute("""
+            SELECT COALESCE(MAX(total), 0) FROM (
+                SELECT SUM(p.points_gagnes) as total
+                FROM predictions p
+                JOIN matches m ON p.match_id = m.id
+                WHERE p.user_id = ?
+                GROUP BY m.semaine_id
+            )
+        """, (user_id,))
+        meilleur_journee = cursor.fetchone()[0] or 0
+
         conn.close()
-    return classement
+        return {
+            'scores_exacts': nb_scores_exacts,
+            'bons_pronos': nb_bons_pronos,
+            'meilleur_journee': meilleur_journee
+        }
 
-
-def get_evolution(user_id):
-    """Calcule l'évolution du rang (Simulation pour le moment)"""
-    import random
-    return random.choice(['up', 'down', 'stable'])
-
-
-def afficher_podium(classement, stat_label="Points"):
-    """Affiche le podium des 3 premiers"""
-    if not classement:
-        st.info("Aucun joueur dans le classement.")
-        return
-
-    st.markdown("""
-    <style>
-        .podium-place { text-align: center; padding: 15px; border-radius: 15px; min-width: 120px; }
-        .podium-1 { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #0a0a1a; }
-        .podium-2 { background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%); color: #0a0a1a; }
-        .podium-3 { background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%); color: white; }
-        .podium-avatar { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold; background: rgba(255,255,255,0.3); }
-        .podium-pseudo { font-weight: bold; font-size: 1em; margin-bottom: 5px; }
-        .podium-score { font-size: 1.2em; font-weight: bold; }
-        .podium-rank { font-size: 2em; margin-bottom: 5px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    cols = st.columns(3)
-    medals = ["🥇", "🥈", "🥉"]
-    styles = ["podium-1", "podium-2", "podium-3"]
-    positions = [1, 0, 2]  # Ordre: 2ème, 1er, 3ème
-
-    for col_idx, pos in enumerate(positions):
-        if len(classement) > pos:
-            user = classement[pos]
-            pseudo = user[1] if user[1] else "N/A"
-            score = user[3] if len(user) > 3 else 0
-            initial = pseudo[0].upper() if pseudo else "?"
-
-            with cols[col_idx]:
-                st.markdown(f"""
-                <div class="podium-place {styles[pos]}">
-                    <div class="podium-rank">{medals[pos]}</div>
-                    <div class="podium-avatar">{initial}</div>
-                    <div class="podium-pseudo">{pseudo}</div>
-                    <div class="podium-score">{score} {stat_label}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-
-def afficher_tableau_classement(classement, current_user_id, stat_label="Points"):
-    """Affiche le tableau complet du classement"""
-    if not classement:
-        return
-
-    st.markdown("---")
-
-    for idx, user in enumerate(classement):
-        user_id = user[0]
-        pseudo = user[1] if user[1] else "N/A"
-        score = user[3] if len(user) > 3 else 0
-        is_current = (user_id == current_user_id)
-
-        row_style = "border: 2px solid #FFD700; box-shadow: 0 0 10px rgba(255,215,0,0.3);" if is_current else ""
-
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; padding: 12px 15px; margin: 5px 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 10px; {row_style}">
-            <div style="width: 50px; font-weight: bold; color: #FFD700; font-size: 1.1em;">#{idx+1}</div>
-            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #FFD700, #FFA500); display: flex; align-items: center; justify-content: center; color: #0a0a1a; font-weight: bold; margin-right: 15px;">{pseudo[0].upper()}</div>
-            <div style="flex: 1; font-weight: bold; color: white;">{pseudo}</div>
-            <div style="font-weight: bold; color: #FFD700; font-size: 1.1em;">{score} {stat_label}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    except Exception as e:
+        conn.close()
+        return {'scores_exacts': 0, 'bons_pronos': 0, 'meilleur_journee': 0}
 
 
 def afficher_classement(user):
@@ -227,13 +197,23 @@ def afficher_classement(user):
     st.markdown("""
     <style>
         h1, h2, h3 { color: #FFD700 !important; }
+        .stButton > button { color: #FFD700 !important; border-color: #FFD700 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # Header avec bouton retour et mascotte
+    # Header avec bouton retour JAUNE et mascotte
     col_back, col_title, col_mascot = st.columns([0.6, 4.5, 0.8])
     with col_back:
-        if st.button("◀", help="Retour", use_container_width=True):
+        st.markdown("""
+        <style>
+            div[data-testid="column"]:first-child button {
+                color: #FFD700 !important;
+                border-color: #FFD700 !important;
+                background-color: transparent !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        if st.button("◀", help="Retour", use_container_width=True, key="btn_retour_classement"):
             st.session_state.dashboard_section = None
             st.rerun()
     with col_title:
@@ -249,41 +229,207 @@ def afficher_classement(user):
 
     current_user_id = user['id']
 
-    # Onglets
-    tab1, tab2, tab3, tab4 = st.tabs(["🥇 Général", "📅 Ma Semaine", "🔥 Records", "📈 Assiduité"])
+    # Onglets (3 onglets - sans Assiduite)
+    tab1, tab2, tab3 = st.tabs(["🥇 General", "📅 Ma Semaine", "🔥 Records"])
 
+    # === ONGLET GENERAL ===
     with tab1:
-        st.markdown("### Classement Général")
+        st.markdown("### Classement General")
         st.caption("Cumul total des points de la saison")
-        data = get_classement_general()
-        afficher_podium(data, "pts")
-        afficher_tableau_classement(data, current_user_id, "pts")
 
+        classement = get_classement_general_complet()
+
+        if classement:
+            # Header du tableau compact
+            st.markdown("""
+            <div style="
+                display: grid;
+                grid-template-columns: 0.4fr 1.2fr 0.6fr 0.5fr 0.5fr 0.4fr 0.4fr 0.4fr 0.5fr;
+                gap: 3px;
+                padding: 8px 5px;
+                background: #D4AF37;
+                border-radius: 8px 8px 0 0;
+                font-size: 0.65em;
+                font-weight: bold;
+                color: #001529;
+                text-align: center;
+            ">
+                <span>#</span>
+                <span style="text-align: left;">Pseudo</span>
+                <span>Points</span>
+                <span>Pronos</span>
+                <span>Scores</span>
+                <span>GC</span>
+                <span>J.D</span>
+                <span>J.V</span>
+                <span>Best</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Lignes du tableau
+            for joueur in classement:
+                is_current = (joueur['user_id'] == current_user_id)
+                bg_color = "#002855" if is_current else "#001529"
+                border = "border: 1px solid #FFD700;" if is_current else ""
+
+                # Couleur de la place
+                if joueur['place'] == 1:
+                    place_color = "#FFD700"
+                elif joueur['place'] == 2:
+                    place_color = "#C0C0C0"
+                elif joueur['place'] == 3:
+                    place_color = "#CD7F32"
+                else:
+                    place_color = "#FFFFFF"
+
+                st.markdown(f"""
+                <div style="
+                    display: grid;
+                    grid-template-columns: 0.4fr 1.2fr 0.6fr 0.5fr 0.5fr 0.4fr 0.4fr 0.4fr 0.5fr;
+                    gap: 3px;
+                    padding: 6px 5px;
+                    background: {bg_color};
+                    {border}
+                    font-size: 0.7em;
+                    align-items: center;
+                    border-bottom: 1px solid #333;
+                ">
+                    <span style="color: {place_color}; font-weight: bold; text-align: center;">{joueur['place']}</span>
+                    <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{joueur['pseudo']}</span>
+                    <span style="color: #00FF00; font-weight: bold; text-align: center;">{joueur['points']}</span>
+                    <span style="color: #4488FF; text-align: center;">{joueur['bons_pronos']}</span>
+                    <span style="color: #FFD700; text-align: center;">{joueur['scores_exacts']}</span>
+                    <span style="color: #FF00FF; text-align: center;">{joueur['grand_chelem']}</span>
+                    <span style="color: #00FFFF; text-align: center;">{joueur['jokers_double']}</span>
+                    <span style="color: #FF6600; text-align: center;">{joueur['jokers_vol']}</span>
+                    <span style="color: #AAAAAA; text-align: center;">{joueur['meilleure_place']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Legende
+            st.markdown("""
+            <div style="margin-top: 10px; font-size: 0.6em; color: #888; text-align: center;">
+                GC = Grand Chelem | J.D = Jokers Doubles | J.V = Jokers Vol | Best = Meilleure place
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("Aucun joueur dans le classement.")
+
+    # === ONGLET MA SEMAINE ===
     with tab2:
-        semaine_no = datetime.now().isocalendar()[1]
-        st.markdown(f"### Classement Semaine {semaine_no}")
-        st.caption("Points de la semaine en cours")
-        data = get_classement_semaine()
-        afficher_podium(data, "pts")
-        afficher_tableau_classement(data, current_user_id, "pts")
+        st.markdown("### Mon Historique")
+        st.caption("Historique de mes pronostics par journee")
 
+        historique = get_historique_joueur(current_user_id)
+
+        if historique:
+            for h in historique:
+                # Total de la journee
+                total_color = "#00FF00" if h['total'] >= 0 else "#FF4444"
+
+                with st.expander(f"📅 Journee {h['journee']} - {'+' if h['total'] > 0 else ''}{h['total']} pts", expanded=(h == historique[0])):
+                    # Header
+                    st.markdown("""
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.7em; color: #888; background: #002040; border-radius: 5px;">
+                        <span>Match</span>
+                        <span style="text-align: center;">Prono</span>
+                        <span style="text-align: center;">Mise</span>
+                        <span style="text-align: center;">Score</span>
+                        <span style="text-align: center;">Pts</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    for prono in h['pronos']:
+                        home, away, ph, pa, mise, pts, score_h, score_a, is_exact = prono
+
+                        # Icone resultat
+                        if score_h is not None:
+                            if is_exact:
+                                icon = "🎯"
+                            elif pts and pts > 0:
+                                icon = "✅"
+                            else:
+                                icon = "❌"
+                            score_display = f"{score_h}-{score_a}"
+                        else:
+                            icon = "⏳"
+                            score_display = "-"
+
+                        pts_val = pts if pts else 0
+                        pts_color = "#00FF00" if pts_val > 0 else "#FF4444" if pts_val < 0 else "#888"
+
+                        home_short = home[:10] + ".." if len(home) > 12 else home
+                        away_short = away[:10] + ".." if len(away) > 12 else away
+
+                        st.markdown(f"""
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.75em; border-bottom: 1px solid #333;">
+                            <span style="color: #FFFFFF;" title="{home} vs {away}">{home_short} - {away_short}</span>
+                            <span style="color: #4488FF; text-align: center;">{ph}-{pa}</span>
+                            <span style="color: #FFD700; text-align: center;">{mise}</span>
+                            <span style="color: #00FF00; text-align: center;">{score_display} {icon}</span>
+                            <span style="color: {pts_color}; text-align: center; font-weight: bold;">{'+' if pts_val > 0 else ''}{pts_val}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.info("Aucun historique disponible.")
+
+    # === ONGLET RECORDS ===
     with tab3:
-        st.markdown("### Hall of Fame")
-        st.caption("Meilleurs scores en une seule semaine")
-        data = get_classement_records()
-        afficher_podium(data, "pts max")
-        afficher_tableau_classement(data, current_user_id, "pts")
+        st.markdown("### Mes Records")
+        st.caption("Mes performances personnelles")
 
-    with tab4:
-        st.markdown("### Classement Assiduité")
-        st.caption("Nombre de pronostics validés")
-        data = get_classement_assiduite()
-        afficher_podium(data, "pronos")
-        afficher_tableau_classement(data, current_user_id, "pronos")
+        records = get_records_joueur(current_user_id)
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1a472a 0%, #2d5a3c 100%);
+                border: 2px solid #00FF00;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+            ">
+                <div style="font-size: 2.5em; color: #00FF00; font-weight: bold;">🎯</div>
+                <div style="font-size: 2em; color: #FFFFFF; font-weight: bold;">{records['scores_exacts']}</div>
+                <div style="color: #00FF00; font-size: 0.9em;">Scores Exacts</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1a3a5c 0%, #2d4a6c 100%);
+                border: 2px solid #4488FF;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+            ">
+                <div style="font-size: 2.5em; color: #4488FF; font-weight: bold;">✅</div>
+                <div style="font-size: 2em; color: #FFFFFF; font-weight: bold;">{records['bons_pronos']}</div>
+                <div style="color: #4488FF; font-size: 0.9em;">Bons Pronostics</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #5c3a1a 0%, #6c4a2d 100%);
+                border: 2px solid #FFD700;
+                border-radius: 15px;
+                padding: 20px;
+                text-align: center;
+            ">
+                <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">🏆</div>
+                <div style="font-size: 2em; color: #FFFFFF; font-weight: bold;">{records['meilleur_journee']}</div>
+                <div style="color: #FFD700; font-size: 0.9em;">Record Journee</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #AAAAAA; padding: 10px;">
-        <small>Classements mis à jour en temps réel</small>
+        <small>Classements mis a jour en temps reel</small>
     </div>
     """, unsafe_allow_html=True)

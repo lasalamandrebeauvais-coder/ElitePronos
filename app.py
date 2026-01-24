@@ -28,10 +28,14 @@ from modules.login_st import (
 from modules.dashboard_st import afficher_dashboard
 from modules.database_manager import init_database
 from modules.reglement_st import afficher_reglement
+from modules.scheduler_resultats import demarrer_scheduler, get_scheduler_status
 
 # Initialiser la base de donnees (cree les tables si elles n'existent pas)
 create_database()
 init_database()
+
+# Demarrer le scheduler de mise a jour des scores (toutes les 10 min)
+demarrer_scheduler()
 
 # Activation temporaire du compte admin "baggio"
 try:
@@ -422,10 +426,13 @@ else:
                 cursor = conn.cursor()
 
                 # Recuperer la saison et journee dynamiquement
-                from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante
+                from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee
                 saison_id = get_saison_actuelle()
                 saison_label = get_saison_label(saison_id)
                 journee_courante = get_journee_courante(saison_id)
+
+                # Recuperer le countdown pour les pronostics
+                countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
 
                 # Compter uniquement les matchs de la journee courante
                 cursor.execute("""
@@ -468,20 +475,221 @@ else:
                         kingo_img = Image.open(kingo_path)
                         st.image(kingo_img, width=120)
 
-                # === BLOC SYNTHESE STATS (% votes par match) ===
-                if synthese['nb_joueurs'] > 0:
+                # === BLOC COMPTE À REBOURS / PRONOSTICS FERMÉS ===
+                if countdown and not countdown.get('expired', False):
                     st.markdown(f"""
                     <div style="
-                        background: #001529;
+                        background: linear-gradient(135deg, #D4AF37 0%, #B8960C 100%);
+                        border-radius: 10px;
+                        padding: 12px 20px;
+                        margin: 10px 0;
+                        text-align: center;
+                    ">
+                        <div style="color: #001529; font-size: 0.75em; margin-bottom: 8px; font-weight: bold;">
+                            ⏱️ FERMETURE DES PRONOSTICS
+                        </div>
+                        <div style="display: flex; justify-content: center; gap: 15px;">
+                            <div style="background: #001529; border-radius: 8px; padding: 8px 15px; min-width: 60px;">
+                                <div style="color: #FFD700; font-size: 1.5em; font-weight: bold;">{countdown['days']}</div>
+                                <div style="color: #FFFFFF; font-size: 0.7em;">JOURS</div>
+                            </div>
+                            <div style="background: #001529; border-radius: 8px; padding: 8px 15px; min-width: 60px;">
+                                <div style="color: #FFD700; font-size: 1.5em; font-weight: bold;">{countdown['hours']}</div>
+                                <div style="color: #FFFFFF; font-size: 0.7em;">HEURES</div>
+                            </div>
+                            <div style="background: #001529; border-radius: 8px; padding: 8px 15px; min-width: 60px;">
+                                <div style="color: #FFD700; font-size: 1.5em; font-weight: bold;">{countdown['minutes']}</div>
+                                <div style="color: #FFFFFF; font-size: 0.7em;">MINUTES</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif countdown and countdown.get('expired', False):
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
+                        border: 2px solid #FF4444;
+                        border-radius: 10px;
+                        padding: 12px 20px;
+                        margin: 10px 0;
+                        text-align: center;
+                    ">
+                        <div style="color: #FFFFFF; font-size: 0.9em; font-weight: bold;">
+                            ⏰ PRONOSTICS FERMÉS
+                        </div>
+                        <div style="color: #FFD700; font-size: 0.75em; margin-top: 5px;">
+                            Les matchs de la J{journee_courante} sont en cours ou terminés
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # === BLOC MES PRONOSTICS DE LA JOURNÉE / MATCHS LIVE ===
+                pronostics_ouverts = countdown and not countdown.get('expired', False)
+
+                if pronostics_ouverts:
+                    # PRONOSTICS OUVERTS: Afficher les pronostics du joueur
+                    cursor.execute("""
+                        SELECT m.id, m.equipe_home, m.equipe_away, p.score_prono_home, p.score_prono_away, p.mise_points
+                        FROM predictions p
+                        JOIN matches m ON p.match_id = m.id
+                        WHERE p.user_id = ? AND m.saison_id = ? AND m.semaine_id = ?
+                    """, (user_id, saison_id, journee_courante))
+                    mes_pronos_accueil = cursor.fetchall()
+
+                    if mes_pronos_accueil:
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                            border: 1px solid #4488FF;
+                            border-radius: 10px;
+                            padding: 12px;
+                            margin: 10px 0;
+                        ">
+                            <div style="color: #4488FF; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">
+                                ⚽ MES PRONOSTICS DE LA JOURNÉE
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                        for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
+                            st.markdown(f"""
+                            <div style="
+                                display: grid;
+                                grid-template-columns: 2fr 60px 2fr 45px;
+                                align-items: center;
+                                padding: 6px 8px;
+                                margin: 3px 0;
+                                background: #002040;
+                                border-radius: 5px;
+                                font-size: 0.8em;
+                            ">
+                                <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
+                                <span style="color: #4488FF; font-weight: bold; text-align: center;">{score_h}-{score_a}</span>
+                                <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
+                                <span style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pt</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                else:
+                    # PRONOSTICS FERMÉS: Afficher les matchs avec scores live
+                    from datetime import datetime
+                    cursor.execute("""
+                        SELECT m.id, m.equipe_home, m.equipe_away, m.date_match,
+                               m.score_mi_temps_home, m.score_mi_temps_away,
+                               m.score_final_home, m.score_final_away, m.status
+                        FROM matches m
+                        WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
+                        ORDER BY m.date_match
+                    """, (saison_id, journee_courante))
+                    matchs_live = cursor.fetchall()
+
+                    if matchs_live:
+                        # Statut du bot de mise a jour
+                        bot_status = get_scheduler_status()
+
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                            border: 1px solid #00FF00;
+                            border-radius: 10px;
+                            padding: 12px;
+                            margin: 10px 0;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: #00FF00; font-size: 0.85em; font-weight: bold;">
+                                    🔴 MATCHS EN DIRECT
+                                </span>
+                                <span style="color: {bot_status['couleur']}; font-size: 0.65em;">
+                                    ⚙️ {bot_status['message']}
+                                </span>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                        jours_semaine = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+                        for match_id, home, away, date_match, mi_h, mi_a, final_h, final_a, status in matchs_live:
+                            # Parser la date du match
+                            date_info = ""
+                            if date_match:
+                                try:
+                                    if 'T' in str(date_match):
+                                        dt = datetime.fromisoformat(str(date_match).replace('Z', '+00:00'))
+                                    else:
+                                        dt = datetime.strptime(str(date_match), '%Y-%m-%d %H:%M:%S')
+                                    jour = jours_semaine[dt.weekday()]
+                                    date_info = f"{jour} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
+                                except:
+                                    date_info = ""
+
+                            # Déterminer le score à afficher
+                            if final_h is not None:
+                                score_display = f"{final_h} - {final_a}"
+                                score_color = "#00FF00"
+                                status_text = "Terminé"
+                            elif status in ['LIVE', 'IN_PLAY', 'PAUSED']:
+                                # Match en cours - afficher le score live s'il existe
+                                if mi_h is not None:
+                                    score_display = f"{mi_h} - {mi_a}"
+                                else:
+                                    score_display = "0 - 0"
+                                score_color = "#FF4444"
+                                status_text = "🔴 LIVE"
+                            elif status == 'HT' or (mi_h is not None and status not in ['SCHEDULED', 'TIMED']):
+                                # Mi-temps ou pause
+                                score_display = f"{mi_h} - {mi_a}"
+                                score_color = "#FFA500"
+                                status_text = "Mi-temps"
+                            else:
+                                score_display = "- - -"
+                                score_color = "#AAAAAA"
+                                status_text = date_info if date_info else "À venir"
+
+                            st.markdown(f"""
+                            <div style="
+                                display: grid;
+                                grid-template-columns: 2fr 70px 2fr 80px;
+                                align-items: center;
+                                padding: 8px;
+                                margin: 4px 0;
+                                background: #002040;
+                                border-radius: 5px;
+                                font-size: 0.85em;
+                            ">
+                                <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
+                                <span style="color: {score_color}; font-weight: bold; text-align: center;">{score_display}</span>
+                                <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
+                                <span style="color: {score_color}; text-align: center; font-size: 0.75em;">{status_text}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                # === BLOC 3: SYNTHESE TENDANCES (% votes, jokers, grosses mises) ===
+                if synthese['nb_joueurs'] > 0:
+                    # Section jokers
+                    jokers_html = ""
+                    if synthese.get('jokers'):
+                        jokers_html = '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #444;">'
+                        jokers_html += '<span style="color: #FFD700; font-size: 0.8em;">⚡ JOKERS: </span>'
+                        for j in synthese['jokers']:
+                            icon = "⚡" if j['type'] == "DOUBLE" else "🎯"
+                            jokers_html += f'<span style="color: #00BFFF; font-size: 0.8em;">{icon} {j["pseudo"]} </span>'
+                        jokers_html += '</div>'
+
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, #002040 0%, #001529 100%);
                         border: 1px solid #D4AF37;
                         border-radius: 10px;
-                        padding: 10px;
+                        padding: 12px;
                         margin: 10px 0;
                     ">
-                        <div style="color: #D4AF37; font-size: 0.85em; margin-bottom: 8px; text-align: center;">
+                        <div style="color: #D4AF37; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">
                             📊 TENDANCES ({synthese['nb_joueurs']} joueur{'s' if synthese['nb_joueurs'] > 1 else ''})
                         </div>
                         {synthese['stats_html']}
+                        {jokers_html}
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -528,10 +736,9 @@ else:
                             st.warning(f"⚠️ Impossible de charger les matchs: {e}")
                 else:
                     # === TUNNEL DE TRANSITION TEMPOREL ===
-                    from modules.database_manager import get_countdown_pronostics_journee, get_date_premiere_journee
+                    from modules.database_manager import get_date_premiere_journee
                     from datetime import datetime, timedelta
 
-                    countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
                     date_journee = get_date_premiere_journee(journee_courante, saison_id)
 
                     # Verifier si des scores sont disponibles pour cette journee
@@ -546,116 +753,9 @@ else:
 
                     # Determiner l'etat du tunnel
                     if countdown and not countdown.get('expired', False):
-                        # ETAT 1: Countdown compact en haut (2 lignes)
-                        st.markdown(f"""
-                        <div style="
-                            background: #001529;
-                            border: 1px solid #D4AF37;
-                            border-radius: 8px;
-                            padding: 10px 20px;
-                            margin: 10px 0;
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                        ">
-                            <span style="color: #D4AF37;">⏱️ Pronostics J{journee_courante}</span>
-                            <span style="color: #FFD700; font-weight: bold; font-size: 1.1em;">
-                                {countdown['days']}j {countdown['hours']}h {countdown['minutes']}m
-                            </span>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Verifier si l'utilisateur a deja valide ses pronostics
-                        cursor.execute("""
-                            SELECT m.id, m.equipe_home, m.equipe_away, p.score_prono_home, p.score_prono_away, p.mise_points
-                            FROM predictions p
-                            JOIN matches m ON p.match_id = m.id
-                            WHERE p.user_id = ? AND m.saison_id = ? AND m.semaine_id = ?
-                        """, (user_id, saison_id, journee_courante))
-                        mes_pronos = cursor.fetchall()
-
-                        if mes_pronos:
-                            # === BLOC 2: MES PRONOSTICS AVEC SCORES LIVE ===
-                            # Recuperer les scores live pour chaque match
-                            cursor.execute("""
-                                SELECT m.id, m.score_mi_temps_home, m.score_mi_temps_away,
-                                       m.score_final_home, m.score_final_away, m.status
-                                FROM matches m
-                                WHERE m.saison_id = ? AND m.semaine_id = ?
-                            """, (saison_id, journee_courante))
-                            scores_live = {row[0]: {
-                                'mi_temps_h': row[1], 'mi_temps_a': row[2],
-                                'final_h': row[3], 'final_a': row[4],
-                                'status': row[5]
-                            } for row in cursor.fetchall()}
-
-                            st.markdown(f"""
-                            <div style="
-                                background: linear-gradient(135deg, #0A3D0A 0%, #001529 100%);
-                                border: 1px solid #00FF00;
-                                border-radius: 10px;
-                                padding: 15px;
-                                margin: 10px 0;
-                            ">
-                                <div style="color: #00FF00; font-size: 0.9em; margin-bottom: 10px; text-align: center;">✅ MES PRONOSTICS J{journee_courante}</div>
-                            """, unsafe_allow_html=True)
-
-                            for match_id, home, away, score_h, score_a, mise in mes_pronos:
-                                # Recuperer le score live si disponible
-                                live = scores_live.get(match_id, {})
-                                score_live_html = ""
-                                status = live.get('status', '')
-
-                                if live.get('final_h') is not None:
-                                    # Match termine
-                                    final_h, final_a = live['final_h'], live['final_a']
-                                    # Verifier si le prono est bon
-                                    prono_ok = ((score_h > score_a and final_h > final_a) or
-                                               (score_h < score_a and final_h < final_a) or
-                                               (score_h == score_a and final_h == final_a))
-                                    score_exact = (score_h == final_h and score_a == final_a)
-
-                                    if score_exact:
-                                        status_icon = "🎯"  # Score exact
-                                        status_color = "#FFD700"
-                                    elif prono_ok:
-                                        status_icon = "✅"  # Bon resultat
-                                        status_color = "#00FF00"
-                                    else:
-                                        status_icon = "❌"  # Mauvais
-                                        status_color = "#FF4444"
-
-                                    score_live_html = f'<span style="color: {status_color}; font-size: 0.85em;">{status_icon} {final_h}-{final_a}</span>'
-
-                                elif live.get('mi_temps_h') is not None:
-                                    # Mi-temps
-                                    score_live_html = f'<span style="color: #FFA500; font-size: 0.8em;">MT: {live["mi_temps_h"]}-{live["mi_temps_a"]}</span>'
-
-                                elif status in ['LIVE', 'IN_PLAY', 'HT', 'PAUSED']:
-                                    score_live_html = '<span style="color: #FF4444; font-size: 0.8em;">🔴 LIVE</span>'
-
-                                st.markdown(f"""
-                                <div style="
-                                    display: grid;
-                                    grid-template-columns: 1fr 70px 1fr 50px 70px;
-                                    align-items: center;
-                                    padding: 10px;
-                                    margin: 5px 0;
-                                    background: #002040;
-                                    border-radius: 6px;
-                                    gap: 5px;
-                                ">
-                                    <span style="color: #FFFFFF; font-size: 0.8em; text-align: right;">{home}</span>
-                                    <span style="color: #4488FF; font-weight: bold; font-size: 1em; text-align: center;">{score_h} - {score_a}</span>
-                                    <span style="color: #FFFFFF; font-size: 0.8em; text-align: left;">{away}</span>
-                                    <span style="color: #00FF00; font-weight: bold; text-align: center; font-size: 0.85em;">{mise}pts</span>
-                                    <span style="text-align: center;">{score_live_html}</span>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            st.markdown("</div>", unsafe_allow_html=True)
-                        else:
-                            # === BLOC 1: MATCHS DE LA SEMAINE AVEC COTES ===
+                        # Si l'utilisateur n'a pas encore fait ses pronostics, afficher les matchs
+                        if not mes_pronos_accueil:
+                            # === MATCHS DE LA SEMAINE AVEC COTES ===
                             cursor.execute("""
                                 SELECT equipe_home, equipe_away, cote_home, cote_draw, cote_away
                                 FROM matches
@@ -697,7 +797,7 @@ else:
                                 st.markdown("</div>", unsafe_allow_html=True)
 
                     elif nb_matchs_avec_score > 0:
-                        # ETAT 4: Des scores sont disponibles - Afficher RESULTATS + TOUS LES PRONOS
+                        # ETAT 4: Des scores sont disponibles - Afficher RESULTATS PAR JOUEUR
                         st.markdown(f"""
                         <div style="
                             background: linear-gradient(135deg, #1a472a 0%, #2d5a3c 100%);
@@ -714,210 +814,111 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Afficher chaque match avec son score + tous les pronos des joueurs
+                        # Recuperer tous les joueurs qui ont fait des pronostics cette journee
                         cursor.execute("""
-                            SELECT m.id, m.equipe_home, m.equipe_away, m.score_final_home, m.score_final_away,
-                                   m.score_mi_temps_home, m.score_mi_temps_away
-                            FROM matches m
+                            SELECT DISTINCT u.id, u.pseudo,
+                                   COALESCE(SUM(p.points_gagnes), 0) as total_points_journee
+                            FROM utilisateurs u
+                            JOIN predictions p ON u.id = p.user_id
+                            JOIN matches m ON p.match_id = m.id
                             WHERE m.saison_id = ? AND m.semaine_id = ?
-                            ORDER BY m.date_match
+                            GROUP BY u.id, u.pseudo
+                            ORDER BY total_points_journee DESC, u.pseudo
                         """, (saison_id, journee_courante))
-                        matchs_journee = cursor.fetchall()
+                        joueurs_journee = cursor.fetchall()
 
-                        for match_id, home, away, score_h, score_a, mi_h, mi_a in matchs_journee:
-                            # Score du match (ou en cours)
-                            if score_h is not None:
-                                score_display = f"{score_h} - {score_a}"
-                                score_color = "#00FF00"
-                                statut = "Terminé"
-                            elif mi_h is not None:
-                                score_display = f"{mi_h} - {mi_a}"
-                                score_color = "#FFD700"
-                                statut = "Mi-temps"
-                            else:
-                                score_display = "- vs -"
-                                score_color = "#AAAAAA"
-                                statut = "A venir"
+                        for joueur_id, pseudo, total_pts in joueurs_journee:
+                            # Recuperer le joker utilise par ce joueur cette semaine
+                            cursor.execute("""
+                                SELECT type_joker FROM jokers_historique
+                                WHERE utilisateur_id = ? AND semaine_id = ?
+                            """, (joueur_id, journee_courante))
+                            joker_row = cursor.fetchone()
+                            joker_type = joker_row[0] if joker_row else None
+                            joker_icon = "⚡" if joker_type == "DOUBLE" else "🎯" if joker_type == "VOL" else "-"
+
+                            # Recuperer tous les pronostics de ce joueur pour cette journee
+                            cursor.execute("""
+                                SELECT m.equipe_home, m.equipe_away,
+                                       p.score_prono_home, p.score_prono_away,
+                                       p.mise_points, p.points_gagnes,
+                                       m.score_final_home, m.score_final_away
+                                FROM predictions p
+                                JOIN matches m ON p.match_id = m.id
+                                WHERE p.user_id = ? AND m.saison_id = ? AND m.semaine_id = ?
+                                ORDER BY m.date_match
+                            """, (joueur_id, saison_id, journee_courante))
+                            pronos_joueur = cursor.fetchall()
+
+                            # Couleur du total selon positif/negatif
+                            total_color = "#00FF00" if total_pts >= 0 else "#FF4444"
 
                             st.markdown(f"""
-                            <div style="background: #001529; border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <span style="color: #FFFFFF; font-weight: bold;">{home}</span>
-                                    <div style="text-align: center;">
-                                        <span style="color: {score_color}; font-weight: bold; font-size: 1.3em;">{score_display}</span>
-                                        <div style="color: #AAAAAA; font-size: 0.7em;">{statut}</div>
-                                    </div>
-                                    <span style="color: #FFFFFF; font-weight: bold;">{away}</span>
+                            <div style="
+                                background: linear-gradient(135deg, #001529 0%, #002040 100%);
+                                border: 1px solid #D4AF37;
+                                border-radius: 10px;
+                                padding: 12px;
+                                margin: 10px 0;
+                            ">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #D4AF37;">
+                                    <span style="color: #D4AF37; font-weight: bold; font-size: 1.1em;">👤 {pseudo}</span>
+                                    <span style="color: {total_color}; font-weight: bold; font-size: 1.2em;">{'+' if total_pts > 0 else ''}{total_pts} pts</span>
                                 </div>
                             """, unsafe_allow_html=True)
 
-                            # Recuperer les pronos de tous les joueurs pour ce match
-                            cursor.execute("""
-                                SELECT u.pseudo, p.score_prono_home, p.score_prono_away, p.mise_points
-                                FROM predictions p
-                                JOIN utilisateurs u ON p.user_id = u.id
-                                WHERE p.match_id = ?
-                                ORDER BY u.pseudo
-                            """, (match_id,))
-                            pronos_match = cursor.fetchall()
-
-                            if pronos_match:
-                                for pseudo, ph, pa, mise in pronos_match:
-                                    # Verifier si le prono est gagnant
-                                    prono_ok = ""
-                                    if score_h is not None:
-                                        if ph == score_h and pa == score_a:
-                                            prono_ok = "🎯"  # Score exact
-                                        elif (ph > pa and score_h > score_a) or (ph < pa and score_h < score_a) or (ph == pa and score_h == score_a):
-                                            prono_ok = "✅"  # Bon 1N2
-                                        else:
-                                            prono_ok = "❌"
-
-                                    st.markdown(f"""
-                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; border-top: 1px solid #333;">
-                                        <span style="color: #D4AF37;">@{pseudo}</span>
-                                        <span style="color: #4488FF; font-weight: bold;">{ph} - {pa}</span>
-                                        <span style="color: #00FF00;">{mise} pts</span>
-                                        <span style="font-size: 1.1em;">{prono_ok}</span>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-
-                            st.markdown("</div>", unsafe_allow_html=True)
-
-                    elif date_journee and now < date_fermeture + timedelta(hours=1):
-                        # ETAT 2: H+0 a H+1 apres deadline - Rectangle rouge PRONOSTICS CLOS
-                        st.markdown(f"""
-                        <div style="
-                            background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
-                            border: 2px solid #FF4444;
-                            border-radius: 15px;
-                            padding: 20px;
-                            text-align: center;
-                            margin: 20px 0;
-                        ">
-                            <h4 style="color: #FFFFFF; margin: 0;">⏰ PRONOSTICS CLOS</h4>
-                            <p style="color: #FFD700; margin: 10px 0 0 0;">
-                                Les pronostics de la J{journee_courante} sont fermes.<br>
-                                <span style="color: #FFFFFF;">Premier match dans moins d'une heure !</span>
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Afficher la synthese des pronostics apres cloture
-                        cursor.execute("""
-                            SELECT m.id, m.equipe_home, m.equipe_away, m.cote_home, m.cote_draw, m.cote_away
-                            FROM matches m
-                            WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
-                            ORDER BY m.date_match
-                        """, (saison_id, journee_courante))
-                        matchs_synthese = cursor.fetchall()
-
-                        if matchs_synthese:
-                            st.markdown(f"""
-                            <div style="
-                                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                                border: 2px solid #9b59b6;
-                                border-radius: 15px;
-                                padding: 20px;
-                                margin: 15px 0;
-                            ">
-                                <h4 style="color: #9b59b6; margin: 0 0 15px 0; text-align: center;">
-                                    📋 SYNTHESE DES PRONOS J{journee_courante}
-                                </h4>
+                            # Header du tableau
+                            st.markdown("""
+                                <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 0.6fr 1fr 0.8fr; gap: 5px; padding: 5px 0; font-size: 0.7em; color: #888;">
+                                    <span>Match</span>
+                                    <span style="text-align: center;">Prono</span>
+                                    <span style="text-align: center;">Mise</span>
+                                    <span style="text-align: center;">Joker</span>
+                                    <span style="text-align: center;">Score</span>
+                                    <span style="text-align: center;">Pts</span>
+                                </div>
                             """, unsafe_allow_html=True)
 
-                            for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
-                                # Recuperer les pronostics pour ce match
-                                cursor.execute("""
-                                    SELECT u.pseudo, p.score_prono_home, p.score_prono_away, p.mise_points
-                                    FROM predictions p
-                                    JOIN utilisateurs u ON p.user_id = u.id
-                                    WHERE p.match_id = ?
-                                    ORDER BY u.pseudo
-                                """, (match_id,))
-                                pronos_match = cursor.fetchall()
+                            first_row = True
+                            for home, away, ph, pa, mise, pts_gagnes, score_h, score_a in pronos_joueur:
+                                # Determiner l'icone de resultat
+                                if score_h is not None:
+                                    if ph == score_h and pa == score_a:
+                                        icon = "🎯"
+                                    elif (ph > pa and score_h > score_a) or (ph < pa and score_h < score_a) or (ph == pa and score_h == score_a):
+                                        icon = "✅"
+                                    else:
+                                        icon = "❌"
+                                    score_display = f"{score_h}-{score_a}"
+                                else:
+                                    icon = "⏳"
+                                    score_display = "-"
+
+                                # Couleur des points
+                                pts = pts_gagnes if pts_gagnes else 0
+                                pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
+                                pts_display = f"+{pts}" if pts > 0 else str(pts)
+
+                                # Nom court des equipes
+                                home_short = home[:12] + ".." if len(home) > 14 else home
+                                away_short = away[:12] + ".." if len(away) > 14 else away
+
+                                # Afficher le joker seulement sur la premiere ligne
+                                joker_display = joker_icon if first_row else ""
+                                first_row = False
 
                                 st.markdown(f"""
-                                <div style="background: #002040; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 3px solid #D4AF37;">
-                                    <div style="color: #D4AF37; font-weight: bold; margin-bottom: 10px; text-align: center;">
-                                        {home} vs {away}
-                                    </div>
+                                <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 0.6fr 1fr 0.8fr; gap: 5px; padding: 6px 0; border-top: 1px solid #333; font-size: 0.8em; align-items: center;">
+                                    <span style="color: #FFFFFF; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{home} vs {away}">{home_short} - {away_short}</span>
+                                    <span style="color: #4488FF; text-align: center; font-weight: bold;">{ph}-{pa}</span>
+                                    <span style="color: #FFD700; text-align: center;">{mise}</span>
+                                    <span style="color: #FF00FF; text-align: center;">{joker_display}</span>
+                                    <span style="color: #00FF00; text-align: center;">{score_display} {icon}</span>
+                                    <span style="color: {pts_color}; text-align: center; font-weight: bold;">{pts_display}</span>
+                                </div>
                                 """, unsafe_allow_html=True)
-
-                                if pronos_match:
-                                    for pseudo, score_h, score_a, mise in pronos_match:
-                                        st.markdown(f"""
-                                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #333;">
-                                            <span style="color: #FFFFFF;">@{pseudo}</span>
-                                            <span style="color: #FFD700; font-weight: bold;">{score_h}-{score_a}</span>
-                                            <span style="color: #FFFFFF; font-size: 0.9em;">{mise} pts</span>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                else:
-                                    st.markdown("""<p style="color: #FFFFFF; text-align: center; font-size: 0.9em;">Aucun pronostic</p>""", unsafe_allow_html=True)
-
-                                st.markdown("</div>", unsafe_allow_html=True)
 
                             st.markdown("</div>", unsafe_allow_html=True)
-
-                    else:
-                        # ETAT 3: H+1+ apres deadline, pas encore de scores - Afficher SYNTHESE
-                        st.markdown(f"""
-                        <div style="
-                            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                            border: 2px solid #9b59b6;
-                            border-radius: 15px;
-                            padding: 20px;
-                            text-align: center;
-                            margin: 20px 0;
-                        ">
-                            <h4 style="color: #9b59b6; margin: 0;">📋 SYNTHESE DES PRONOS J{journee_courante}</h4>
-                            <p style="color: #FFFFFF; margin: 10px 0 0 0;">
-                                Les matchs sont en cours. Resultats a venir !
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Afficher la synthese complete des pronostics
-                        cursor.execute("""
-                            SELECT m.id, m.equipe_home, m.equipe_away, m.cote_home, m.cote_draw, m.cote_away
-                            FROM matches m
-                            WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
-                            ORDER BY m.date_match
-                        """, (saison_id, journee_courante))
-                        matchs_synthese = cursor.fetchall()
-
-                        if matchs_synthese:
-                            for match_id, home, away, cote_h, cote_n, cote_a in matchs_synthese:
-                                cursor.execute("""
-                                    SELECT u.pseudo, p.score_prono_home, p.score_prono_away, p.mise_points
-                                    FROM predictions p
-                                    JOIN utilisateurs u ON p.user_id = u.id
-                                    WHERE p.match_id = ?
-                                    ORDER BY u.pseudo
-                                """, (match_id,))
-                                pronos_match = cursor.fetchall()
-
-                                st.markdown(f"""
-                                <div style="background: #002040; border-radius: 10px; padding: 15px; margin: 10px 0; border-left: 3px solid #9b59b6;">
-                                    <div style="color: #D4AF37; font-weight: bold; margin-bottom: 10px; text-align: center;">
-                                        {home} vs {away}
-                                    </div>
-                                """, unsafe_allow_html=True)
-
-                                if pronos_match:
-                                    for pseudo, score_h, score_a, mise in pronos_match:
-                                        st.markdown(f"""
-                                        <div style="display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #333;">
-                                            <span style="color: #FFFFFF;">@{pseudo}</span>
-                                            <span style="color: #FFD700; font-weight: bold;">{score_h}-{score_a}</span>
-                                            <span style="color: #FFFFFF; font-size: 0.9em;">{mise} pts</span>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                else:
-                                    st.markdown("""<p style="color: #FFFFFF; text-align: center; font-size: 0.9em;">Aucun pronostic</p>""", unsafe_allow_html=True)
-
-                                st.markdown("</div>", unsafe_allow_html=True)
 
                 conn.close()
 
