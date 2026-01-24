@@ -34,6 +34,28 @@ from modules.scheduler_resultats import demarrer_scheduler, get_scheduler_status
 create_database()
 init_database()
 
+# Migration: Ajouter les colonnes manquantes pour les scores en direct
+try:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Verifier et ajouter les colonnes si elles n'existent pas
+    colonnes_a_ajouter = [
+        ("score_mi_temps_home", "INTEGER"),
+        ("score_mi_temps_away", "INTEGER"),
+        ("status", "TEXT DEFAULT 'SCHEDULED'"),
+        ("saison_id", "INTEGER DEFAULT 2024"),
+        ("is_active", "BOOLEAN DEFAULT 1"),
+    ]
+    for col_name, col_type in colonnes_a_ajouter:
+        try:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {col_name} {col_type}")
+        except:
+            pass
+    conn.commit()
+    conn.close()
+except Exception as e:
+    pass
+
 # Demarrer le scheduler de mise a jour des scores (toutes les 10 min)
 demarrer_scheduler()
 

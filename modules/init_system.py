@@ -20,8 +20,27 @@ def initialiser_systeme_complet():
         cote_away REAL,
         date_match TEXT,
         score_final_home INTEGER,
-        score_final_away INTEGER
+        score_final_away INTEGER,
+        score_mi_temps_home INTEGER,
+        score_mi_temps_away INTEGER,
+        status TEXT DEFAULT 'SCHEDULED',
+        saison_id INTEGER DEFAULT 2024,
+        is_active BOOLEAN DEFAULT 1
     )''')
+
+    # Migration: Ajouter les colonnes manquantes si elles n'existent pas
+    colonnes_a_ajouter = [
+        ("score_mi_temps_home", "INTEGER"),
+        ("score_mi_temps_away", "INTEGER"),
+        ("status", "TEXT DEFAULT 'SCHEDULED'"),
+        ("saison_id", "INTEGER DEFAULT 2024"),
+        ("is_active", "BOOLEAN DEFAULT 1"),
+    ]
+    for col_name, col_type in colonnes_a_ajouter:
+        try:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {col_name} {col_type}")
+        except:
+            pass
 
     # 2. Table UTILISATEURS (Harmonisée pour l'admin)
     cursor.execute('''CREATE TABLE IF NOT EXISTS utilisateurs (
