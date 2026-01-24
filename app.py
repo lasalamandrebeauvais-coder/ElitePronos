@@ -56,6 +56,39 @@ try:
 except Exception as e:
     pass
 
+# Initialisation des matchs J19 avec scores (pour Streamlit Cloud)
+try:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Verifier si les matchs J19 existent
+    cursor.execute("SELECT COUNT(*) FROM matches WHERE semaine_id = 19 AND saison_id = 2025")
+    nb_matchs = cursor.fetchone()[0]
+    if nb_matchs == 0:
+        # Inserer les matchs J19 avec les scores
+        matchs_j19 = [
+            (19, 'Ligue 1', 'AJ Auxerre', 'Paris Saint-Germain FC', 4.40, 4.30, 1.75, '2026-01-24 19:00:00', 0, 1, 'FINISHED', 2025, 1),
+            (19, 'Ligue 1', 'Le Havre AC', 'AS Monaco FC', 4.40, 4.00, 1.80, '2026-01-24 21:00:00', None, None, 'SCHEDULED', 2025, 1),
+            (19, 'Ligue 1', 'Olympique de Marseille', 'Racing Club de Lens', 1.80, 3.80, 4.40, '2026-01-25 21:00:00', None, None, 'SCHEDULED', 2025, 1),
+            (19, 'Ligue 1', 'FC Metz', 'Olympique Lyonnais', 3.40, 3.50, 2.10, '2026-01-26 17:00:00', None, None, 'SCHEDULED', 2025, 1),
+        ]
+        cursor.executemany("""
+            INSERT INTO matches (semaine_id, championnat, equipe_home, equipe_away, cote_home, cote_draw, cote_away,
+                                 date_match, score_final_home, score_final_away, status, saison_id, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, matchs_j19)
+        conn.commit()
+    else:
+        # Mettre a jour le score Auxerre-PSG si pas deja fait
+        cursor.execute("""
+            UPDATE matches SET score_final_home = 0, score_final_away = 1, status = 'FINISHED'
+            WHERE equipe_home LIKE '%Auxerre%' AND equipe_away LIKE '%Paris%'
+            AND semaine_id = 19 AND score_final_home IS NULL
+        """)
+        conn.commit()
+    conn.close()
+except Exception as e:
+    pass
+
 # Demarrer le scheduler de mise a jour des scores (toutes les 10 min)
 demarrer_scheduler()
 
