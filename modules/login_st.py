@@ -74,7 +74,12 @@ def recuperer_pin_par_email(email):
 
         user = user[0]
         pseudo, pin, user_email = user.get('pseudo'), user.get('pin'), user.get('email')
-    return True, f"Un email de recuperation a ete envoye a {user_email}", pin
+
+        return True, f"Un email de recuperation a ete envoye a {user_email}", pin
+
+    except Exception as e:
+        print(f"Erreur recuperation PIN Supabase: {e}")
+        return False, "Erreur de connexion au serveur.", None
 
 
 def init_session():
