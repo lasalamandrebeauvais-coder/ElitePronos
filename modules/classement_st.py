@@ -221,88 +221,48 @@ def afficher_classement(user):
         classement = get_classement_general_complet()
 
         if classement:
-            # Construire les lignes du tableau
-            lignes_html = ""
+            # Header du tableau
+            st.markdown("""
+            <div style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.75em; color:#001529;">
+                <span style="width:50px; text-align:center;">#</span>
+                <span style="flex:1;">Pseudo</span>
+                <span style="width:70px; text-align:center;">Points</span>
+                <span style="width:50px; text-align:center;">Bons</span>
+                <span style="width:50px; text-align:center;">Exacts</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Lignes du tableau - une par une avec fond forcé
             for joueur in classement:
                 is_current = (joueur['user_id'] == current_user_id)
-                bg_color = "#002855" if is_current else "#001529"
-                border_left = "border-left: 4px solid #FFD700 !important;" if is_current else "border-left: 4px solid transparent !important;"
+                bg = "#002855" if is_current else "#001529"
+                border = "border-left:4px solid #FFD700;" if is_current else ""
 
-                # Couleur de la place
                 if joueur['place'] == 1:
-                    place_color = "#FFD700"
-                    place_icon = "🥇"
+                    icon = "🥇"
                 elif joueur['place'] == 2:
-                    place_color = "#C0C0C0"
-                    place_icon = "🥈"
+                    icon = "🥈"
                 elif joueur['place'] == 3:
-                    place_color = "#CD7F32"
-                    place_icon = "🥉"
+                    icon = "🥉"
                 else:
-                    place_color = "#FFFFFF"
-                    place_icon = str(joueur['place'])
+                    icon = f"<span style='color:#888;'>{joueur['place']}</span>"
 
-                lignes_html += f"""
-                <tr style="background-color: {bg_color} !important; {border_left}">
-                    <td style="color: {place_color}; font-weight: bold; text-align: center; padding: 10px 5px;">{place_icon}</td>
-                    <td style="color: #FFFFFF; text-align: left; padding: 10px 5px;">{joueur['pseudo']}</td>
-                    <td style="color: #00FF00; font-weight: bold; text-align: center; padding: 10px 5px;">{joueur['points']}</td>
-                    <td style="color: #4488FF; text-align: center; padding: 10px 5px;">{joueur['bons_pronos']}</td>
-                    <td style="color: #FFD700; text-align: center; padding: 10px 5px;">{joueur['scores_exacts']}</td>
-                </tr>
-                """
+                st.markdown(f"""
+                <div style="display:flex; align-items:center; background:{bg}; padding:6px 5px; border-bottom:1px solid #333; font-size:0.8em; {border}">
+                    <span style="width:50px; text-align:center;">{icon}</span>
+                    <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
+                    <span style="width:70px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
+                    <span style="width:50px; text-align:center; color:#4488FF;">{joueur['bons_pronos']}</span>
+                    <span style="width:50px; text-align:center; color:#FFD700;">{joueur['scores_exacts']}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-            # Tableau HTML complet
-            tableau_html = f"""
-            <style>
-                .classement-table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    background-color: #001529 !important;
-                    border: 2px solid #D4AF37;
-                    border-radius: 10px;
-                    overflow: hidden;
-                }}
-                .classement-table th {{
-                    background-color: #D4AF37 !important;
-                    color: #001529 !important;
-                    font-weight: bold;
-                    padding: 12px 8px;
-                    text-align: center;
-                    font-size: 0.8em;
-                }}
-                .classement-table td {{
-                    border-bottom: 1px solid #333;
-                    font-size: 0.85em;
-                }}
-                .classement-legende {{
-                    background-color: #000a15 !important;
-                    color: #888 !important;
-                    text-align: center;
-                    padding: 8px;
-                    font-size: 0.65em;
-                }}
-            </style>
-            <table class="classement-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th style="text-align: left;">Pseudo</th>
-                        <th>Points</th>
-                        <th>Bons</th>
-                        <th>Exacts</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {lignes_html}
-                </tbody>
-            </table>
-            <div class="classement-legende">
-                Bons = Bons pronostics (1N2) | Exacts = Scores exacts
+            # Légende
+            st.markdown("""
+            <div style="background:#0a1628; padding:6px; text-align:center; font-size:0.6em; color:#666; border-radius:0 0 8px 8px;">
+                Bons = 1N2 correct | Exacts = Score exact
             </div>
-            """
-
-            st.markdown(tableau_html, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         else:
             st.info("Aucun joueur dans le classement.")
 
