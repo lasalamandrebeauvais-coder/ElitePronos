@@ -248,7 +248,7 @@ def afficher_classement(user):
                     icon = f"<span style='color:#888;'>{joueur['place']}</span>"
 
                 st.markdown(f"""
-                <div style="display:flex; align-items:center; background:{bg}; padding:6px 5px; border-bottom:1px solid #333; font-size:0.8em; {border}">
+                <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.75em; {border}">
                     <span style="width:50px; text-align:center;">{icon}</span>
                     <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
                     <span style="width:70px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
