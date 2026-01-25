@@ -3,11 +3,10 @@ Module de Connexion Streamlit pour Elite Pronos
 Avec option de recuperation de PIN et countdown J1
 """
 import streamlit as st
-import sqlite3
 import os
 
-# Chemin vers la base de donnees
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+# Import Supabase
+from modules.supabase_db import get_supabase
 
 # Import countdown
 try:
@@ -19,65 +18,62 @@ except ImportError:
 
 def verifier_identifiants(pseudo, pin):
     """
-    Verifie les identifiants dans la base de donnees
+    Verifie les identifiants dans Supabase
     Retourne: (success, message, user_data)
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    try:
+        client = get_supabase()
 
-    cursor.execute("""
-        SELECT id, pseudo, prenom, email, statut
-        FROM utilisateurs
-        WHERE pseudo = ? AND pin = ?
-    """, (pseudo, pin))
+        # Chercher l'utilisateur avec ce pseudo et pin
+        user = client._request('GET',
+            f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=id,pseudo,prenom,email,statut'
+        )
 
-    user = cursor.fetchone()
-    conn.close()
+        if not user or len(user) == 0:
+            return False, "Pseudo ou PIN incorrect.", None
 
-    if user is None:
-        return False, "Pseudo ou PIN incorrect.", None
+        user = user[0]
+        statut = user.get('statut', '')
 
-    user_id, user_pseudo, prenom, email, statut = user
+        if statut == 'en_attente':
+            return False, "Votre compte est en attente de validation par un administrateur.", None
 
-    if statut == 'en_attente':
-        return False, "Votre compte est en attente de validation par un administrateur.", None
+        if statut == 'En pause':
+            return False, "Votre compte est suspendu. Contactez un administrateur.", None
 
-    if statut == 'En pause':
-        return False, "Votre compte est suspendu. Contactez un administrateur.", None
+        # Connexion reussie
+        user_data = {
+            'id': user.get('id'),
+            'pseudo': user.get('pseudo'),
+            'prenom': user.get('prenom'),
+            'email': user.get('email'),
+            'statut': statut
+        }
 
-    # Connexion reussie
-    user_data = {
-        'id': user_id,
-        'pseudo': user_pseudo,
-        'prenom': prenom,
-        'email': email,
-        'statut': statut
-    }
+        return True, "Connexion reussie!", user_data
 
-    return True, "Connexion reussie!", user_data
+    except Exception as e:
+        print(f"Erreur login Supabase: {e}")
+        return False, "Erreur de connexion au serveur.", None
 
 
 def recuperer_pin_par_email(email):
     """
-    Recupere le PIN associe a un email
+    Recupere le PIN associe a un email depuis Supabase
     Retourne: (success, message, pin)
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    try:
+        client = get_supabase()
 
-    cursor.execute("""
-        SELECT pseudo, pin, email
-        FROM utilisateurs
-        WHERE email = ?
-    """, (email,))
+        user = client._request('GET',
+            f'utilisateurs?email=eq.{email}&select=pseudo,pin,email'
+        )
 
-    user = cursor.fetchone()
-    conn.close()
+        if not user or len(user) == 0:
+            return False, "Aucun compte associe a cet email.", None
 
-    if user is None:
-        return False, "Aucun compte associe a cet email.", None
-
-    pseudo, pin, user_email = user
+        user = user[0]
+        pseudo, pin, user_email = user.get('pseudo'), user.get('pin'), user.get('email')
     return True, f"Un email de recuperation a ete envoye a {user_email}", pin
 
 

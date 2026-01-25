@@ -3,182 +3,163 @@ Module Classement Streamlit pour Elite Pronos
 Classements avec 3 onglets : General, Ma Semaine, Records
 """
 import streamlit as st
-import sqlite3
 import os
 from datetime import datetime
 
-# Chemins
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+# Import Supabase
+from modules.supabase_db import get_supabase
+
+# Chemins pour assets (images)
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
 def get_classement_general_complet():
     """
-    Recupere le classement general avec toutes les stats:
+    Recupere le classement general avec toutes les stats depuis Supabase:
     - Place, Pseudo, Points, Bons pronos, Scores exacts, Grand Chelem
     - Jokers restants (Doubles, Voles), Meilleure place
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     try:
-        # Recuperer les stats de base pour chaque joueur
-        cursor.execute("""
-            SELECT
-                u.id,
-                u.pseudo,
-                COALESCE(SUM(p.points_gagnes), 0) as total_points,
-                COUNT(CASE WHEN p.points_gagnes > 0 THEN 1 END) as bons_pronos,
-                COUNT(CASE WHEN p.is_score_exact = 1 THEN 1 END) as scores_exacts
-            FROM utilisateurs u
-            LEFT JOIN predictions p ON u.id = p.user_id
-            WHERE u.statut = 'Actif'
-            GROUP BY u.id, u.pseudo
-            ORDER BY total_points DESC
-        """)
-        joueurs_base = cursor.fetchall()
+        client = get_supabase()
+
+        # Recuperer tous les utilisateurs actifs
+        utilisateurs = client.get_all_utilisateurs(statut='Actif')
+        if not utilisateurs:
+            return []
 
         classement = []
-        for idx, (user_id, pseudo, points, bons_pronos, scores_exacts) in enumerate(joueurs_base):
-            # Compter les Grand Chelem (4/4 bons pronos sur une semaine)
-            cursor.execute("""
-                SELECT COUNT(*) FROM (
-                    SELECT m.semaine_id
-                    FROM predictions p
-                    JOIN matches m ON p.match_id = m.id
-                    WHERE p.user_id = ? AND p.points_gagnes > 0
-                    GROUP BY m.semaine_id
-                    HAVING COUNT(*) >= 4
-                )
-            """, (user_id,))
-            nb_grand_chelem = cursor.fetchone()[0]
+        for user in utilisateurs:
+            user_id = user['id']
+            pseudo = user['pseudo']
 
-            # Jokers restants - Points Doubles
-            cursor.execute("""
-                SELECT COALESCE(jokers_double, 2) FROM stock_jokers WHERE utilisateur_id = ?
-            """, (user_id,))
-            row = cursor.fetchone()
-            jokers_double = row[0] if row else 2
+            # Recuperer toutes les predictions de cet utilisateur
+            predictions = client._request('GET',
+                f'predictions?user_id=eq.{user_id}&select=points_gagnes,is_score_exact,match_id'
+            ) or []
 
-            # Jokers restants - Points Voles
-            cursor.execute("""
-                SELECT COALESCE(jokers_vol, 2) FROM stock_jokers WHERE utilisateur_id = ?
-            """, (user_id,))
-            row = cursor.fetchone()
-            jokers_vol = row[0] if row else 2
+            # Calculer les stats
+            total_points = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
+            bons_pronos = sum(1 for p in predictions if (p.get('points_gagnes') or 0) > 0)
+            scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
 
-            # Meilleure place (simulation basee sur le rang actuel)
-            meilleure_place = idx + 1  # Pour l'instant = rang actuel
+            # Grand Chelem: compter les semaines avec 4+ bons pronos
+            # (simplifie pour l'instant)
+            nb_grand_chelem = 0
+
+            # Jokers restants (valeurs par defaut)
+            stock = client.get_stock_jokers(user_id)
+            jokers_double = stock.get('joker_double', 2) if stock else 2
+            jokers_vol = stock.get('joker_vol', 2) if stock else 2
 
             classement.append({
-                'place': idx + 1,
                 'user_id': user_id,
                 'pseudo': pseudo,
-                'points': points,
+                'points': total_points,
                 'bons_pronos': bons_pronos,
                 'scores_exacts': scores_exacts,
                 'grand_chelem': nb_grand_chelem,
                 'jokers_double': jokers_double,
                 'jokers_vol': jokers_vol,
-                'meilleure_place': meilleure_place
+                'meilleure_place': 1  # Placeholder
             })
 
-        conn.close()
+        # Trier par points decroissants
+        classement.sort(key=lambda x: x['points'], reverse=True)
+
+        # Ajouter les places et meilleure place
+        for idx, joueur in enumerate(classement):
+            joueur['place'] = idx + 1
+            joueur['meilleure_place'] = idx + 1
+
         return classement
 
     except Exception as e:
-        conn.close()
+        print(f"Erreur classement Supabase: {e}")
         return []
 
 
 def get_historique_joueur(user_id):
-    """Recupere l'historique des pronostics par journee pour un joueur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
+    """Recupere l'historique des pronostics par journee pour un joueur depuis Supabase"""
     try:
-        # Recuperer la saison active
-        cursor.execute("SELECT id FROM saisons WHERE is_active = 1")
-        saison_row = cursor.fetchone()
-        saison_id = saison_row[0] if saison_row else 2025
+        client = get_supabase()
 
-        # Recuperer toutes les journees avec pronostics
-        cursor.execute("""
-            SELECT DISTINCT m.semaine_id
-            FROM predictions p
-            JOIN matches m ON p.match_id = m.id
-            WHERE p.user_id = ? AND m.saison_id = ?
-            ORDER BY m.semaine_id DESC
-        """, (user_id, saison_id))
-        journees = [row[0] for row in cursor.fetchall()]
+        # Recuperer toutes les predictions de cet utilisateur avec les matchs
+        predictions = client._request('GET',
+            f'predictions?user_id=eq.{user_id}&select=*,matches(semaine_id,equipe_home,equipe_away,score_final_home,score_final_away,date_match,saison_id)'
+        ) or []
 
+        if not predictions:
+            return []
+
+        # Grouper par journee
+        journees_dict = {}
+        for p in predictions:
+            match = p.get('matches', {})
+            if not match:
+                continue
+            journee = match.get('semaine_id')
+            if journee not in journees_dict:
+                journees_dict[journee] = []
+
+            prono = (
+                match.get('equipe_home', ''),
+                match.get('equipe_away', ''),
+                p.get('score_prono_home'),
+                p.get('score_prono_away'),
+                p.get('mise_points'),
+                p.get('points_gagnes'),
+                match.get('score_final_home'),
+                match.get('score_final_away'),
+                p.get('is_score_exact')
+            )
+            journees_dict[journee].append(prono)
+
+        # Construire l'historique
         historique = []
-        for journee in journees:
-            # Recuperer les pronostics de cette journee
-            cursor.execute("""
-                SELECT m.equipe_home, m.equipe_away,
-                       p.score_prono_home, p.score_prono_away,
-                       p.mise_points, p.points_gagnes,
-                       m.score_final_home, m.score_final_away,
-                       p.is_score_exact
-                FROM predictions p
-                JOIN matches m ON p.match_id = m.id
-                WHERE p.user_id = ? AND m.semaine_id = ? AND m.saison_id = ?
-                ORDER BY m.date_match
-            """, (user_id, journee, saison_id))
-            pronos = cursor.fetchall()
-
-            # Calculer le total de la journee
+        for journee in sorted(journees_dict.keys(), reverse=True):
+            pronos = journees_dict[journee]
             total_journee = sum(p[5] or 0 for p in pronos)
-
             historique.append({
                 'journee': journee,
                 'pronos': pronos,
                 'total': total_journee
             })
 
-        conn.close()
         return historique
 
     except Exception as e:
-        conn.close()
+        print(f"Erreur historique Supabase: {e}")
         return []
 
 
 def get_records_joueur(user_id):
-    """Recupere les records d'un joueur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
+    """Recupere les records d'un joueur depuis Supabase"""
     try:
+        client = get_supabase()
+
+        # Recuperer toutes les predictions de cet utilisateur
+        predictions = client._request('GET',
+            f'predictions?user_id=eq.{user_id}&select=points_gagnes,is_score_exact,match_id,matches(semaine_id)'
+        ) or []
+
         # Nombre de scores exacts
-        cursor.execute("""
-            SELECT COUNT(*) FROM predictions
-            WHERE user_id = ? AND is_score_exact = 1
-        """, (user_id,))
-        nb_scores_exacts = cursor.fetchone()[0]
+        nb_scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
 
         # Nombre de bons pronostics (1N2 correct)
-        cursor.execute("""
-            SELECT COUNT(*) FROM predictions
-            WHERE user_id = ? AND points_gagnes > 0
-        """, (user_id,))
-        nb_bons_pronos = cursor.fetchone()[0]
+        nb_bons_pronos = sum(1 for p in predictions if (p.get('points_gagnes') or 0) > 0)
 
         # Meilleur score en une journee
-        cursor.execute("""
-            SELECT COALESCE(MAX(total), 0) FROM (
-                SELECT SUM(p.points_gagnes) as total
-                FROM predictions p
-                JOIN matches m ON p.match_id = m.id
-                WHERE p.user_id = ?
-                GROUP BY m.semaine_id
-            )
-        """, (user_id,))
-        meilleur_journee = cursor.fetchone()[0] or 0
+        journees_points = {}
+        for p in predictions:
+            match = p.get('matches', {})
+            if match:
+                journee = match.get('semaine_id')
+                if journee:
+                    journees_points[journee] = journees_points.get(journee, 0) + (p.get('points_gagnes') or 0)
 
-        conn.close()
+        meilleur_journee = max(journees_points.values()) if journees_points else 0
+
         return {
             'scores_exacts': nb_scores_exacts,
             'bons_pronos': nb_bons_pronos,
@@ -186,7 +167,7 @@ def get_records_joueur(user_id):
         }
 
     except Exception as e:
-        conn.close()
+        print(f"Erreur records Supabase: {e}")
         return {'scores_exacts': 0, 'bons_pronos': 0, 'meilleur_journee': 0}
 
 
