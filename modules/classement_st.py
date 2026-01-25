@@ -223,12 +223,16 @@ def afficher_classement(user):
         if classement:
             # Header du tableau
             st.markdown("""
-            <div style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.75em; color:#001529;">
-                <span style="width:50px; text-align:center;">#</span>
+            <div style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.7em; color:#001529;">
+                <span style="width:40px; text-align:center;">#</span>
                 <span style="flex:1;">Pseudo</span>
-                <span style="width:70px; text-align:center;">Points</span>
-                <span style="width:50px; text-align:center;">Bons</span>
-                <span style="width:50px; text-align:center;">Exacts</span>
+                <span style="width:55px; text-align:center;">Pts</span>
+                <span style="width:40px; text-align:center;">Bons</span>
+                <span style="width:40px; text-align:center;">Exacts</span>
+                <span style="width:35px; text-align:center;">GC</span>
+                <span style="width:35px; text-align:center;">x2</span>
+                <span style="width:35px; text-align:center;">Vol</span>
+                <span style="width:35px; text-align:center;">Top</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -248,19 +252,23 @@ def afficher_classement(user):
                     icon = f"<span style='color:#888;'>{joueur['place']}</span>"
 
                 st.markdown(f"""
-                <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.75em; {border}">
-                    <span style="width:50px; text-align:center;">{icon}</span>
+                <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.7em; {border}">
+                    <span style="width:40px; text-align:center;">{icon}</span>
                     <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
-                    <span style="width:70px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
-                    <span style="width:50px; text-align:center; color:#4488FF;">{joueur['bons_pronos']}</span>
-                    <span style="width:50px; text-align:center; color:#FFD700;">{joueur['scores_exacts']}</span>
+                    <span style="width:55px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
+                    <span style="width:40px; text-align:center; color:#4488FF;">{joueur['bons_pronos']}</span>
+                    <span style="width:40px; text-align:center; color:#FFD700;">{joueur['scores_exacts']}</span>
+                    <span style="width:35px; text-align:center; color:#FF6600;">{joueur['grand_chelem']}</span>
+                    <span style="width:35px; text-align:center; color:#00BFFF;">{joueur['jokers_double']}</span>
+                    <span style="width:35px; text-align:center; color:#FF69B4;">{joueur['jokers_vol']}</span>
+                    <span style="width:35px; text-align:center; color:#AAAAAA;">{joueur['meilleure_place']}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
             # Légende
             st.markdown("""
-            <div style="background:#0a1628; padding:6px; text-align:center; font-size:0.6em; color:#666; border-radius:0 0 8px 8px;">
-                Bons = 1N2 correct | Exacts = Score exact
+            <div style="background:#0a1628; padding:6px; text-align:center; font-size:0.55em; color:#666; border-radius:0 0 8px 8px;">
+                Bons = 1N2 correct | Exacts = Score exact | GC = Grand Chelem | x2 = Joker Double | Vol = Joker Vol | Top = Meilleure place
             </div>
             """, unsafe_allow_html=True)
         else:
