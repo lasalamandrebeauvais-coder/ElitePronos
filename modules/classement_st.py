@@ -221,89 +221,87 @@ def afficher_classement(user):
         classement = get_classement_general_complet()
 
         if classement:
-            # Construire tout le tableau en un seul bloc HTML
-            tableau_html = """
-            <div style="
-                background: #001529;
-                border: 2px solid #D4AF37;
-                border-radius: 10px;
-                overflow: hidden;
-                margin: 10px 0;
-            ">
-                <!-- Header -->
-                <div style="
-                    display: grid;
-                    grid-template-columns: 0.4fr 1.2fr 0.8fr 0.6fr 0.6fr 0.5fr 0.5fr 0.5fr 0.5fr;
-                    gap: 3px;
-                    padding: 10px 8px;
-                    background: #D4AF37;
-                    font-size: 0.7em;
-                    font-weight: bold;
-                    color: #001529;
-                    text-align: center;
-                ">
-                    <span>#</span>
-                    <span style="text-align: left;">Pseudo</span>
-                    <span>Points</span>
-                    <span>Pronos</span>
-                    <span>Scores</span>
-                    <span>GC</span>
-                    <span>J.D</span>
-                    <span>J.V</span>
-                    <span>Best</span>
-                </div>
-            """
-
-            # Ajouter chaque joueur
+            # Construire les lignes du tableau
+            lignes_html = ""
             for joueur in classement:
                 is_current = (joueur['user_id'] == current_user_id)
                 bg_color = "#002855" if is_current else "#001529"
-                border_left = "border-left: 3px solid #FFD700;" if is_current else ""
+                border_left = "border-left: 4px solid #FFD700 !important;" if is_current else "border-left: 4px solid transparent !important;"
 
                 # Couleur de la place
                 if joueur['place'] == 1:
                     place_color = "#FFD700"
+                    place_icon = "🥇"
                 elif joueur['place'] == 2:
                     place_color = "#C0C0C0"
+                    place_icon = "🥈"
                 elif joueur['place'] == 3:
                     place_color = "#CD7F32"
+                    place_icon = "🥉"
                 else:
                     place_color = "#FFFFFF"
+                    place_icon = str(joueur['place'])
 
-                tableau_html += f"""
-                <div style="
-                    display: grid;
-                    grid-template-columns: 0.4fr 1.2fr 0.8fr 0.6fr 0.6fr 0.5fr 0.5fr 0.5fr 0.5fr;
-                    gap: 3px;
-                    padding: 8px;
-                    background: {bg_color};
-                    {border_left}
-                    font-size: 0.75em;
-                    align-items: center;
-                    border-bottom: 1px solid #333;
-                ">
-                    <span style="color: {place_color}; font-weight: bold; text-align: center;">{joueur['place']}</span>
-                    <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{joueur['pseudo']}</span>
-                    <span style="color: #00FF00; font-weight: bold; text-align: center;">{joueur['points']}</span>
-                    <span style="color: #4488FF; text-align: center;">{joueur['bons_pronos']}</span>
-                    <span style="color: #FFD700; text-align: center;">{joueur['scores_exacts']}</span>
-                    <span style="color: #FF00FF; text-align: center;">{joueur['grand_chelem']}</span>
-                    <span style="color: #00FFFF; text-align: center;">{joueur['jokers_double']}</span>
-                    <span style="color: #FF6600; text-align: center;">{joueur['jokers_vol']}</span>
-                    <span style="color: #AAAAAA; text-align: center;">{joueur['meilleure_place']}</span>
-                </div>
+                lignes_html += f"""
+                <tr style="background-color: {bg_color} !important; {border_left}">
+                    <td style="color: {place_color}; font-weight: bold; text-align: center; padding: 10px 5px;">{place_icon}</td>
+                    <td style="color: #FFFFFF; text-align: left; padding: 10px 5px;">{joueur['pseudo']}</td>
+                    <td style="color: #00FF00; font-weight: bold; text-align: center; padding: 10px 5px;">{joueur['points']}</td>
+                    <td style="color: #4488FF; text-align: center; padding: 10px 5px;">{joueur['bons_pronos']}</td>
+                    <td style="color: #FFD700; text-align: center; padding: 10px 5px;">{joueur['scores_exacts']}</td>
+                </tr>
                 """
 
-            # Fermer le bloc et ajouter la legende
-            tableau_html += """
-                <!-- Legende -->
-                <div style="padding: 8px; font-size: 0.6em; color: #888; text-align: center; background: #000a15;">
-                    GC = Grand Chelem | J.D = Jokers Doubles | J.V = Jokers Vol | Best = Meilleure place
-                </div>
+            # Tableau HTML complet
+            tableau_html = f"""
+            <style>
+                .classement-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    background-color: #001529 !important;
+                    border: 2px solid #D4AF37;
+                    border-radius: 10px;
+                    overflow: hidden;
+                }}
+                .classement-table th {{
+                    background-color: #D4AF37 !important;
+                    color: #001529 !important;
+                    font-weight: bold;
+                    padding: 12px 8px;
+                    text-align: center;
+                    font-size: 0.8em;
+                }}
+                .classement-table td {{
+                    border-bottom: 1px solid #333;
+                    font-size: 0.85em;
+                }}
+                .classement-legende {{
+                    background-color: #000a15 !important;
+                    color: #888 !important;
+                    text-align: center;
+                    padding: 8px;
+                    font-size: 0.65em;
+                }}
+            </style>
+            <table class="classement-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th style="text-align: left;">Pseudo</th>
+                        <th>Points</th>
+                        <th>Bons</th>
+                        <th>Exacts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {lignes_html}
+                </tbody>
+            </table>
+            <div class="classement-legende">
+                Bons = Bons pronostics (1N2) | Exacts = Scores exacts
             </div>
             """
 
-            # Afficher tout le tableau en un seul bloc
             st.markdown(tableau_html, unsafe_allow_html=True)
         else:
             st.info("Aucun joueur dans le classement.")
