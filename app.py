@@ -584,37 +584,17 @@ else:
                 mes_pronos_accueil = [(p['matches']['id'], p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points']) for p in predictions_data if p.get('matches') and p['matches'].get('semaine_id') == journee_courante]
 
                 if mes_pronos_accueil:
-                        st.markdown(f"""
-                        <div style="
-                            background: linear-gradient(135deg, #001529 0%, #002040 100%);
-                            border: 1px solid #4488FF;
-                            border-radius: 10px;
-                            padding: 12px;
-                            margin: 10px 0;
-                        ">
-                            <div style="color: #4488FF; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">
-                                ⚽ MES PRONOSTICS DE LA JOURNÉE
-                            </div>
-                        """, unsafe_allow_html=True)
+                    st.markdown(f"""<div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #4488FF; border-radius: 10px; padding: 12px; margin: 10px 0;">
+                        <div style="color: #4488FF; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">⚽ MES PRONOSTICS DE LA JOURNÉE</div>
+                    """, unsafe_allow_html=True)
 
-                        for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
-                            st.markdown(f"""
-                            <div style="
-                                display: grid;
-                                grid-template-columns: 2fr 60px 2fr 45px;
-                                align-items: center;
-                                padding: 6px 8px;
-                                margin: 3px 0;
-                                background: #002040;
-                                border-radius: 5px;
-                                font-size: 0.8em;
-                            ">
-                                <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
-                                <span style="color: #4488FF; font-weight: bold; text-align: center;">{score_h}-{score_a}</span>
-                                <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
-                                <span style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pt</span>
-                            </div>
-                            """, unsafe_allow_html=True)
+                    for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
+                        st.markdown(f"""<div style="display: flex; justify-content: space-between; padding: 6px 8px; margin: 3px 0; background: #002040; border-radius: 5px; font-size: 0.8em;">
+                            <span style="color: #FFFFFF;">{home}</span>
+                            <span style="color: #4488FF; font-weight: bold;">{score_h}-{score_a}</span>
+                            <span style="color: #FFFFFF;">{away}</span>
+                            <span style="color: #00FF00; font-weight: bold;">{mise}pt</span>
+                        </div>""", unsafe_allow_html=True)
 
                     st.markdown("</div>", unsafe_allow_html=True)
 
