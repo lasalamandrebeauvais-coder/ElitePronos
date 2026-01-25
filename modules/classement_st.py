@@ -221,37 +221,44 @@ def afficher_classement(user):
         classement = get_classement_general_complet()
 
         if classement:
-            # Header du tableau compact
-            st.markdown("""
+            # Construire tout le tableau en un seul bloc HTML
+            tableau_html = """
             <div style="
-                display: grid;
-                grid-template-columns: 0.4fr 1.2fr 0.6fr 0.5fr 0.5fr 0.4fr 0.4fr 0.4fr 0.5fr;
-                gap: 3px;
-                padding: 8px 5px;
-                background: #D4AF37;
-                border-radius: 8px 8px 0 0;
-                font-size: 0.65em;
-                font-weight: bold;
-                color: #001529;
-                text-align: center;
+                background: #001529;
+                border: 2px solid #D4AF37;
+                border-radius: 10px;
+                overflow: hidden;
+                margin: 10px 0;
             ">
-                <span>#</span>
-                <span style="text-align: left;">Pseudo</span>
-                <span>Points</span>
-                <span>Pronos</span>
-                <span>Scores</span>
-                <span>GC</span>
-                <span>J.D</span>
-                <span>J.V</span>
-                <span>Best</span>
-            </div>
-            """, unsafe_allow_html=True)
+                <!-- Header -->
+                <div style="
+                    display: grid;
+                    grid-template-columns: 0.4fr 1.2fr 0.8fr 0.6fr 0.6fr 0.5fr 0.5fr 0.5fr 0.5fr;
+                    gap: 3px;
+                    padding: 10px 8px;
+                    background: #D4AF37;
+                    font-size: 0.7em;
+                    font-weight: bold;
+                    color: #001529;
+                    text-align: center;
+                ">
+                    <span>#</span>
+                    <span style="text-align: left;">Pseudo</span>
+                    <span>Points</span>
+                    <span>Pronos</span>
+                    <span>Scores</span>
+                    <span>GC</span>
+                    <span>J.D</span>
+                    <span>J.V</span>
+                    <span>Best</span>
+                </div>
+            """
 
-            # Lignes du tableau
+            # Ajouter chaque joueur
             for joueur in classement:
                 is_current = (joueur['user_id'] == current_user_id)
                 bg_color = "#002855" if is_current else "#001529"
-                border = "border: 1px solid #FFD700;" if is_current else ""
+                border_left = "border-left: 3px solid #FFD700;" if is_current else ""
 
                 # Couleur de la place
                 if joueur['place'] == 1:
@@ -263,15 +270,15 @@ def afficher_classement(user):
                 else:
                     place_color = "#FFFFFF"
 
-                st.markdown(f"""
+                tableau_html += f"""
                 <div style="
                     display: grid;
-                    grid-template-columns: 0.4fr 1.2fr 0.6fr 0.5fr 0.5fr 0.4fr 0.4fr 0.4fr 0.5fr;
+                    grid-template-columns: 0.4fr 1.2fr 0.8fr 0.6fr 0.6fr 0.5fr 0.5fr 0.5fr 0.5fr;
                     gap: 3px;
-                    padding: 6px 5px;
+                    padding: 8px;
                     background: {bg_color};
-                    {border}
-                    font-size: 0.7em;
+                    {border_left}
+                    font-size: 0.75em;
                     align-items: center;
                     border-bottom: 1px solid #333;
                 ">
@@ -285,14 +292,19 @@ def afficher_classement(user):
                     <span style="color: #FF6600; text-align: center;">{joueur['jokers_vol']}</span>
                     <span style="color: #AAAAAA; text-align: center;">{joueur['meilleure_place']}</span>
                 </div>
-                """, unsafe_allow_html=True)
+                """
 
-            # Legende
-            st.markdown("""
-            <div style="margin-top: 10px; font-size: 0.6em; color: #888; text-align: center;">
-                GC = Grand Chelem | J.D = Jokers Doubles | J.V = Jokers Vol | Best = Meilleure place
+            # Fermer le bloc et ajouter la legende
+            tableau_html += """
+                <!-- Legende -->
+                <div style="padding: 8px; font-size: 0.6em; color: #888; text-align: center; background: #000a15;">
+                    GC = Grand Chelem | J.D = Jokers Doubles | J.V = Jokers Vol | Best = Meilleure place
+                </div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+
+            # Afficher tout le tableau en un seul bloc
+            st.markdown(tableau_html, unsafe_allow_html=True)
         else:
             st.info("Aucun joueur dans le classement.")
 
