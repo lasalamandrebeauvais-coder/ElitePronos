@@ -474,27 +474,22 @@ else:
     if menu == "Accueil":
         user_id = user['id']  # ID utilisateur pour les requetes
 
-        # Afficher le statut de la base de donnees
-        if os.path.exists(DB_PATH):
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                cursor = conn.cursor()
+        # Utiliser Supabase pour l'accueil
+        try:
+            from modules.supabase_db import get_supabase
+            from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee
 
-                # Recuperer la saison et journee dynamiquement
-                from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee
-                saison_id = get_saison_actuelle()
-                saison_label = get_saison_label(saison_id)
-                journee_courante = get_journee_courante(saison_id)
+            supabase = get_supabase()
+            saison_id = get_saison_actuelle()
+            saison_label = get_saison_label(saison_id)
+            journee_courante = get_journee_courante(saison_id)
 
-                # Recuperer le countdown pour les pronostics
-                countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
+            # Recuperer le countdown pour les pronostics
+            countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
 
-                # Compter uniquement les matchs de la journee courante
-                cursor.execute("""
-                    SELECT COUNT(*) FROM matches
-                    WHERE saison_id = ? AND semaine_id = ? AND is_active = 1
-                """, (saison_id, journee_courante))
-                nb_matchs_journee = cursor.fetchone()[0]
+            # Compter uniquement les matchs de la journee courante (Supabase)
+            matchs_journee = supabase.get_matches_journee(saison_id, journee_courante)
+            nb_matchs_journee = len(matchs_journee)
 
                 # === SYNTHESE KINGO (en haut) ===
                 from modules.synthese_st import get_synthese_accueil
@@ -582,14 +577,11 @@ else:
                 pronostics_ouverts = countdown and not countdown.get('expired', False)
 
                 if pronostics_ouverts:
-                    # PRONOSTICS OUVERTS: Afficher les pronostics du joueur
-                    cursor.execute("""
-                        SELECT m.id, m.equipe_home, m.equipe_away, p.score_prono_home, p.score_prono_away, p.mise_points
-                        FROM predictions p
-                        JOIN matches m ON p.match_id = m.id
-                        WHERE p.user_id = ? AND m.saison_id = ? AND m.semaine_id = ?
-                    """, (user_id, saison_id, journee_courante))
-                    mes_pronos_accueil = cursor.fetchall()
+                    # PRONOSTICS OUVERTS: Afficher les pronostics du joueur (Supabase)
+                    predictions_data = supabase._request('GET',
+                        f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,matches(id,equipe_home,equipe_away,semaine_id,saison_id)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
+                    ) or []
+                    mes_pronos_accueil = [(p['matches']['id'], p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points']) for p in predictions_data if p.get('matches') and p['matches'].get('semaine_id') == journee_courante]
 
                     if mes_pronos_accueil:
                         st.markdown(f"""
@@ -627,17 +619,10 @@ else:
                         st.markdown("</div>", unsafe_allow_html=True)
 
                 else:
-                    # PRONOSTICS FERMÉS: Afficher les matchs avec scores live
+                    # PRONOSTICS FERMÉS: Afficher les matchs avec scores live (Supabase)
                     from datetime import datetime
-                    cursor.execute("""
-                        SELECT m.id, m.equipe_home, m.equipe_away, m.date_match,
-                               m.score_mi_temps_home, m.score_mi_temps_away,
-                               m.score_final_home, m.score_final_away, m.status
-                        FROM matches m
-                        WHERE m.saison_id = ? AND m.semaine_id = ? AND m.is_active = 1
-                        ORDER BY m.date_match
-                    """, (saison_id, journee_courante))
-                    matchs_live = cursor.fetchall()
+                    matchs_live_data = supabase.get_matches_journee(saison_id, journee_courante)
+                    matchs_live = [(m['id'], m['equipe_home'], m['equipe_away'], m.get('date_match'), m.get('score_mi_temps_home'), m.get('score_mi_temps_away'), m.get('score_final_home'), m.get('score_final_away'), m.get('status', 'SCHEDULED')) for m in matchs_live_data]
 
                     if matchs_live:
                         # Statut du bot de mise a jour
@@ -796,12 +781,8 @@ else:
 
                     date_journee = get_date_premiere_journee(journee_courante, saison_id)
 
-                    # Verifier si des scores sont disponibles pour cette journee
-                    cursor.execute("""
-                        SELECT COUNT(*) FROM matches
-                        WHERE saison_id = ? AND semaine_id = ? AND score_final_home IS NOT NULL
-                    """, (saison_id, journee_courante))
-                    nb_matchs_avec_score = cursor.fetchone()[0]
+                    # Verifier si des scores sont disponibles pour cette journee (Supabase)
+                    nb_matchs_avec_score = sum(1 for m in matchs_journee if m.get('score_final_home') is not None)
 
                     now = datetime.now()
                     date_fermeture = date_journee - timedelta(hours=1) if date_journee else now
@@ -810,14 +791,8 @@ else:
                     if countdown and not countdown.get('expired', False):
                         # Si l'utilisateur n'a pas encore fait ses pronostics, afficher les matchs
                         if not mes_pronos_accueil:
-                            # === MATCHS DE LA SEMAINE AVEC COTES ===
-                            cursor.execute("""
-                                SELECT equipe_home, equipe_away, cote_home, cote_draw, cote_away
-                                FROM matches
-                                WHERE saison_id = ? AND semaine_id = ? AND is_active = 1
-                                ORDER BY date_match
-                            """, (saison_id, journee_courante))
-                            matchs_semaine = cursor.fetchall()
+                            # === MATCHS DE LA SEMAINE AVEC COTES (Supabase) ===
+                            matchs_semaine = [(m['equipe_home'], m['equipe_away'], m.get('cote_home'), m.get('cote_draw'), m.get('cote_away')) for m in matchs_journee]
 
                             if matchs_semaine:
                                 st.markdown(f"""
@@ -869,41 +844,36 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Recuperer tous les joueurs qui ont fait des pronostics cette journee
-                        cursor.execute("""
-                            SELECT DISTINCT u.id, u.pseudo,
-                                   COALESCE(SUM(p.points_gagnes), 0) as total_points_journee
-                            FROM utilisateurs u
-                            JOIN predictions p ON u.id = p.user_id
-                            JOIN matches m ON p.match_id = m.id
-                            WHERE m.saison_id = ? AND m.semaine_id = ?
-                            GROUP BY u.id, u.pseudo
-                            ORDER BY total_points_journee DESC, u.pseudo
-                        """, (saison_id, journee_courante))
-                        joueurs_journee = cursor.fetchall()
+                        # Recuperer tous les joueurs qui ont fait des pronostics cette journee (Supabase)
+                        match_ids = [m['id'] for m in matchs_journee]
+                        if match_ids:
+                            match_ids_str = ','.join(map(str, match_ids))
+                            all_predictions = supabase._request('GET',
+                                f'predictions?match_id=in.({match_ids_str})&select=user_id,points_gagnes,utilisateurs(id,pseudo)'
+                            ) or []
+                            # Grouper par joueur
+                            joueurs_dict = {}
+                            for p in all_predictions:
+                                uid = p['user_id']
+                                pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
+                                if uid not in joueurs_dict:
+                                    joueurs_dict[uid] = {'pseudo': pseudo, 'total': 0}
+                                joueurs_dict[uid]['total'] += p.get('points_gagnes') or 0
+                            joueurs_journee = [(uid, data['pseudo'], data['total']) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
+                        else:
+                            joueurs_journee = []
 
                         for joueur_id, pseudo, total_pts in joueurs_journee:
-                            # Recuperer le joker utilise par ce joueur cette semaine
-                            cursor.execute("""
-                                SELECT type_joker FROM jokers_historique
-                                WHERE utilisateur_id = ? AND semaine_id = ?
-                            """, (joueur_id, journee_courante))
-                            joker_row = cursor.fetchone()
-                            joker_type = joker_row[0] if joker_row else None
+                            # Recuperer le joker utilise par ce joueur cette semaine (Supabase)
+                            joker_data = supabase.get_joker_semaine(joueur_id, journee_courante)
+                            joker_type = joker_data.get('type_joker') if joker_data else None
                             joker_icon = "⚡" if joker_type == "DOUBLE" else "🎯" if joker_type == "VOL" else "-"
 
-                            # Recuperer tous les pronostics de ce joueur pour cette journee
-                            cursor.execute("""
-                                SELECT m.equipe_home, m.equipe_away,
-                                       p.score_prono_home, p.score_prono_away,
-                                       p.mise_points, p.points_gagnes,
-                                       m.score_final_home, m.score_final_away
-                                FROM predictions p
-                                JOIN matches m ON p.match_id = m.id
-                                WHERE p.user_id = ? AND m.saison_id = ? AND m.semaine_id = ?
-                                ORDER BY m.date_match
-                            """, (joueur_id, saison_id, journee_courante))
-                            pronos_joueur = cursor.fetchall()
+                            # Recuperer tous les pronostics de ce joueur pour cette journee (Supabase)
+                            pronos_data = supabase._request('GET',
+                                f'predictions?user_id=eq.{joueur_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match)'
+                            ) or []
+                            pronos_joueur = [(p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away')) for p in pronos_data if p.get('matches')]
 
                             # Couleur du total selon positif/negatif
                             total_color = "#00FF00" if total_pts >= 0 else "#FF4444"
@@ -975,10 +945,8 @@ else:
 
                             st.markdown("</div>", unsafe_allow_html=True)
 
-                conn.close()
-
-            except Exception as e:
-                st.error(f"Erreur de lecture: {e}")
+        except Exception as e:
+            st.error(f"Erreur de lecture Supabase: {e}")
 
         # Bouton Tableau de bord en bas
         st.markdown("---")
