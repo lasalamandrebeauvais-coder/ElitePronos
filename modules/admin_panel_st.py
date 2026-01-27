@@ -3,12 +3,12 @@ Module Admin Streamlit pour Elite Pronos
 Gestion des validations d'inscriptions, resultats et communications
 """
 import streamlit as st
-import sqlite3
 import os
 from datetime import datetime
 
-# Chemin vers la base de donnees
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+# Supabase
+from modules.supabase_db import get_supabase
+
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 # Imports pour la gestion des journees
@@ -28,27 +28,16 @@ from modules.calcul_gains import calculer_tous_gains_semaine, sauvegarder_result
 
 def get_utilisateurs_en_attente():
     """Recupere tous les utilisateurs en attente de validation"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, pseudo, email, prenom, telephone
-        FROM utilisateurs
-        WHERE statut = 'en_attente'
-        ORDER BY id DESC
-    """)
-    users = cursor.fetchall()
-    conn.close()
-    return users
+    supabase = get_supabase()
+    users = supabase._request('GET', 'utilisateurs?statut=eq.en_attente&select=id,pseudo,email,prenom,telephone&order=id.desc') or []
+    return [(u['id'], u['pseudo'], u.get('email'), u.get('prenom'), u.get('telephone')) for u in users]
 
 
 def is_admin(user_id):
     """Verifie si un utilisateur est admin"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT is_admin FROM utilisateurs WHERE id = ?", (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result and result[0] == 1
+    supabase = get_supabase()
+    result = supabase._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
+    return result and len(result) > 0 and result[0].get('is_admin', False)
 
 
 def is_super_admin(pseudo):
@@ -58,89 +47,53 @@ def is_super_admin(pseudo):
 
 def promouvoir_admin(user_id):
     """Promouvoit un utilisateur en admin"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE utilisateurs SET is_admin = 1 WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    supabase = get_supabase()
+    supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': True})
     return True
 
 
 def revoquer_admin(user_id):
     """Revoque les droits admin d'un utilisateur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    # Verifier que ce n'est pas Baggio (super admin)
-    cursor.execute("SELECT pseudo FROM utilisateurs WHERE id = ?", (user_id,))
-    result = cursor.fetchone()
-    if result and result[0].lower() == 'baggio':
-        conn.close()
-        return False  # Ne peut pas revoquer le super admin
-    cursor.execute("UPDATE utilisateurs SET is_admin = 0 WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    supabase = get_supabase()
+    result = supabase._request('GET', f'utilisateurs?id=eq.{user_id}&select=pseudo')
+    if result and result[0].get('pseudo', '').lower() == 'baggio':
+        return False
+    supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': False})
     return True
 
 
 def get_nombre_admins():
     """Retourne le nombre d'administrateurs"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE is_admin = 1")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    supabase = get_supabase()
+    result = supabase._request('GET', 'utilisateurs?is_admin=eq.true&select=id') or []
+    return len(result)
 
 
 def get_tous_utilisateurs():
     """Recupere tous les utilisateurs avec statut admin"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, pseudo, email, prenom, statut, COALESCE(is_admin, 0) as is_admin
-        FROM utilisateurs
-        ORDER BY is_admin DESC, id DESC
-    """)
-    users = cursor.fetchall()
-    conn.close()
-    return users
+    supabase = get_supabase()
+    users = supabase._request('GET', 'utilisateurs?select=id,pseudo,email,prenom,statut,is_admin&order=is_admin.desc,id.desc') or []
+    return [(u['id'], u['pseudo'], u.get('email'), u.get('prenom'), u.get('statut'), u.get('is_admin', False)) for u in users]
 
 
 def activer_compte(user_id):
     """Active le compte d'un utilisateur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE utilisateurs
-        SET statut = 'Actif'
-        WHERE id = ?
-    """, (user_id,))
-    conn.commit()
-    conn.close()
+    supabase = get_supabase()
+    supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'Actif'})
     return True
 
 
 def suspendre_compte(user_id):
     """Suspend le compte d'un utilisateur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE utilisateurs
-        SET statut = 'En pause'
-        WHERE id = ?
-    """, (user_id,))
-    conn.commit()
-    conn.close()
+    supabase = get_supabase()
+    supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'En pause'})
     return True
 
 
 def supprimer_compte(user_id):
     """Supprime un utilisateur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM utilisateurs WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    supabase = get_supabase()
+    supabase._request('DELETE', f'utilisateurs?id=eq.{user_id}')
     return True
 
 
@@ -576,19 +529,11 @@ def afficher_panel_admin():
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Stats Admin")
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE statut = 'Actif'")
-    nb_actifs = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE statut = 'en_attente'")
-    nb_attente = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM utilisateurs")
-    nb_total = cursor.fetchone()[0]
-
-    conn.close()
+    supabase = get_supabase()
+    all_users = supabase._request('GET', 'utilisateurs?select=statut') or []
+    nb_actifs = sum(1 for u in all_users if u.get('statut') == 'Actif')
+    nb_attente = sum(1 for u in all_users if u.get('statut') == 'en_attente')
+    nb_total = len(all_users)
 
     st.sidebar.metric("Actifs", nb_actifs)
     st.sidebar.metric("En attente", nb_attente)
