@@ -780,10 +780,17 @@ else:
 
                             for home, away, cote_h, cote_n, cote_a in matchs_semaine:
                                 st.markdown(f"""
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 5px 0; background: #002040; border-radius: 6px;">
-                                    <div style="flex: 1; text-align: center;"><span style="color: #FFFFFF;">{home}</span> <span style="color: #FF0000;">({cote_h})</span></div>
-                                    <div style="color: #AAAAAA;">N:{cote_n}</div>
-                                    <div style="flex: 1; text-align: center;"><span style="color: #FFFFFF;">{away}</span> <span style="color: #FF0000;">({cote_a})</span></div>
+                                <div style="padding: 10px; margin: 8px 0; background: #002040; border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <span style="color: #FFFFFF; flex: 1; text-align: left; font-weight: bold;">{home}</span>
+                                        <span style="color: #D4AF37; font-size: 0.9em;">VS</span>
+                                        <span style="color: #FFFFFF; flex: 1; text-align: right; font-weight: bold;">{away}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-around; padding-top: 6px; border-top: 1px solid #333;">
+                                        <span style="color: #00FF00; font-size: 0.85em;">1: <strong>{cote_h}</strong></span>
+                                        <span style="color: #AAAAAA; font-size: 0.85em;">N: <strong>{cote_n}</strong></span>
+                                        <span style="color: #FF6666; font-size: 0.85em;">2: <strong>{cote_a}</strong></span>
+                                    </div>
                                 </div>
                                 """, unsafe_allow_html=True)
 
