@@ -955,8 +955,12 @@ def get_journee_courante(saison_id=None):
     try:
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
-        # Lire depuis la table saisons
-        saisons = supabase._request('GET', f'saisons?id=eq.{saison_id}&select=journee_courante')
+        # Lire depuis la table saisons (utiliser annee_debut pour filtrer par saison)
+        saisons = supabase._request('GET', f'saisons?annee_debut=eq.{saison_id}&select=journee_courante')
+        if saisons and len(saisons) > 0:
+            return saisons[0].get('journee_courante', 1)
+        # Fallback: saison active
+        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
         if saisons and len(saisons) > 0:
             return saisons[0].get('journee_courante', 1)
     except Exception:
