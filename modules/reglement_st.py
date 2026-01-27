@@ -97,6 +97,9 @@ def afficher_reglement():
     st.markdown('<div class="point-titre">2.4 Deadline</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Pronostics a valider <span class="valeur-or">1 heure avant</span> le coup d\'envoi du premier match. Aucune modification possible apres.</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="point-titre">2.5 Confidentialite des pronostics</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Les pronostics de chaque joueur sont <span class="valeur-or">gardes secrets</span> pour tous les autres joueurs jusqu\'a la deadline.</div>', unsafe_allow_html=True)
+
     # =====================================================
     # ARTICLE 3 : SYSTEME DE POINTS
     # =====================================================
@@ -109,7 +112,7 @@ def afficher_reglement():
     st.markdown('<div class="point-texte">Bonus <span class="valeur-vert">+10 POINTS</span> si score exact trouve</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">3.3 Mauvais pronostic</div>', unsafe_allow_html=True)
-    st.markdown('<div class="point-texte"><span class="valeur-rouge">0 point</span> si le resultat 1N2 est incorrect</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Si le resultat 1N2 est incorrect, le joueur <span class="valeur-rouge">perd sa mise</span> sur ce match.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">3.4 Grand Chelem</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Bonus <span class="valeur-vert">+40 POINTS</span> si 4/4 resultats corrects sur une semaine</div>', unsafe_allow_html=True)
