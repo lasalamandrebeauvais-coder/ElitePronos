@@ -186,22 +186,23 @@ def afficher_panel_admin():
             # Afficher sous forme de tableau
             st.markdown(f"**{len(all_users)} utilisateur(s) au total**")
 
-            # En-tête du tableau
-            header_cols = st.columns([0.3, 1.2, 1.8, 0.5, 0.5, 0.5])
-            with header_cols[0]:
-                st.markdown("<span style='color:#D4AF37;font-weight:bold;font-size:0.75em;'>#</span>", unsafe_allow_html=True)
-            with header_cols[1]:
-                st.markdown("<span style='color:#D4AF37;font-weight:bold;font-size:0.75em;'>Pseudo</span>", unsafe_allow_html=True)
-            with header_cols[2]:
-                st.markdown("<span style='color:#D4AF37;font-weight:bold;font-size:0.75em;'>Email</span>", unsafe_allow_html=True)
-            with header_cols[3]:
-                st.markdown("<span style='color:#D4AF37;font-weight:bold;font-size:0.75em;'>Actif</span>", unsafe_allow_html=True)
-            with header_cols[4]:
-                st.markdown("<span style='color:#D4AF37;font-weight:bold;font-size:0.75em;'>Admin</span>", unsafe_allow_html=True)
-            with header_cols[5]:
-                st.markdown("<span style='color:#FF4444;font-weight:bold;font-size:0.75em;'>Suppr</span>", unsafe_allow_html=True)
+            # Style compact
+            st.markdown("""<style>
+                .compact-row { margin-bottom: -15px !important; }
+                .stCheckbox { margin: 0 !important; padding: 0 !important; }
+            </style>""", unsafe_allow_html=True)
 
-            st.markdown("<hr style='margin:5px 0;border-color:#D4AF37;'>", unsafe_allow_html=True)
+            # En-tête du tableau
+            st.markdown("""
+            <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #D4AF37;margin-bottom:5px;">
+                <span style="width:30px;color:#D4AF37;font-size:0.7em;font-weight:bold;">#</span>
+                <span style="width:100px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Pseudo</span>
+                <span style="flex:1;color:#D4AF37;font-size:0.7em;font-weight:bold;">Email</span>
+                <span style="width:40px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Actif</span>
+                <span style="width:40px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Admin</span>
+                <span style="width:40px;color:#FF4444;font-size:0.7em;font-weight:bold;">Suppr</span>
+            </div>
+            """, unsafe_allow_html=True)
 
             # Liste des utilisateurs
             for user in all_users:
@@ -211,55 +212,41 @@ def afficher_panel_admin():
                 is_admin_user = user_is_admin or False
                 is_super = is_super_admin(pseudo)
 
-                cols = st.columns([0.3, 1.2, 1.8, 0.5, 0.5, 0.5])
+                cols = st.columns([0.4, 1.3, 2.2, 0.4, 0.4, 0.4])
 
-                # 1) Ordre inscription (ID)
                 with cols[0]:
-                    st.markdown(f"<span style='color:#FFF;font-size:0.8em;'>{user_id}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:#FFF;font-size:0.75em;'>{user_id}</span>", unsafe_allow_html=True)
 
-                # 2) Pseudo
                 with cols[1]:
-                    admin_icon = "👑 " if is_admin_user else ""
-                    st.markdown(f"<span style='color:#FFF;font-size:0.8em;'>{admin_icon}{pseudo}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:#FFF;font-size:0.75em;'>{pseudo}</span>", unsafe_allow_html=True)
 
-                # 3) Email
                 with cols[2]:
-                    st.markdown(f"<span style='color:#AAA;font-size:0.75em;'>{email or '-'}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:#888;font-size:0.7em;'>{email or '-'}</span>", unsafe_allow_html=True)
 
-                # 4) Case Actif (fond vert si actif, rouge si pause)
                 with cols[3]:
-                    bg_color = "#00AA00" if is_actif else "#AA0000"
-                    st.markdown(f"<div style='background:{bg_color};border-radius:4px;padding:2px;'>", unsafe_allow_html=True)
-                    new_actif = st.checkbox("Actif", value=is_actif, key=f"actif_{user_id}", label_visibility="collapsed")
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    # Case Actif: vert si actif, rouge si pause
+                    bg = "🟢" if is_actif else "🔴"
+                    new_actif = st.checkbox(bg, value=is_actif, key=f"actif_{user_id}", label_visibility="collapsed")
                     if new_actif != is_actif:
-                        if new_actif:
-                            activer_compte(user_id)
-                        else:
-                            suspendre_compte(user_id)
+                        activer_compte(user_id) if new_actif else suspendre_compte(user_id)
                         st.rerun()
 
-                # 5) Case Admin
                 with cols[4]:
+                    # Admin: couronne si admin
+                    if is_admin_user:
+                        st.markdown("👑", unsafe_allow_html=True)
                     if not is_super:
-                        new_admin = st.checkbox("Admin", value=is_admin_user, key=f"admin_{user_id}", label_visibility="collapsed")
+                        new_admin = st.checkbox("", value=is_admin_user, key=f"admin_{user_id}", label_visibility="collapsed")
                         if new_admin != is_admin_user:
-                            if new_admin:
-                                promouvoir_admin(user_id)
-                            else:
-                                revoquer_admin(user_id)
+                            promouvoir_admin(user_id) if new_admin else revoquer_admin(user_id)
                             st.rerun()
-                    else:
-                        st.markdown("<span style='color:#FFD700;'>👑</span>", unsafe_allow_html=True)
 
-                # 6) Case Supprimer (rouge)
                 with cols[5]:
+                    # Supprimer
                     if not is_super:
-                        st.markdown("<div style='background:#AA0000;border-radius:4px;padding:2px;'>", unsafe_allow_html=True)
-                        if st.checkbox("Suppr", value=False, key=f"del_{user_id}", label_visibility="collapsed"):
+                        if st.checkbox("🗑", value=False, key=f"del_{user_id}", label_visibility="collapsed"):
                             supprimer_compte(user_id)
                             st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:
