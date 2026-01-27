@@ -1,16 +1,18 @@
 """
 Module d'inscription Streamlit pour Elite Pronos
 Avec restriction J1-30 et integration emails
+Version Supabase
 """
 import streamlit as st
-import sqlite3
 import os
 from PIL import Image
 import io
 from datetime import datetime
 
-# Chemin vers la base de donnees
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+# Import Supabase
+from modules.supabase_db import get_supabase
+
+# Chemin vers les avatars
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 
 # Import fonctions database_manager
@@ -19,7 +21,7 @@ try:
         inscriptions_ouvertes,
         get_date_ouverture_inscriptions,
         get_countdown_j1,
-        ajouter_jokers_nouvel_utilisateur
+        get_saison_actuelle
     )
     from modules.notifier_st import envoyer_email_bienvenue, envoyer_alerte_nouvel_inscrit
     HAS_MANAGER = True
@@ -27,6 +29,8 @@ except ImportError:
     HAS_MANAGER = False
     def envoyer_alerte_nouvel_inscrit(*args):
         pass
+    def get_saison_actuelle():
+        return 2025
 
 
 def valider_email(email):
@@ -45,13 +49,14 @@ def valider_pin(pin):
 
 
 def pseudo_existe(pseudo):
-    """Verifie si le pseudo existe deja dans la base"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM utilisateurs WHERE pseudo = ?", (pseudo,))
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count > 0
+    """Verifie si le pseudo existe deja dans Supabase"""
+    try:
+        supabase = get_supabase()
+        result = supabase._request('GET', f'utilisateurs?pseudo=eq.{pseudo}&select=id')
+        return result and len(result) > 0
+    except Exception as e:
+        print(f"Erreur pseudo_existe: {e}")
+        return False
 
 
 def sauvegarder_avatar(image_file, pseudo):
@@ -75,37 +80,47 @@ def sauvegarder_avatar(image_file, pseudo):
 
 
 def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avatar_path=None):
-    """Enregistre l'utilisateur dans la base de donnees"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
+    """Enregistre l'utilisateur dans Supabase"""
     try:
+        supabase = get_supabase()
+
         # Verifier si c'est le premier utilisateur (sera admin)
-        cursor.execute("SELECT COUNT(*) FROM utilisateurs")
-        nb_users = cursor.fetchone()[0]
+        all_users = supabase._request('GET', 'utilisateurs?select=id')
+        nb_users = len(all_users) if all_users else 0
 
         # Premier utilisateur = admin automatiquement actif
         statut = 'Actif' if nb_users == 0 else 'en_attente'
         is_first_user = (nb_users == 0)
 
-        cursor.execute('''
-            INSERT INTO utilisateurs (prenom, pseudo, email, telephone, pin, statut, parrain)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (prenom, pseudo, email, telephone, pin, statut, parrain))
-        conn.commit()
+        # Creer l'utilisateur dans Supabase
+        user_data = {
+            'prenom': prenom,
+            'pseudo': pseudo,
+            'email': email,
+            'telephone': telephone,
+            'pin': pin,
+            'statut': statut,
+            'parrain': parrain
+        }
+
+        result = supabase._request('POST', 'utilisateurs', user_data)
+
+        if not result or len(result) == 0:
+            return False, "Erreur lors de la creation du compte."
 
         # Recuperer l'ID du nouvel utilisateur
-        user_id = cursor.lastrowid
-        conn.close()
+        user_id = result[0].get('id')
 
         # Ajouter le stock de jokers initial
-        if HAS_MANAGER:
-            ajouter_jokers_nouvel_utilisateur(user_id)
+        saison_id = get_saison_actuelle() if HAS_MANAGER else 2025
+        supabase.init_stock_jokers(user_id, saison_id)
 
+        # Envoyer emails si HAS_MANAGER
+        if HAS_MANAGER:
             # Envoyer email de bienvenue au joueur
             if email:
-                user_data = {'id': user_id, 'pseudo': pseudo, 'prenom': prenom, 'email': email}
-                envoyer_email_bienvenue(user_data)
+                user_info = {'id': user_id, 'pseudo': pseudo, 'prenom': prenom, 'email': email}
+                envoyer_email_bienvenue(user_info)
 
             # Envoyer email alerte admin (nouvel inscrit)
             envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
@@ -114,11 +129,11 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
         if is_first_user:
             return True, "Inscription reussie ! Vous etes le premier utilisateur et avez ete designe ADMIN."
         return True, "Inscription reussie ! En attente de validation par un admin."
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, "Ce pseudo est deja utilise."
+
     except Exception as e:
-        conn.close()
+        print(f"Erreur enregistrer_utilisateur: {e}")
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            return False, "Ce pseudo est deja utilise."
         return False, f"Erreur: {str(e)}"
 
 

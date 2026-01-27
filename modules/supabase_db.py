@@ -181,6 +181,22 @@ class SupabaseClient:
         )
         return result[0] if result else None
 
+    def init_stock_jokers(self, user_id, saison_id=2025):
+        """Initialise le stock de jokers pour un nouvel utilisateur"""
+        # Verifier si le stock existe deja
+        existing = self.get_stock_jokers(user_id, saison_id)
+        if existing:
+            return existing
+
+        # Creer le stock initial: 3 jokers doubles + 2 jokers voles
+        result = self._request('POST', 'stock_jokers', {
+            'utilisateur_id': user_id,
+            'saison_id': saison_id,
+            'joker_double': 3,
+            'joker_vol': 2
+        })
+        return result[0] if result else None
+
     # ============================================
     # SAISONS
     # ============================================
