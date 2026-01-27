@@ -186,104 +186,66 @@ def afficher_panel_admin():
             # Afficher sous forme de tableau
             st.markdown(f"**{len(all_users)} utilisateur(s) au total**")
 
-            # En-tete du tableau avec style
-            st.markdown("""
-            <div style="
-                display: grid;
-                grid-template-columns: 0.5fr 1.5fr 2fr 1fr 1fr 1.5fr;
-                gap: 10px;
-                padding: 10px;
-                background: #D4AF37;
-                border-radius: 8px 8px 0 0;
-                font-weight: bold;
-                color: #001529;
-                font-size: 0.85em;
-            ">
-                <span style="text-align: center;">ID</span>
-                <span>Pseudo</span>
-                <span>Email</span>
-                <span style="text-align: center;">Statut</span>
-                <span style="text-align: center;">Role</span>
-                <span style="text-align: center;">Actions</span>
-            </div>
-            """, unsafe_allow_html=True)
-
+            # Liste compacte avec checkboxes
             for user in all_users:
                 user_id, pseudo, email, prenom, statut, user_is_admin = user
 
-                # Determiner les couleurs
-                if user_is_admin:
-                    pseudo_display = f"{pseudo} 👑"
-                    pseudo_color = "#FFD700"
-                else:
-                    pseudo_display = pseudo
-                    pseudo_color = "#FFFFFF"
+                is_actif = statut == "Actif"
+                is_admin_user = user_is_admin or False
+                is_super = is_super_admin(pseudo)
 
-                if statut == "Actif":
-                    statut_color = "#00FF00"
-                elif statut == "en_attente":
-                    statut_color = "#FFA500"
-                else:
-                    statut_color = "#FF4444"
+                # Couleurs
+                statut_icon = "🟢" if is_actif else "🟠" if statut == "en_attente" else "🔴"
+                admin_icon = "👑" if is_admin_user else ""
 
-                role_text = "SUPER ADMIN" if is_super_admin(pseudo) else ("Admin" if user_is_admin else "Joueur")
-                role_color = "#FFD700" if user_is_admin else "#AAAAAA"
+                # Une seule ligne avec colonnes
+                cols = st.columns([0.3, 1.2, 1.5, 0.5, 0.5, 0.5])
 
-                # Ligne du tableau
-                st.markdown(f"""
-                <div style="
-                    display: grid;
-                    grid-template-columns: 0.5fr 1.5fr 2fr 1fr 1fr 1.5fr;
-                    gap: 10px;
-                    padding: 8px 10px;
-                    background: #001529;
-                    border-bottom: 1px solid #333;
-                    font-size: 0.8em;
-                    align-items: center;
-                ">
-                    <span style="color: #D4AF37; text-align: center; font-weight: bold;">{user_id}</span>
-                    <span style="color: {pseudo_color}; font-weight: bold;">{pseudo_display}</span>
-                    <span style="color: #AAAAAA;">{email or 'N/A'}</span>
-                    <span style="color: {statut_color}; text-align: center;">{statut or 'N/A'}</span>
-                    <span style="color: {role_color}; text-align: center;">{role_text}</span>
-                    <span></span>
-                </div>
-                """, unsafe_allow_html=True)
+                with cols[0]:
+                    st.markdown(f"<span style='color:#D4AF37;font-size:0.8em;'>{user_id}</span>", unsafe_allow_html=True)
 
-                # Boutons d'action sur une ligne separee
-                action_cols = st.columns([1, 1, 1, 1, 2])
+                with cols[1]:
+                    st.markdown(f"<span style='color:#FFF;font-size:0.8em;'>{admin_icon} {pseudo}</span>", unsafe_allow_html=True)
 
-                # Activer/Suspendre
-                with action_cols[0]:
-                    if statut != "Actif":
-                        if st.button("✓ Activer", key=f"act_{user_id}", use_container_width=True):
+                with cols[2]:
+                    st.markdown(f"<span style='color:#888;font-size:0.7em;'>{email or ''}</span>", unsafe_allow_html=True)
+
+                with cols[3]:
+                    # Checkbox Actif
+                    new_actif = st.checkbox("Actif", value=is_actif, key=f"actif_{user_id}", label_visibility="collapsed")
+                    if new_actif != is_actif:
+                        if new_actif:
                             activer_compte(user_id)
+                        else:
+                            suspendre_compte(user_id)
+                        st.rerun()
+
+                with cols[4]:
+                    # Checkbox Admin (sauf super admin)
+                    if not is_super:
+                        new_admin = st.checkbox("Admin", value=is_admin_user, key=f"admin_{user_id}", label_visibility="collapsed")
+                        if new_admin != is_admin_user:
+                            if new_admin:
+                                promouvoir_admin(user_id)
+                            else:
+                                revoquer_admin(user_id)
                             st.rerun()
                     else:
-                        if st.button("⏸ Pause", key=f"pause_{user_id}", use_container_width=True):
-                            suspendre_compte(user_id)
-                            st.rerun()
+                        st.markdown("👑", unsafe_allow_html=True)
 
-                # Bouton Admin toggle (sauf pour super admin)
-                with action_cols[1]:
-                    if not is_super_admin(pseudo):
-                        if user_is_admin:
-                            if st.button("👤 Retirer", key=f"revoke_{user_id}", use_container_width=True):
-                                if revoquer_admin(user_id):
-                                    st.rerun()
-                        else:
-                            if st.button("👑 Admin", key=f"promote_{user_id}", use_container_width=True):
-                                promouvoir_admin(user_id)
-                                st.rerun()
-
-                # Supprimer (sauf super admin)
-                with action_cols[2]:
-                    if not is_super_admin(pseudo):
-                        if st.button("🗑 Suppr", key=f"del_{user_id}", use_container_width=True):
+                with cols[5]:
+                    # Bouton supprimer (sauf super admin)
+                    if not is_super:
+                        if st.button("🗑", key=f"del_{user_id}"):
                             supprimer_compte(user_id)
                             st.rerun()
 
-                st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+            # Légende
+            st.markdown("""
+            <div style="font-size:0.7em;color:#888;margin-top:10px;">
+                Colonnes: ID | Pseudo | Email | ☑Actif | ☑Admin | 🗑Suppr
+            </div>
+            """, unsafe_allow_html=True)
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:
