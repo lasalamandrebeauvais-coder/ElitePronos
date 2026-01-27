@@ -765,21 +765,34 @@ def get_date_j1(saison_id=None):
     if saison_id is None:
         saison_id = get_saison_actuelle()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    date_str = None
 
-    cursor.execute('''
-        SELECT MIN(date_match) FROM matches
-        WHERE saison_id = ? AND semaine_id = 1
-    ''', (saison_id,))
+    # Essayer Supabase d'abord (pour Streamlit Cloud)
+    try:
+        from modules.supabase_db import get_supabase
+        supabase = get_supabase()
+        matchs = supabase._request('GET',
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.1&select=date_match&order=date_match&limit=1'
+        )
+        if matchs and len(matchs) > 0:
+            date_str = matchs[0].get('date_match')
+    except Exception:
+        # Fallback SQLite (local)
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT MIN(date_match) FROM matches
+            WHERE saison_id = ? AND semaine_id = 1
+        ''', (saison_id,))
+        result = cursor.fetchone()
+        conn.close()
+        if result and result[0]:
+            date_str = result[0]
 
-    result = cursor.fetchone()
-    conn.close()
-
-    if result and result[0]:
+    if date_str:
         try:
             # Essayer de parser la date ISO
-            date_str = result[0].replace('Z', '+00:00')
+            date_str = date_str.replace('Z', '+00:00')
             dt = datetime.fromisoformat(date_str)
             # Convertir en datetime naive (sans timezone) pour comparaison
             if dt.tzinfo is not None:
@@ -788,7 +801,7 @@ def get_date_j1(saison_id=None):
         except (ValueError, AttributeError):
             # Fallback: essayer format standard
             try:
-                return datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
+                return datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
             except:
                 return None
     return None
@@ -843,23 +856,36 @@ def get_date_premiere_journee(semaine_id, saison_id=None):
     if saison_id is None:
         saison_id = get_saison_actuelle()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    date_str = None
 
-    cursor.execute('''
-        SELECT MIN(date_match) FROM matches
-        WHERE saison_id = ? AND semaine_id = ?
-    ''', (saison_id, semaine_id))
+    # Essayer Supabase d'abord (pour Streamlit Cloud)
+    try:
+        from modules.supabase_db import get_supabase
+        supabase = get_supabase()
+        matchs = supabase._request('GET',
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=date_match&order=date_match&limit=1'
+        )
+        if matchs and len(matchs) > 0:
+            date_str = matchs[0].get('date_match')
+    except Exception:
+        # Fallback SQLite (local)
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT MIN(date_match) FROM matches
+            WHERE saison_id = ? AND semaine_id = ?
+        ''', (saison_id, semaine_id))
+        result = cursor.fetchone()
+        conn.close()
+        if result and result[0]:
+            date_str = result[0]
 
-    result = cursor.fetchone()
-    conn.close()
-
-    if result and result[0]:
+    if date_str:
         try:
-            return datetime.fromisoformat(result[0].replace('Z', '+00:00').replace('+00:00', ''))
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00').replace('+00:00', ''))
         except:
             try:
-                return datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
+                return datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
             except:
                 return None
     return None
@@ -920,11 +946,23 @@ def get_countdown_pronostics_journee(semaine_id, saison_id=None):
 def get_journee_courante(saison_id=None):
     """
     Retourne le numero de la journee courante.
-    = Prochaine journee avec des matchs a venir.
+    Utilise Supabase si disponible, sinon SQLite.
     """
     if saison_id is None:
         saison_id = get_saison_actuelle()
 
+    # Essayer Supabase d'abord (pour Streamlit Cloud)
+    try:
+        from modules.supabase_db import get_supabase
+        supabase = get_supabase()
+        # Lire depuis la table saisons
+        saisons = supabase._request('GET', f'saisons?id=eq.{saison_id}&select=journee_courante')
+        if saisons and len(saisons) > 0:
+            return saisons[0].get('journee_courante', 1)
+    except Exception:
+        pass  # Fallback SQLite
+
+    # Fallback SQLite (local)
     conn = get_connection()
     cursor = conn.cursor()
 
