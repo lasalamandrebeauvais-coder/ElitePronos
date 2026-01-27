@@ -798,11 +798,15 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # Recuperer tous les joueurs (Supabase)
+                    # Recuperer les rivaux du joueur connecte (Supabase)
+                    rivaux_ids = supabase.get_rivaux_ids(user_id)
+
+                    # Recuperer les predictions des rivaux uniquement
                     match_ids = [m['id'] for m in matchs_journee]
-                    if match_ids:
+                    if match_ids and rivaux_ids:
                         match_ids_str = ','.join(map(str, match_ids))
-                        all_predictions = supabase._request('GET', f'predictions?match_id=in.({match_ids_str})&select=user_id,points_gagnes,utilisateurs(id,pseudo)') or []
+                        rivaux_ids_str = ','.join(map(str, rivaux_ids))
+                        all_predictions = supabase._request('GET', f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,utilisateurs(id,pseudo)') or []
                         joueurs_dict = {}
                         for p in all_predictions:
                             uid = p['user_id']
@@ -811,6 +815,33 @@ else:
                                 joueurs_dict[uid] = {'pseudo': pseudo, 'total': 0}
                             joueurs_dict[uid]['total'] += p.get('points_gagnes') or 0
                         joueurs_journee = [(uid, data['pseudo'], data['total']) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
+
+                        # === BLOC KINGO RIVAUX ===
+                        from modules.synthese_st import get_debrief_rivaux
+                        debrief_rivaux = get_debrief_rivaux(user_id, saison_id, journee_courante)
+                        if debrief_rivaux:
+                            st.markdown(f"""
+                            <div style="
+                                background: linear-gradient(135deg, #2a1a4e 0%, #1a2a4e 100%);
+                                border: 2px solid #9932CC;
+                                border-radius: 10px;
+                                padding: 12px;
+                                margin: 10px 0;
+                            ">
+                                <div style="color: #9932CC; font-size: 0.85em; font-weight: bold; margin-bottom: 5px;">
+                                    👑 KINGO - Tes Rivaux
+                                </div>
+                                <div style="color: #FFFFFF; font-size: 0.85em;">
+                                    {debrief_rivaux['message']}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        st.markdown(f"<div style='color: #D4AF37; font-size: 0.9em; margin: 15px 0 10px 0;'>📊 PRONOSTICS DE MES RIVAUX ({len(joueurs_journee)})</div>", unsafe_allow_html=True)
+                    elif match_ids:
+                        # Pas de rivaux selectionnes - message d'info
+                        st.info("Aucun rival selectionne. Allez dans 'Mes Rivaux' pour en ajouter et voir leurs pronostics ici.")
+                        joueurs_journee = []
                     else:
                         joueurs_journee = []
 

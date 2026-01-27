@@ -196,6 +196,76 @@ class SupabaseClient:
         return saison['journee_courante'] if saison else 1
 
     # ============================================
+    # RELATIONS / RIVAUX
+    # ============================================
+
+    def get_rivaux_ids(self, user_id):
+        """Recupere les IDs des rivaux selectionnes par un utilisateur"""
+        result = self._request('GET',
+            f'relations?or=(utilisateur_id.eq.{user_id},ami_id.eq.{user_id})&statut=eq.amis&select=utilisateur_id,ami_id'
+        ) or []
+        rivaux = []
+        for r in result:
+            if r['utilisateur_id'] == user_id:
+                rivaux.append(r['ami_id'])
+            else:
+                rivaux.append(r['utilisateur_id'])
+        return rivaux
+
+    def ajouter_rival(self, user_id, rival_id):
+        """Ajoute un rival"""
+        return self._request('POST', 'relations', {
+            'utilisateur_id': user_id,
+            'ami_id': rival_id,
+            'statut': 'amis'
+        })
+
+    def supprimer_rival(self, user_id, rival_id):
+        """Supprime un rival"""
+        # Supprimer dans les deux sens
+        self._request('DELETE',
+            f'relations?utilisateur_id=eq.{user_id}&ami_id=eq.{rival_id}'
+        )
+        self._request('DELETE',
+            f'relations?utilisateur_id=eq.{rival_id}&ami_id=eq.{user_id}'
+        )
+        return True
+
+    def get_joueurs_avec_stats(self, current_user_id, saison_id=2025):
+        """Recupere tous les joueurs actifs avec leurs stats pour selection rivaux"""
+        utilisateurs = self.get_all_utilisateurs(statut='Actif')
+        joueurs = []
+
+        for user in utilisateurs:
+            if user['id'] == current_user_id:
+                continue  # Exclure soi-meme
+
+            # Stats du joueur
+            predictions = self._request('GET',
+                f'predictions?user_id=eq.{user["id"]}&saison_id=eq.{saison_id}&select=points_gagnes,is_score_exact'
+            ) or []
+
+            total_points = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
+            scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
+            bons_pronos = sum(1 for p in predictions if (p.get('points_gagnes') or 0) > 0)
+
+            joueurs.append({
+                'id': user['id'],
+                'pseudo': user['pseudo'],
+                'prenom': user.get('prenom', ''),
+                'points': total_points,
+                'bons_pronos': bons_pronos,
+                'scores_exacts': scores_exacts
+            })
+
+        # Trier par points et ajouter le rang
+        joueurs.sort(key=lambda x: x['points'], reverse=True)
+        for idx, j in enumerate(joueurs):
+            j['rang'] = idx + 1
+
+        return joueurs
+
+    # ============================================
     # CLASSEMENT
     # ============================================
 

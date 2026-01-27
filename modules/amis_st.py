@@ -1,14 +1,16 @@
 """
 Module Amis/Rivaux Streamlit pour Elite Pronos
-Gestion des relations entre joueurs et comparaison directe
+Gestion des relations entre joueurs - Version Supabase avec checkboxes
 """
 import streamlit as st
-import sqlite3
 import os
 from datetime import datetime
 
-# Chemins
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+# Import Supabase
+from modules.supabase_db import get_supabase
+from modules.database_manager import get_saison_actuelle, get_journee_courante
+
+# Chemin avatars
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 
 
@@ -20,110 +22,8 @@ def get_avatar_path(pseudo):
     return None
 
 
-def get_tous_les_joueurs_avec_stats(current_user_id):
-    """
-    Recupere tous les joueurs actifs avec leurs stats:
-    - Position au classement general
-    - Nombre de bons pronos (1N2 correct)
-    - Nombre de scores exacts
-    """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    # Recuperer tous les joueurs avec leurs stats
-    cursor.execute("""
-        SELECT
-            u.id,
-            u.pseudo,
-            u.prenom,
-            COALESCE(SUM(p.points_gagnes), 0) as total_points,
-            COUNT(CASE WHEN p.points_gagnes > 0 THEN 1 END) as bons_pronos,
-            COUNT(CASE WHEN p.points_gagnes >= 10 AND
-                  p.score_prono_home = m.score_final_home AND
-                  p.score_prono_away = m.score_final_away THEN 1 END) as scores_exacts
-        FROM utilisateurs u
-        LEFT JOIN predictions p ON u.id = p.user_id
-        LEFT JOIN matches m ON p.match_id = m.id
-        WHERE u.statut = 'Actif' AND u.id != ?
-        GROUP BY u.id, u.pseudo, u.prenom
-        ORDER BY total_points DESC
-    """, (current_user_id,))
-
-    joueurs = cursor.fetchall()
-    conn.close()
-
-    # Ajouter le rang
-    joueurs_avec_rang = []
-    for idx, (uid, pseudo, prenom, points, bons_pronos, scores_exacts) in enumerate(joueurs):
-        joueurs_avec_rang.append({
-            'id': uid,
-            'pseudo': pseudo,
-            'prenom': prenom,
-            'rang': idx + 1,
-            'points': points,
-            'bons_pronos': bons_pronos,
-            'scores_exacts': scores_exacts
-        })
-
-    return joueurs_avec_rang
-
-
-def get_rivaux_selectionnes(user_id):
-    """Recupere les IDs des rivaux selectionnes"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT CASE
-            WHEN r.utilisateur_id = ? THEN r.ami_id
-            ELSE r.utilisateur_id
-        END as rival_id
-        FROM relations r
-        WHERE (r.utilisateur_id = ? OR r.ami_id = ?)
-          AND r.statut = 'amis'
-    """, (user_id, user_id, user_id))
-
-    rivaux_ids = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return rivaux_ids
-
-
-def ajouter_rival(user_id, rival_id):
-    """Ajoute un rival directement (pas de demande)"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            INSERT INTO relations (utilisateur_id, ami_id, statut)
-            VALUES (?, ?, 'amis')
-        """, (user_id, rival_id))
-        conn.commit()
-        conn.close()
-        return True
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False
-
-
-def supprimer_rival(user_id, rival_id):
-    """Supprime un rival"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        DELETE FROM relations
-        WHERE (utilisateur_id = ? AND ami_id = ?)
-           OR (utilisateur_id = ? AND ami_id = ?)
-    """, (user_id, rival_id, rival_id, user_id))
-
-    conn.commit()
-    conn.close()
-    return True
-
-
 def afficher_amis(user):
-    """Affiche le module de gestion des amis/rivaux"""
+    """Affiche le module de gestion des amis/rivaux avec checkboxes"""
 
     # Header avec bouton retour
     col_back, col_title = st.columns([0.6, 5])
@@ -138,53 +38,124 @@ def afficher_amis(user):
     st.markdown("---")
 
     current_user_id = user['id']
+    supabase = get_supabase()
+    saison_id = get_saison_actuelle()
 
     # Recuperer tous les joueurs avec stats
-    tous_joueurs = get_tous_les_joueurs_avec_stats(current_user_id)
-    rivaux_ids = get_rivaux_selectionnes(current_user_id)
+    tous_joueurs = supabase.get_joueurs_avec_stats(current_user_id, saison_id)
+    rivaux_ids = supabase.get_rivaux_ids(current_user_id)
 
-    # === RECHERCHE ET SELECTION MULTIPLE ===
-    st.markdown("### Ajouter des rivaux")
+    # === SELECTION AVEC CHECKBOXES VERTS ===
+    st.markdown("### Selectionner mes rivaux")
+    st.markdown('<p style="color: #AAAAAA; font-size: 0.85em;">Cochez les joueurs que vous souhaitez suivre</p>', unsafe_allow_html=True)
 
-    # Creer la liste pour le multiselect
-    options_joueurs = {f"#{j['rang']} - {j['pseudo']} ({j['points']} pts)": j['id'] for j in tous_joueurs}
+    # Style pour les checkboxes verts
+    st.markdown("""
+    <style>
+        .rival-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 3px 0;
+            background: linear-gradient(135deg, #001529 0%, #002040 100%);
+            border-radius: 8px;
+            border-left: 3px solid #333;
+        }
+        .rival-row.selected {
+            border-left: 3px solid #00FF00;
+            background: linear-gradient(135deg, #002520 0%, #003530 100%);
+        }
+        .rival-rang {
+            width: 35px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .rival-pseudo {
+            flex: 1;
+            color: #FFFFFF;
+            font-weight: bold;
+        }
+        .rival-points {
+            color: #D4AF37;
+            font-size: 0.9em;
+            margin-right: 15px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Multiselect pour choisir les rivaux
-    selected_labels = st.multiselect(
-        "Rechercher et selectionner des joueurs",
-        options=list(options_joueurs.keys()),
-        default=[label for label, jid in options_joueurs.items() if jid in rivaux_ids],
-        placeholder="Tapez pour rechercher..."
-    )
+    # Initialiser les selections dans session_state
+    if 'rivaux_selection' not in st.session_state:
+        st.session_state.rivaux_selection = {rid: True for rid in rivaux_ids}
 
-    # Bouton pour valider la selection
-    if st.button("Valider ma selection", type="primary"):
-        # Recuperer les IDs selectionnes
-        selected_ids = [options_joueurs[label] for label in selected_labels]
+    # Liste des joueurs avec checkboxes
+    selections_modifiees = {}
 
-        # Ajouter les nouveaux rivaux
-        for rid in selected_ids:
-            if rid not in rivaux_ids:
-                ajouter_rival(current_user_id, rid)
+    for joueur in tous_joueurs:
+        jid = joueur['id']
+        is_selected = jid in rivaux_ids
 
-        # Supprimer les rivaux deselectionnes
-        for rid in rivaux_ids:
-            if rid not in selected_ids:
-                supprimer_rival(current_user_id, rid)
+        # Couleur du rang
+        if joueur['rang'] == 1:
+            rang_color = "#FFD700"
+        elif joueur['rang'] == 2:
+            rang_color = "#C0C0C0"
+        elif joueur['rang'] == 3:
+            rang_color = "#CD7F32"
+        else:
+            rang_color = "#FFFFFF"
 
-        st.success("Selection mise a jour!")
+        # Creer une ligne avec checkbox
+        col_check, col_rang, col_pseudo, col_pts = st.columns([0.5, 0.5, 3, 1.5])
+
+        with col_check:
+            # Checkbox vert si selectionne
+            checkbox_label = "🟢" if is_selected else "⚪"
+            new_value = st.checkbox(
+                checkbox_label,
+                value=is_selected,
+                key=f"rival_{jid}",
+                label_visibility="collapsed"
+            )
+            selections_modifiees[jid] = new_value
+
+        with col_rang:
+            st.markdown(f'<span style="color: {rang_color}; font-weight: bold;">#{joueur["rang"]}</span>', unsafe_allow_html=True)
+
+        with col_pseudo:
+            st.markdown(f'<span style="color: #FFFFFF;">{joueur["pseudo"]}</span>', unsafe_allow_html=True)
+
+        with col_pts:
+            pts_color = "#00FF00" if joueur['points'] >= 0 else "#FF4444"
+            st.markdown(f'<span style="color: {pts_color}; font-weight: bold;">{joueur["points"]} pts</span>', unsafe_allow_html=True)
+
+    # Bouton de validation
+    st.markdown("---")
+    if st.button("VALIDER MES RIVAUX", type="primary", use_container_width=True):
+        # Appliquer les changements
+        for jid, is_now_selected in selections_modifiees.items():
+            was_selected = jid in rivaux_ids
+
+            if is_now_selected and not was_selected:
+                # Ajouter le rival
+                supabase.ajouter_rival(current_user_id, jid)
+            elif not is_now_selected and was_selected:
+                # Supprimer le rival
+                supabase.supprimer_rival(current_user_id, jid)
+
+        st.success("Rivaux mis a jour!")
         st.rerun()
 
     st.markdown("---")
 
     # === AFFICHAGE DES RIVAUX SELECTIONNES ===
-    st.markdown("### Classement de mes rivaux")
+    st.markdown("### Mes rivaux suivis")
 
-    # Filtrer les joueurs selectionnes
+    # Rafraichir la liste des rivaux
+    rivaux_ids = supabase.get_rivaux_ids(current_user_id)
     rivaux_affiches = [j for j in tous_joueurs if j['id'] in rivaux_ids]
 
     if not rivaux_affiches:
-        st.info("Aucun rival selectionne. Utilisez le menu ci-dessus pour en ajouter.")
+        st.info("Aucun rival selectionne. Cochez les joueurs ci-dessus pour les suivre.")
     else:
         # Trier par rang
         rivaux_affiches.sort(key=lambda x: x['rang'])
@@ -199,11 +170,13 @@ def afficher_amis(user):
             border-radius: 10px 10px 0 0;
             font-weight: bold;
             color: #001529;
+            font-size: 0.85em;
         ">
-            <span style="flex: 0.5; text-align: center;">#</span>
-            <span style="flex: 2;">Joueur</span>
+            <span style="width: 40px; text-align: center;">#</span>
+            <span style="flex: 2;">Pseudo</span>
+            <span style="flex: 1; text-align: center;">Points</span>
             <span style="flex: 1; text-align: center;">Bons Pronos</span>
-            <span style="flex: 1; text-align: center;">Scores Exacts</span>
+            <span style="flex: 1; text-align: center;">Exacts</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -211,39 +184,44 @@ def afficher_amis(user):
         for rival in rivaux_affiches:
             # Couleur selon le rang
             if rival['rang'] == 1:
-                rang_color = "#FFD700"  # Or
-                rang_icon = "1"
+                rang_color = "#FFD700"
+                rang_icon = "🥇"
             elif rival['rang'] == 2:
-                rang_color = "#C0C0C0"  # Argent
-                rang_icon = "2"
+                rang_color = "#C0C0C0"
+                rang_icon = "🥈"
             elif rival['rang'] == 3:
-                rang_color = "#CD7F32"  # Bronze
-                rang_icon = "3"
+                rang_color = "#CD7F32"
+                rang_icon = "🥉"
             else:
                 rang_color = "#FFFFFF"
                 rang_icon = str(rival['rang'])
+
+            pts_color = "#00FF00" if rival['points'] >= 0 else "#FF4444"
 
             st.markdown(f"""
             <div style="
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 12px 15px;
+                padding: 10px 15px;
                 background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
                 border-left: 3px solid {rang_color};
                 border-bottom: 1px solid #333;
+                font-size: 0.9em;
             ">
-                <span style="flex: 0.5; text-align: center; color: {rang_color}; font-weight: bold; font-size: 1.2em;">
+                <span style="width: 40px; text-align: center; color: {rang_color}; font-weight: bold;">
                     {rang_icon}
                 </span>
-                <span style="flex: 2; color: #FFFFFF;">
-                    <strong>{rival['pseudo']}</strong>
-                    <span style="color: #AAAAAA; font-size: 0.85em;"> - {rival['points']} pts</span>
+                <span style="flex: 2; color: #FFFFFF; font-weight: bold;">
+                    {rival['pseudo']}
                 </span>
-                <span style="flex: 1; text-align: center; color: #00FF00; font-weight: bold;">
+                <span style="flex: 1; text-align: center; color: {pts_color}; font-weight: bold;">
+                    {rival['points']}
+                </span>
+                <span style="flex: 1; text-align: center; color: #00FF00;">
                     {rival['bons_pronos']}
                 </span>
-                <span style="flex: 1; text-align: center; color: #FFD700; font-weight: bold;">
+                <span style="flex: 1; text-align: center; color: #FFD700;">
                     {rival['scores_exacts']}
                 </span>
             </div>
@@ -258,6 +236,6 @@ def afficher_amis(user):
         "></div>
         """, unsafe_allow_html=True)
 
-        # Legende
-        st.markdown("")
-        st.caption("Bons Pronos = resultats 1N2 corrects | Scores Exacts = scores parfaitement predits")
+    # Legende
+    st.markdown("")
+    st.caption("Bons Pronos = resultats 1N2 corrects | Exacts = scores parfaitement predits")

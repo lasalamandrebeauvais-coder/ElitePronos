@@ -49,7 +49,7 @@ def get_classement_general_complet():
 
             # Jokers restants (valeurs par defaut)
             stock = client.get_stock_jokers(user_id)
-            jokers_double = stock.get('joker_double', 2) if stock else 2
+            jokers_double = stock.get('joker_double', 3) if stock else 3
             jokers_vol = stock.get('joker_vol', 2) if stock else 2
 
             classement.append({

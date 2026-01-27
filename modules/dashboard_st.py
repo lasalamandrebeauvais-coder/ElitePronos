@@ -1,26 +1,21 @@
 """
 Module Dashboard Streamlit pour Elite Pronos
-Tableau de bord principal du joueur avec countdown J1
+Tableau de bord principal du joueur - Version Supabase
 """
 import streamlit as st
-import sqlite3
 import os
 from datetime import datetime, timedelta
 from PIL import Image
 
-# Chemins
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
-AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
+# Import Supabase
+from modules.supabase_db import get_supabase
+from modules.database_manager import (
+    get_countdown_j1, get_saison_label, get_saison_actuelle,
+    get_journee_courante
+)
 
-# Import countdown et jokers
-try:
-    from modules.database_manager import (
-        get_countdown_j1, get_saison_label, get_saison_actuelle,
-        get_stock_jokers
-    )
-    HAS_MANAGER = True
-except ImportError:
-    HAS_MANAGER = False
+# Chemin avatars
+AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 
 
 def get_avatar_path(pseudo):
@@ -31,10 +26,14 @@ def get_avatar_path(pseudo):
     return None
 
 
-def get_user_stats(user_id):
-    """Recupere les statistiques du joueur"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+def get_user_stats_supabase(user_id, saison_id):
+    """
+    Recupere les statistiques du joueur depuis Supabase
+    - Classement general
+    - Forme (5 dernieres journees)
+    - Jokers disponibles
+    """
+    supabase = get_supabase()
 
     stats = {
         'rang': '--',
@@ -42,58 +41,102 @@ def get_user_stats(user_id):
         'nb_semaines': 0,
         'scores_exacts': 0,
         'forme': [],
-        'joker_double': True,
-        'joker_vole': True
+        'jokers_doubles': 0,
+        'jokers_voles': 0,
+        'nb_joueurs': 0
     }
 
     try:
-        # Recuperer l'historique
-        cursor.execute("""
-            SELECT points_gagnes, nb_scores_exacts, grand_chelem_valide
-            FROM historique
-            ORDER BY id DESC
-            LIMIT 5
-        """)
-        historique = cursor.fetchall()
+        # === 1. CLASSEMENT GENERAL ===
+        # Recuperer tous les utilisateurs actifs avec leurs points
+        utilisateurs = supabase.get_all_utilisateurs(statut='Actif')
+        classement = []
 
-        if historique:
-            stats['nb_semaines'] = len(historique)
-            stats['total_points'] = sum(h[0] for h in historique if h[0])
-            stats['scores_exacts'] = sum(h[1] for h in historique if h[1])
+        for u in utilisateurs:
+            predictions = supabase._request('GET',
+                f'predictions?user_id=eq.{u["id"]}&saison_id=eq.{saison_id}&select=points_gagnes,is_score_exact'
+            ) or []
 
-            # Calculer la forme (5 derniers resultats)
-            for h in historique:
-                pts = h[0] if h[0] else 0
-                if pts >= 100:
-                    stats['forme'].append('up')
-                elif pts >= 50:
-                    stats['forme'].append('stable')
-                else:
-                    stats['forme'].append('down')
+            total = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
+            exacts = sum(1 for p in predictions if p.get('is_score_exact'))
 
-        # Verifier les jokers utilises cette semaine
-        cursor.execute("SELECT type FROM joker_semaine")
-        joker_used = cursor.fetchone()
-        if joker_used:
-            if joker_used[0] == 'DOUBLE':
-                stats['joker_double'] = False
-            elif joker_used[0] == 'VOLE':
-                stats['joker_vole'] = False
+            classement.append({
+                'id': u['id'],
+                'pseudo': u['pseudo'],
+                'points': total,
+                'scores_exacts': exacts
+            })
+
+        # Trier par points
+        classement.sort(key=lambda x: x['points'], reverse=True)
+        stats['nb_joueurs'] = len(classement)
+
+        # Trouver le rang du joueur
+        for idx, joueur in enumerate(classement):
+            if joueur['id'] == user_id:
+                stats['rang'] = idx + 1
+                stats['total_points'] = joueur['points']
+                stats['scores_exacts'] = joueur['scores_exacts']
+                break
+
+        # === 2. FORME (5 dernieres journees) ===
+        # Recuperer les matchs par journee
+        journee_courante = get_journee_courante(saison_id)
+
+        # Calculer les points par journee pour les 5 dernieres
+        forme_data = []
+        for j in range(max(1, journee_courante - 4), journee_courante + 1):
+            # Recuperer les matchs de cette journee
+            matchs = supabase.get_matches_journee(saison_id, j)
+            if not matchs:
+                continue
+
+            match_ids = [m['id'] for m in matchs]
+            match_ids_str = ','.join(map(str, match_ids))
+
+            # Recuperer les predictions du joueur pour cette journee
+            predictions = supabase._request('GET',
+                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=points_gagnes'
+            ) or []
+
+            if predictions:
+                pts_journee = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
+                forme_data.append({'journee': j, 'points': pts_journee})
+
+        stats['nb_semaines'] = len(forme_data)
+
+        # Convertir en indicateurs de forme (5 derniers)
+        for fd in forme_data[-5:]:
+            pts = fd['points']
+            if pts >= 50:
+                stats['forme'].append('up')
+            elif pts >= 0:
+                stats['forme'].append('stable')
+            else:
+                stats['forme'].append('down')
+
+        # === 3. JOKERS DISPONIBLES ===
+        stock = supabase.get_stock_jokers(user_id, saison_id)
+        if stock:
+            stats['jokers_doubles'] = stock.get('joker_double', 0) or 0
+            stats['jokers_voles'] = stock.get('joker_vol', 0) or 0
+        else:
+            # Stock par defaut si non trouve (nouveau joueur)
+            stats['jokers_doubles'] = 3
+            stats['jokers_voles'] = 2
 
     except Exception as e:
-        pass
+        print(f"Erreur get_user_stats_supabase: {e}")
 
-    conn.close()
     return stats
 
 
 def get_semaine_info():
     """Retourne les infos de la semaine en cours"""
     now = datetime.now()
-    # Calculer le numero de semaine
     semaine_no = now.isocalendar()[1]
 
-    # Date limite = Vendredi 20h de la semaine en cours
+    # Date limite = Vendredi 20h
     days_until_friday = (4 - now.weekday()) % 7
     if days_until_friday == 0 and now.hour >= 20:
         days_until_friday = 7
@@ -132,17 +175,6 @@ def afficher_dashboard(user):
     # === STYLE CSS ELITE ===
     st.markdown("""
     <style>
-        /* Dark Mode Elite */
-        .stApp {
-            background: linear-gradient(180deg, #0a0a1a 0%, #0d1b2a 100%);
-        }
-
-        /* Titres dores */
-        h1, h2, h3 {
-            color: #FFD700 !important;
-        }
-
-        /* Box Stats */
         .stat-box {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border: 2px solid #FFD700;
@@ -151,39 +183,28 @@ def afficher_dashboard(user):
             text-align: center;
             margin: 10px 0;
         }
-
         .stat-value {
             font-size: 2.5em;
             font-weight: bold;
             color: #FFD700;
         }
-
         .stat-label {
             font-size: 0.9em;
             color: #aaa;
             text-transform: uppercase;
         }
-
-        /* Avatar circulaire */
-        .avatar-circle {
-            border-radius: 50%;
-            border: 3px solid #FFD700;
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-        }
     </style>
     """, unsafe_allow_html=True)
 
-    # Recuperer les stats
-    stats = get_user_stats(user['id'])
+    # Recuperer les stats depuis Supabase
+    saison_id = get_saison_actuelle()
+    stats = get_user_stats_supabase(user['id'], saison_id)
     semaine = get_semaine_info()
 
     # === HEADER ===
     header_col1, header_col2, header_col3 = st.columns([1, 4, 1])
 
     with header_col1:
-        # Avatar
         avatar_path = get_avatar_path(user['pseudo'])
         if avatar_path:
             avatar_img = Image.open(avatar_path)
@@ -207,10 +228,10 @@ def afficher_dashboard(user):
     with header_col2:
         prenom = user.get('prenom') or user['pseudo']
         st.markdown(f"## Bienvenue, {prenom} !")
-        st.caption(f"@{user['pseudo']}")
+        st.caption(f"@{user['pseudo']} - Saison {get_saison_label(saison_id)}")
 
     with header_col3:
-        if st.button("🚪 Deconnexion", type="secondary"):
+        if st.button("Deconnexion", type="secondary"):
             from modules.login_st import logout
             logout()
             st.session_state.page = "Connexion"
@@ -219,17 +240,18 @@ def afficher_dashboard(user):
     st.markdown("---")
 
     # === ZONE STATISTIQUES (3 BOXES) ===
-    st.markdown("### 📊 Mes Statistiques")
+    st.markdown("### Mes Statistiques")
 
     col1, col2, col3 = st.columns(3)
 
     # Box 1: Classement
     with col1:
+        rang_display = stats['rang'] if stats['rang'] != '--' else '--'
         st.markdown(f"""
         <div class="stat-box">
             <div class="stat-label">Classement</div>
-            <div class="stat-value">#{stats['rang']}</div>
-            <div style="color: #AAAAAA; font-size: 0.8em;">sur 100 joueurs</div>
+            <div class="stat-value">#{rang_display}</div>
+            <div style="color: #AAAAAA; font-size: 0.8em;">sur {stats['nb_joueurs']} joueurs</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -259,18 +281,20 @@ def afficher_dashboard(user):
 
     # Box 3: Jokers
     with col3:
-        double_style = "color: #FFD700;" if stats['joker_double'] else "color: #444; text-decoration: line-through;"
-        vole_style = "color: #FFD700;" if stats['joker_vole'] else "color: #444; text-decoration: line-through;"
+        # Afficher les jokers restants
+        doubles_icons = "⚡" * stats['jokers_doubles'] + "<span style='color:#444;'>⚡</span>" * (3 - stats['jokers_doubles'])
+        voles_icons = "🎯" * stats['jokers_voles'] + "<span style='color:#444;'>🎯</span>" * (2 - stats['jokers_voles'])
 
         st.markdown(f"""
         <div class="stat-box">
             <div class="stat-label">Jokers Disponibles</div>
-            <div style="font-size: 2em; margin: 10px 0;">
-                <span style="{double_style}" title="Points Doubles">⚡</span>
-                <span style="margin: 0 10px; color: #444;">|</span>
-                <span style="{vole_style}" title="Points Voles">🎯</span>
+            <div style="font-size: 1.5em; margin: 10px 0;">
+                <span style="color: #FFD700;">{doubles_icons}</span>
             </div>
-            <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles | 🎯 Voles</div>
+            <div style="font-size: 1.5em; margin: 5px 0;">
+                <span style="color: #FFD700;">{voles_icons}</span>
+            </div>
+            <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles ({stats['jokers_doubles']}/3) | 🎯 Voles ({stats['jokers_voles']}/2)</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -278,38 +302,34 @@ def afficher_dashboard(user):
     st.markdown("")
 
     # === MENU NAVIGATION (4 BOUTONS) ===
-    st.markdown("### 🎮 Actions")
+    st.markdown("### Actions")
 
     nav_col1, nav_col2 = st.columns(2)
 
     with nav_col1:
-        # Bouton Pronostics
-        if st.button("⚽ PRONOSTICS\n\nSaisir mes pronos", use_container_width=True, type="primary"):
+        if st.button("PRONOSTICS\n\nSaisir mes pronos", use_container_width=True, type="primary"):
             st.session_state.dashboard_section = "pronostics"
             st.rerun()
 
         st.markdown("")
 
-        # Bouton Amis
-        if st.button("👥 AMIS\n\nVoir mes rivaux", use_container_width=True):
+        if st.button("MES RIVAUX\n\nVoir et suivre", use_container_width=True):
             st.session_state.dashboard_section = "amis"
             st.rerun()
 
     with nav_col2:
-        # Bouton Classement
-        if st.button("🏆 CLASSEMENT\n\nVoir le ranking", use_container_width=True):
+        if st.button("CLASSEMENT\n\nVoir le ranking", use_container_width=True):
             st.session_state.dashboard_section = "classement"
             st.rerun()
 
         st.markdown("")
 
-        # Bouton Profil
-        if st.button("👤 PROFIL\n\nMes informations", use_container_width=True):
+        if st.button("PROFIL\n\nMes informations", use_container_width=True):
             st.info("Module Profil en cours de developpement...")
 
     # === STATS RAPIDES ===
     st.markdown("---")
-    st.markdown("### 📈 Resume")
+    st.markdown("### Resume")
 
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
@@ -323,56 +343,57 @@ def afficher_dashboard(user):
         st.metric("Semaines", stats['nb_semaines'])
 
     with metric_col4:
-        st.metric("Jokers Restants", int(stats['joker_double']) + int(stats['joker_vole']))
+        jokers_restants = stats['jokers_doubles'] + stats['jokers_voles']
+        st.metric("Jokers Restants", jokers_restants)
 
     # === COUNTDOWN J1 ===
-    if HAS_MANAGER:
-        countdown = get_countdown_j1()
-        if countdown and not countdown.get('passed', True):
-            st.markdown("---")
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                border: 2px solid #FFD700;
-                border-radius: 15px;
-                padding: 20px;
-                text-align: center;
-                margin: 10px 0;
-            ">
-                <div style="color: #FFD700; font-size: 1.1em; margin-bottom: 10px;">
-                    SAISON {get_saison_label(get_saison_actuelle())} - COUP D'ENVOI J1
+    countdown = get_countdown_j1()
+    if countdown and not countdown.get('passed', True):
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #FFD700;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+        ">
+            <div style="color: #FFD700; font-size: 1.1em; margin-bottom: 10px;">
+                SAISON {get_saison_label(saison_id)} - COUP D'ENVOI J1
+            </div>
+            <div style="display: flex; justify-content: center; gap: 25px;">
+                <div>
+                    <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                        {countdown['days']}
+                    </div>
+                    <div style="color: #AAAAAA; font-size: 0.8em;">JOURS</div>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 25px;">
-                    <div>
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['days']}
-                        </div>
-                        <div style="color: #AAAAAA; font-size: 0.8em;">JOURS</div>
+                <div>
+                    <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                        {countdown['hours']}
                     </div>
-                    <div>
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['hours']}
-                        </div>
-                        <div style="color: #AAAAAA; font-size: 0.8em;">HEURES</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
-                            {countdown['minutes']}
-                        </div>
-                        <div style="color: #AAAAAA; font-size: 0.8em;">MIN</div>
-                    </div>
+                    <div style="color: #AAAAAA; font-size: 0.8em;">HEURES</div>
                 </div>
-                <div style="color: #aaa; font-size: 0.9em; margin-top: 10px;">
-                    {countdown.get('date_j1', '')}
+                <div>
+                    <div style="font-size: 2.5em; color: #FFD700; font-weight: bold;">
+                        {countdown['minutes']}
+                    </div>
+                    <div style="color: #AAAAAA; font-size: 0.8em;">MIN</div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            <div style="color: #aaa; font-size: 0.9em; margin-top: 10px;">
+                {countdown.get('date_j1', '')}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # === FOOTER ===
     st.markdown("---")
+    journee = get_journee_courante(saison_id)
     st.markdown(f"""
     <div style="text-align: center; color: #AAAAAA; padding: 20px;">
-        <strong style="color: #FFD700;">Semaine {semaine['numero']}</strong><br>
+        <strong style="color: #FFD700;">Journee {journee}</strong> - Saison {get_saison_label(saison_id)}<br>
         <span style="font-size: 0.9em;">Date limite de saisie : {semaine['date_limite']}</span>
     </div>
     """, unsafe_allow_html=True)
