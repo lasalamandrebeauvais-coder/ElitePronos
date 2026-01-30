@@ -111,12 +111,17 @@ def confirmer_suppression(user_id, pseudo):
     with col2:
         if st.button("Supprimer", type="primary", use_container_width=True):
             supprimer_compte(user_id)
-            st.success(f"{pseudo} a ete supprime.")
+            st.session_state.admin_message = f"✅ {pseudo} a ete supprime."
             st.rerun()
 
 
 def afficher_panel_admin():
     """Affiche le panneau d'administration"""
+
+    # Afficher message de confirmation si present
+    if st.session_state.get('admin_message'):
+        st.success(st.session_state.admin_message)
+        st.session_state.admin_message = None
 
     # Header avec mascotte
     col_title, col_mascot = st.columns([4, 1])
@@ -166,7 +171,7 @@ def afficher_panel_admin():
 
                         if st.button("Refuser", key=f"refuser_{user_id}"):
                             supprimer_compte(user_id)
-                            st.warning(f"{pseudo} supprime")
+                            st.session_state.admin_message = f"❌ {pseudo} refuse et supprime."
                             st.rerun()
 
                     st.markdown("---")
