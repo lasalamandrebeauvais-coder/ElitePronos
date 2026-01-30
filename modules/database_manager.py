@@ -1149,3 +1149,139 @@ def get_utilisateurs_sans_pronos_j1(saison_id=None):
     conn.close()
 
     return [{'id': u[0], 'pseudo': u[1], 'prenom': u[2], 'email': u[3]} for u in users]
+
+
+# ============================================
+# FONCTIONS SUPABASE
+# ============================================
+
+def valider_resultats_journee_supabase(semaine_id, saison_id=None):
+    """
+    Valide les resultats d'une journee via Supabase.
+    Recupere les scores depuis l'API Football-Data et met a jour Supabase.
+    """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        import requests
+        supabase = get_supabase()
+
+        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        headers = {'X-Auth-Token': API_TOKEN}
+
+        # Recuperer les matchs de la journee depuis Supabase
+        matchs_db = supabase._request('GET',
+            f'matches?journee=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away'
+        ) or []
+
+        if not matchs_db:
+            return False, "Aucun match trouve pour cette journee"
+
+        # Appeler l'API pour les scores
+        url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            return False, f"Erreur API: {response.status_code}"
+
+        data = response.json()
+        matchs_api = data.get('matches', [])
+
+        # Creer un dictionnaire pour lookup rapide
+        scores_api = {}
+        for m in matchs_api:
+            home = m.get('homeTeam', {}).get('name')
+            away = m.get('awayTeam', {}).get('name')
+            score = m.get('score', {}).get('fullTime', {})
+            if score.get('home') is not None:
+                scores_api[(home, away)] = (score['home'], score['away'])
+
+        # Mettre a jour les scores dans Supabase
+        updates = 0
+        for match in matchs_db:
+            home = match['equipe_home']
+            away = match['equipe_away']
+            match_id = match['id']
+
+            if (home, away) in scores_api:
+                score_h, score_a = scores_api[(home, away)]
+                supabase._request('PATCH', f'matches?id=eq.{match_id}', {
+                    'score_final_home': score_h,
+                    'score_final_away': score_a,
+                    'is_active': False
+                })
+                updates += 1
+
+        return True, f"Journee {semaine_id} validee - {updates} score(s) fige(s)"
+
+    except Exception as e:
+        return False, str(e)
+
+
+def calculer_gains_supabase(semaine_id, saison_id=None):
+    """
+    Calcule les gains de tous les joueurs pour une semaine via Supabase.
+    """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        supabase = get_supabase()
+
+        # Recuperer les matchs avec scores
+        matchs = supabase._request('GET',
+            f'matches?journee=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,score_final_home,score_final_away'
+        ) or []
+
+        # Verifier que tous les matchs ont des scores
+        matchs_avec_scores = [m for m in matchs if m.get('score_final_home') is not None]
+        if len(matchs_avec_scores) < len(matchs):
+            return False, "Tous les matchs n'ont pas encore de scores"
+
+        # Calculer les gains pour chaque prediction
+        total_updates = 0
+        for match in matchs:
+            match_id = match['id']
+            score_h = match['score_final_home']
+            score_a = match['score_final_away']
+
+            # Recuperer les predictions pour ce match
+            predictions = supabase._request('GET',
+                f'predictions?match_id=eq.{match_id}&select=id,user_id,score_prono_home,score_prono_away,mise_points'
+            ) or []
+
+            for pred in predictions:
+                prono_h = pred['score_prono_home']
+                prono_a = pred['score_prono_away']
+                mise = pred['mise_points']
+
+                # Calculer les points
+                points = 0
+                is_exact = False
+
+                # Score exact
+                if prono_h == score_h and prono_a == score_a:
+                    points = mise * 3
+                    is_exact = True
+                # Bon resultat (1N2)
+                elif (prono_h > prono_a and score_h > score_a) or \
+                     (prono_h < prono_a and score_h < score_a) or \
+                     (prono_h == prono_a and score_h == score_a):
+                    points = mise
+
+                # Mettre a jour la prediction
+                supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
+                    'points_gagnes': points,
+                    'is_score_exact': is_exact
+                })
+                total_updates += 1
+
+        return True, f"Gains calcules pour {total_updates} predictions"
+
+    except Exception as e:
+        return False, str(e)

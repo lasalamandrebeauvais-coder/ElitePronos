@@ -421,17 +421,18 @@ def afficher_panel_admin():
         with col_val1:
             if st.button("VALIDER LES RESULTATS", type="primary", use_container_width=True):
                 with st.spinner("Recuperation des scores..."):
-                    success, message = valider_resultats_journee(semaine_selectionnee, saison)
+                    # Utiliser la version Supabase
+                    from modules.database_manager import valider_resultats_journee_supabase, calculer_gains_supabase
+                    success, message = valider_resultats_journee_supabase(semaine_selectionnee, saison)
 
                 if success:
                     st.success(f"✅ {message}")
 
-                    # Calculer automatiquement les gains
+                    # Calculer automatiquement les gains via Supabase
                     with st.spinner("Calcul des points..."):
-                        resultats, msg_calc = calculer_tous_gains_semaine(semaine_selectionnee)
-                        if resultats:
-                            sauvegarder_resultats_semaine(semaine_selectionnee, resultats)
-                            st.success(f"✅ Points calcules et sauvegardes!")
+                        success_calc, msg_calc = calculer_gains_supabase(semaine_selectionnee, saison)
+                        if success_calc:
+                            st.success(f"✅ {msg_calc}")
                         else:
                             st.warning(f"Points: {msg_calc}")
                 else:
@@ -492,32 +493,83 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
-        # === SECTION 3: BOT DEBRIEF SUR ACCUEIL ===
-        st.markdown("#### 3. Debrief Bot sur Accueil")
+        # === SECTION 3: GESTION DES MATCHS ===
+        st.markdown("#### 3. Gestion des Matchs de la Journee")
+        st.caption("Voir et modifier les 4 matchs selectionnes pour la journee.")
+
+        # Afficher les matchs actuels
+        matchs_journee = supabase._request('GET',
+            f'matches?journee=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
+        ) or []
+
+        if matchs_journee:
+            st.markdown(f"**Matchs actifs pour J{semaine_selectionnee}:**")
+            for m in matchs_journee:
+                st.write(f"• {m['equipe_home']} vs {m['equipe_away']} (Cotes: {m.get('cote_home', '-')} / {m.get('cote_draw', '-')} / {m.get('cote_away', '-')})")
+        else:
+            st.warning("Aucun match actif pour cette journee.")
+
+        # Modification manuelle des matchs
+        with st.expander("Modifier manuellement les matchs"):
+            st.caption("Desactiver/Activer des matchs pour la journee")
+
+            # Recuperer tous les matchs de la journee (actifs et inactifs)
+            tous_matchs = supabase._request('GET',
+                f'matches?journee=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active&order=id'
+            ) or []
+
+            if tous_matchs:
+                for m in tous_matchs:
+                    col_m1, col_m2 = st.columns([3, 1])
+                    with col_m1:
+                        st.write(f"{m['equipe_home']} vs {m['equipe_away']}")
+                    with col_m2:
+                        is_actif = m.get('is_active', False)
+                        new_actif = st.checkbox("Actif", value=is_actif, key=f"match_actif_{m['id']}")
+                        if new_actif != is_actif:
+                            supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
+                            st.rerun()
+
+            # Bouton pour faire repronostiquer Kingo apres modification
+            if st.button("Appliquer et Kingo repronostique", use_container_width=True):
+                from modules.kingo_bot import kingo_pronostique_semaine
+                if kingo_pronostique_semaine(semaine_selectionnee, saison, force=True):
+                    st.success("👑 Matchs mis a jour et Kingo a refait ses pronostics!")
+                else:
+                    st.warning("Matchs mis a jour mais Kingo n'a pas pu pronostiquer.")
+                st.rerun()
+
+        st.markdown("---")
+
+        # === SECTION 4: BOT DEBRIEF SUR ACCUEIL ===
+        st.markdown("#### 4. Debrief Bot sur Accueil")
         st.caption("Genere et affiche le compte-rendu ironique du Bot sur la page d'accueil.")
 
         if st.button("GENERER DEBRIEF ACCUEIL", use_container_width=True):
-            # Generer le debrief et le sauvegarder pour l'accueil
             try:
-                conn = sqlite3.connect(DB_PATH)
-                cursor = conn.cursor()
+                import random
 
-                # Recuperer le classement de la journee
-                cursor.execute('''
-                    SELECT u.pseudo, COALESCE(SUM(p.points_gagnes), 0) as total
-                    FROM utilisateurs u
-                    LEFT JOIN predictions p ON p.user_id = u.id
-                    LEFT JOIN matches m ON p.match_id = m.id AND m.semaine_id = ?
-                    WHERE u.statut = 'Actif'
-                    GROUP BY u.id
-                    ORDER BY total DESC
-                    LIMIT 5
-                ''', (semaine_selectionnee,))
+                # Recuperer le classement de la journee via Supabase
+                # On recupere les predictions avec points_gagnes pour cette journee
+                predictions = supabase._request('GET',
+                    f'predictions?saison_id=eq.{saison}&select=user_id,points_gagnes'
+                ) or []
 
-                top5 = cursor.fetchall()
+                # Recuperer les utilisateurs actifs
+                utilisateurs = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+                users_dict = {u['id']: u['pseudo'] for u in utilisateurs}
+
+                # Calculer les totaux par joueur
+                totaux = {}
+                for p in predictions:
+                    uid = p['user_id']
+                    if uid in users_dict:
+                        totaux[uid] = totaux.get(uid, 0) + (p.get('points_gagnes', 0) or 0)
+
+                # Trier et prendre le top 5
+                top5 = sorted([(users_dict[uid], total) for uid, total in totaux.items()], key=lambda x: x[1], reverse=True)[:5]
 
                 # Generer le texte ironique
-                import random
                 phrases_intro = [
                     "Encore une semaine de drama footballistique !",
                     "Accrochez-vous, les resultats sont tombes...",
@@ -525,28 +577,31 @@ def afficher_panel_admin():
                     "Qui a brille ? Qui s'est plante ? Voyons ca..."
                 ]
 
-                debrief_text = f"### Debrief J{semaine_selectionnee}\\n\\n"
-                debrief_text += f"*{random.choice(phrases_intro)}*\\n\\n"
+                debrief_text = f"### Debrief J{semaine_selectionnee}\n\n"
+                debrief_text += f"*{random.choice(phrases_intro)}*\n\n"
 
                 if top5:
-                    debrief_text += f"**Champion de la semaine:** @{top5[0][0]} avec {top5[0][1]} pts !\\n\\n"
+                    debrief_text += f"**Champion de la semaine:** @{top5[0][0]} avec {top5[0][1]} pts !\n\n"
                     if len(top5) > 1:
-                        debrief_text += f"Mention speciale a @{top5[1][0]} ({top5[1][1]} pts) qui n'etait pas loin...\\n"
+                        debrief_text += f"Mention speciale a @{top5[1][0]} ({top5[1][1]} pts) qui n'etait pas loin...\n"
                     if len(top5) >= 5:
-                        debrief_text += f"\\nEt une pensee emue pour @{top5[-1][0]} ({top5[-1][1]} pts). Courage, ca ira mieux la semaine prochaine ! 😅"
+                        debrief_text += f"\nEt une pensee emue pour @{top5[-1][0]} ({top5[-1][1]} pts). Courage, ca ira mieux la semaine prochaine !"
 
-                # Sauvegarder dans app_settings
-                cursor.execute('''
-                    INSERT OR REPLACE INTO app_settings (cle, valeur, description)
-                    VALUES ('debrief_accueil', ?, 'Debrief Bot affiche sur accueil')
-                ''', (debrief_text,))
-
-                conn.commit()
-                conn.close()
+                # Sauvegarder dans app_settings (table Supabase)
+                # Verifier si la cle existe
+                existing = supabase._request('GET', 'app_settings?cle=eq.debrief_accueil')
+                if existing and len(existing) > 0:
+                    supabase._request('PATCH', 'app_settings?cle=eq.debrief_accueil', {'valeur': debrief_text})
+                else:
+                    supabase._request('POST', 'app_settings', {
+                        'cle': 'debrief_accueil',
+                        'valeur': debrief_text,
+                        'description': 'Debrief Bot affiche sur accueil'
+                    })
 
                 st.success("✅ Debrief genere et publie sur l'accueil!")
                 st.markdown("**Apercu:**")
-                st.markdown(debrief_text.replace('\\n', '\n'))
+                st.markdown(debrief_text)
 
             except Exception as e:
                 st.error(f"❌ Erreur: {str(e)}")
