@@ -354,13 +354,17 @@ def afficher_dashboard(user):
     st.markdown("---")
     st.markdown("### Mes pronostics")
 
-    # Recuperer le joker directement
+    # Recuperer le joker directement (meme requete que sauvegarde)
     supabase = get_supabase()
-    journee = get_journee_courante(saison_id)
+    saisons_data = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
+    journee = saisons_data[0].get('journee_courante', 1) if saisons_data else 1
 
     joker_data = supabase._request('GET',
         f'jokers_historique?utilisateur_id=eq.{user["id"]}&semaine_id=eq.{journee}&select=type_joker,cible_vol_id'
     )
+
+    # DEBUG temporaire
+    st.caption(f"J{journee} - joker: {joker_data}")
 
     if joker_data and len(joker_data) > 0:
         type_joker = joker_data[0].get('type_joker')
