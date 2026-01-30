@@ -354,31 +354,50 @@ def afficher_panel_admin():
                         st.error(f"❌ Erreur: {str(e)}")
 
         with col_kingo2:
-            # Afficher les pronostics de Kingo
-            if st.button("VOIR PRONOS KINGO", use_container_width=True):
-                try:
-                    from modules.kingo_bot import get_or_create_kingo
-                    kingo_id = get_or_create_kingo()
+            # Refaire les pronostics de Kingo (si matchs modifies)
+            if st.button("REFAIRE PRONOS KINGO", use_container_width=True):
+                with st.spinner("Kingo regenere ses pronostics..."):
+                    try:
+                        from modules.kingo_bot import kingo_pronostique_semaine
+                        if kingo_pronostique_semaine(force=True):
+                            st.success("👑 Kingo a refait ses pronostics!")
+                        else:
+                            st.warning("Aucun match disponible.")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
 
-                    conn = sqlite3.connect(DB_PATH)
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        SELECT m.equipe_home, m.equipe_away, p.score_prono_home, p.score_prono_away, p.mise_points
-                        FROM predictions p
-                        JOIN matches m ON p.match_id = m.id
-                        WHERE p.user_id = ? AND m.semaine_id = ?
-                    """, (kingo_id, journee))
-                    pronos = cursor.fetchall()
-                    conn.close()
+        # Afficher les pronostics de Kingo
+        if st.button("VOIR PRONOS KINGO", use_container_width=True):
+            try:
+                from modules.kingo_bot import get_or_create_kingo
+                kingo_id = get_or_create_kingo()
 
-                    if pronos:
-                        st.markdown("**Pronostics de Kingo:**")
-                        for home, away, sh, sa, mise in pronos:
-                            st.write(f"• {home} vs {away}: **{sh}-{sa}** ({mise} pts)")
-                    else:
-                        st.info("Kingo n'a pas encore pronostique cette semaine.")
-                except Exception as e:
-                    st.error(f"Erreur: {str(e)}")
+                supabase = get_supabase()
+                # Recuperer les pronostics de Kingo pour la journee courante
+                pronos = supabase._request('GET',
+                    f'predictions?user_id=eq.{kingo_id}&select=score_prono_home,score_prono_away,mise_points,match_id'
+                )
+
+                if pronos:
+                    # Recuperer les infos des matchs
+                    match_ids = [p['match_id'] for p in pronos]
+                    matchs_info = {}
+                    for mid in match_ids:
+                        m = supabase._request('GET', f'matches?id=eq.{mid}&select=equipe_home,equipe_away,journee')
+                        if m and len(m) > 0:
+                            matchs_info[mid] = m[0]
+
+                    st.markdown("**Pronostics de Kingo:**")
+                    for p in pronos:
+                        mid = p['match_id']
+                        if mid in matchs_info:
+                            home = matchs_info[mid]['equipe_home']
+                            away = matchs_info[mid]['equipe_away']
+                            st.write(f"• {home} vs {away}: **{p['score_prono_home']}-{p['score_prono_away']}** ({p['mise_points']} pts)")
+                else:
+                    st.info("Kingo n'a pas encore pronostique cette semaine.")
+            except Exception as e:
+                st.error(f"Erreur: {str(e)}")
 
         st.markdown("---")
 

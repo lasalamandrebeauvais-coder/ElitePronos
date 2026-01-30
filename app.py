@@ -460,13 +460,13 @@ else:
     # Liste des pages pour utilisateur connecte (Admin visible uniquement pour les admins)
     is_admin = user.get('is_admin', False) or user.get('pseudo', '').lower() == 'baggio'
     if is_admin:
-        pages = ["Accueil", "Tableau de bord", "Reglement", "Admin"]
+        pages = ["Admin", "Accueil", "Tableau de bord", "Reglement"]
     else:
         pages = ["Accueil", "Tableau de bord", "Reglement"]
 
     # Gerer la page par defaut apres connexion
     if st.session_state.page not in pages:
-        st.session_state.page = "Accueil"
+        st.session_state.page = "Admin" if is_admin else "Accueil"
 
     default_index = pages.index(st.session_state.page)
 
