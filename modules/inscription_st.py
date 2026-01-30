@@ -140,6 +140,47 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
 def afficher_formulaire_inscription():
     """Affiche le formulaire d'inscription"""
 
+    # Si inscription reussie, afficher video plein ecran
+    if st.session_state.get('inscription_reussie'):
+        pseudo = st.session_state.get('inscription_pseudo', '')
+
+        # CSS pour plein ecran
+        st.markdown("""
+        <style>
+            .main .block-container {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            header, footer, .stDeployButton {
+                display: none !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Message de bienvenue
+        st.markdown(f"""
+        <div style="
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+        ">
+            <h1 style="color: #FFD700; margin: 0;">🎉 Bienvenue {pseudo} !</h1>
+            <p style="color: #FFFFFF; font-size: 1.2em;">Ton inscription est en attente de validation</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Video plein ecran
+        video_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'Remplacement_Voix_Thierry_Roland_Vidéo.mp4')
+        if os.path.exists(video_path):
+            st.video(video_path, autoplay=True)
+
+        st.markdown("")
+        if st.button("CONTINUER", type="primary", use_container_width=True):
+            st.session_state.inscription_reussie = False
+            st.session_state.inscription_pseudo = None
+            st.rerun()
+        return
+
     # Message de bienvenue
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px;">
@@ -305,12 +346,9 @@ def afficher_formulaire_inscription():
                 )
 
                 if success:
-                    st.success(f"Bienvenue {pseudo}! Votre inscription est en attente de validation.")
-                    st.balloons()
-
-                    # Video de bienvenue
-                    video_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'Remplacement_Voix_Thierry_Roland_Vidéo.mp4')
-                    if os.path.exists(video_path):
-                        st.video(video_path, autoplay=True)
+                    # Activer l'ecran de bienvenue avec video
+                    st.session_state.inscription_reussie = True
+                    st.session_state.inscription_pseudo = pseudo
+                    st.rerun()
                 else:
                     st.error(message)
