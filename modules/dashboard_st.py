@@ -363,9 +363,6 @@ def afficher_dashboard(user):
         f'jokers_historique?utilisateur_id=eq.{user["id"]}&semaine_id=eq.{journee}&select=type_joker,cible_vol_id'
     )
 
-    # DEBUG temporaire
-    st.caption(f"J{journee} - joker: {joker_data}")
-
     if joker_data and len(joker_data) > 0:
         type_joker = joker_data[0].get('type_joker')
         if type_joker == 'DOUBLE':
