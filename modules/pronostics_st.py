@@ -174,71 +174,56 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, 
             if not result:
                 return False, f"Erreur lors de l'enregistrement du match {match_id}"
 
-        # Gestion des jokers avec mise a jour du stock
+        # Gestion des jokers - logique simplifiee:
+        # 1. Toujours annuler l'ancien joker (restituer stock + supprimer historique)
+        # 2. Appliquer le nouveau joker si selectionne
+
         stock = supabase.get_stock_jokers(user_id, saison_id)
         if not stock:
             stock = {'joker_double': 3, 'joker_vol': 2}
 
-        # Convertir le type du nouveau joker pour comparaison
-        nouveau_type = None
-        if joker_type == "DOUBLE":
-            nouveau_type = "DOUBLE"
-        elif joker_type == "VOLE":
-            nouveau_type = "VOL"
-
-        ancien_type = joker_ancien['type'] if joker_ancien else None
-
-        # Si le joker a change
-        if ancien_type != nouveau_type:
-            # Restituer l'ancien joker au stock et supprimer l'historique
-            if joker_ancien:
-                if ancien_type == "DOUBLE":
-                    supabase._request('PATCH',
-                        f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                        {'joker_double': stock['joker_double'] + 1}
-                    )
-                    stock['joker_double'] += 1
-                elif ancien_type == "VOL":
-                    supabase._request('PATCH',
-                        f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                        {'joker_vol': stock['joker_vol'] + 1}
-                    )
-                    stock['joker_vol'] += 1
-                # Supprimer l'ancien historique
-                supabase._request('DELETE', f'jokers_historique?id=eq.{joker_ancien["id"]}')
-
-            # Appliquer le nouveau joker
-            if nouveau_type == "DOUBLE" and stock.get('joker_double', 0) > 0:
+        # ETAPE 1: Annuler l'ancien joker s'il existe
+        if joker_ancien and joker_ancien.get('id'):
+            ancien_type = joker_ancien.get('type')
+            if ancien_type == "DOUBLE":
                 supabase._request('PATCH',
                     f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                    {'joker_double': stock['joker_double'] - 1}
+                    {'joker_double': stock['joker_double'] + 1}
                 )
-                supabase._request('POST', 'jokers_historique', {
-                    'utilisateur_id': user_id,
-                    'semaine_id': journee_courante,
-                    'saison_id': saison_id,
-                    'type_joker': 'DOUBLE'
-                })
-            elif nouveau_type == "VOL" and stock.get('joker_vol', 0) > 0 and cible_vol_id:
+                stock['joker_double'] += 1
+            elif ancien_type == "VOL":
                 supabase._request('PATCH',
                     f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                    {'joker_vol': stock['joker_vol'] - 1}
+                    {'joker_vol': stock['joker_vol'] + 1}
                 )
-                supabase._request('POST', 'jokers_historique', {
-                    'utilisateur_id': user_id,
-                    'semaine_id': journee_courante,
-                    'saison_id': saison_id,
-                    'type_joker': 'VOL',
-                    'cible_vol_id': cible_vol_id
-                })
+                stock['joker_vol'] += 1
+            # Supprimer l'ancien historique
+            supabase._request('DELETE', f'jokers_historique?id=eq.{joker_ancien["id"]}')
 
-        # Si meme type VOL mais cible differente, juste mettre a jour la cible
-        elif ancien_type == "VOL" and nouveau_type == "VOL" and joker_ancien and cible_vol_id:
-            if joker_ancien.get('cible_id') != cible_vol_id:
-                supabase._request('PATCH',
-                    f'jokers_historique?id=eq.{joker_ancien["id"]}',
-                    {'cible_vol_id': cible_vol_id}
-                )
+        # ETAPE 2: Appliquer le nouveau joker si selectionne
+        if joker_type == "DOUBLE" and stock.get('joker_double', 0) > 0:
+            supabase._request('PATCH',
+                f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
+                {'joker_double': stock['joker_double'] - 1}
+            )
+            supabase._request('POST', 'jokers_historique', {
+                'utilisateur_id': user_id,
+                'semaine_id': journee_courante,
+                'saison_id': saison_id,
+                'type_joker': 'DOUBLE'
+            })
+        elif joker_type == "VOLE" and stock.get('joker_vol', 0) > 0 and cible_vol_id:
+            supabase._request('PATCH',
+                f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
+                {'joker_vol': stock['joker_vol'] - 1}
+            )
+            supabase._request('POST', 'jokers_historique', {
+                'utilisateur_id': user_id,
+                'semaine_id': journee_courante,
+                'saison_id': saison_id,
+                'type_joker': 'VOL',
+                'cible_vol_id': cible_vol_id
+            })
 
         return True, "Pronostics enregistres avec succes!"
 
