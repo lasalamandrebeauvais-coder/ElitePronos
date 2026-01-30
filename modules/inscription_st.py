@@ -307,5 +307,10 @@ def afficher_formulaire_inscription():
                 if success:
                     st.success(f"Bienvenue {pseudo}! Votre inscription est en attente de validation.")
                     st.balloons()
+
+                    # Video de bienvenue
+                    video_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'Remplacement_Voix_Thierry_Roland_Vidéo.mp4')
+                    if os.path.exists(video_path):
+                        st.video(video_path, autoplay=True)
                 else:
                     st.error(message)
