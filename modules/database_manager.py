@@ -770,7 +770,7 @@ def get_date_j1(saison_id=None):
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.1&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&journee=eq.1&select=date_match&order=date_match&limit=1'
         )
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')
@@ -861,7 +861,7 @@ def get_date_premiere_journee(semaine_id, saison_id=None):
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&journee=eq.{semaine_id}&select=date_match&order=date_match&limit=1'
         )
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')

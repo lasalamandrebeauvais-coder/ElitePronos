@@ -268,7 +268,7 @@ def get_deadline_pronostics():
             return None
 
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{journee_courante}&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&journee=eq.{journee_courante}&is_active=eq.true&select=date_match&order=date_match&limit=1'
         )
 
         if matchs and len(matchs) > 0 and matchs[0].get('date_match'):
