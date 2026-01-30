@@ -176,6 +176,11 @@ def afficher_dashboard(user):
         afficher_amis(user)
         return
 
+    if st.session_state.dashboard_section == "profil":
+        from modules.profil_st import afficher_profil
+        afficher_profil(user)
+        return
+
     # === STYLE CSS ELITE ===
     st.markdown("""
     <style>
@@ -329,7 +334,8 @@ def afficher_dashboard(user):
         st.markdown("")
 
         if st.button("PROFIL\n\nMes informations", use_container_width=True):
-            st.info("Module Profil en cours de developpement...")
+            st.session_state.dashboard_section = "profil"
+            st.rerun()
 
     # === STATS RAPIDES ===
     st.markdown("---")
