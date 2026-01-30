@@ -105,7 +105,9 @@ def get_pronos_existants(user_id):
 
 
 def get_joker_semaine(user_id):
-    """Recupere le joker utilise cette semaine depuis Supabase"""
+    """Recupere le joker utilise cette semaine depuis Supabase
+    Retourne un dict avec type_joker, id, cible_vol_id ou None
+    """
     supabase = get_supabase()
 
     try:
@@ -116,11 +118,15 @@ def get_joker_semaine(user_id):
             return None
 
         joker = supabase._request('GET',
-            f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
+            f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=id,type_joker,cible_vol_id&limit=1'
         )
 
         if joker and len(joker) > 0:
-            return joker[0].get('type_joker')
+            return {
+                'id': joker[0].get('id'),
+                'type': joker[0].get('type_joker'),
+                'cible_id': joker[0].get('cible_vol_id')
+            }
         return None
 
     except Exception as e:
@@ -128,11 +134,12 @@ def get_joker_semaine(user_id):
         return None
 
 
-def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None):
+def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, joker_ancien=None):
     """
     Sauvegarde les pronostics dans Supabase
     pronos_data: dict {match_id: {'home': int, 'away': int, 'mise': int}}
     cible_vol_id: ID du joueur cible pour le joker VOL
+    joker_ancien: dict avec l'ancien joker {'id', 'type', 'cible_id'} ou None
     """
     supabase = get_supabase()
     saison_id = get_saison_actuelle()
@@ -167,36 +174,71 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None):
             if not result:
                 return False, f"Erreur lors de l'enregistrement du match {match_id}"
 
-        # Sauvegarder le joker si utilise
-        if joker_type and joker_type != "AUCUN":
-            # Verifier le stock
-            stock = supabase.get_stock_jokers(user_id, saison_id)
-            if stock:
-                if joker_type == "DOUBLE" and stock.get('joker_double', 0) > 0:
-                    # Decrementer le stock
+        # Gestion des jokers avec mise a jour du stock
+        stock = supabase.get_stock_jokers(user_id, saison_id)
+        if not stock:
+            stock = {'joker_double': 3, 'joker_vol': 2}
+
+        # Convertir le type du nouveau joker pour comparaison
+        nouveau_type = None
+        if joker_type == "DOUBLE":
+            nouveau_type = "DOUBLE"
+        elif joker_type == "VOLE":
+            nouveau_type = "VOL"
+
+        ancien_type = joker_ancien['type'] if joker_ancien else None
+
+        # Si le joker a change
+        if ancien_type != nouveau_type:
+            # Restituer l'ancien joker au stock et supprimer l'historique
+            if joker_ancien:
+                if ancien_type == "DOUBLE":
                     supabase._request('PATCH',
                         f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                        {'joker_double': stock['joker_double'] - 1}
+                        {'joker_double': stock['joker_double'] + 1}
                     )
-                    # Enregistrer dans l'historique
-                    supabase._request('POST', 'jokers_historique', {
-                        'utilisateur_id': user_id,
-                        'semaine_id': journee_courante,
-                        'saison_id': saison_id,
-                        'type_joker': 'DOUBLE'
-                    })
-                elif joker_type == "VOLE" and stock.get('joker_vol', 0) > 0 and cible_vol_id:
+                    stock['joker_double'] += 1
+                elif ancien_type == "VOL":
                     supabase._request('PATCH',
                         f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
-                        {'joker_vol': stock['joker_vol'] - 1}
+                        {'joker_vol': stock['joker_vol'] + 1}
                     )
-                    supabase._request('POST', 'jokers_historique', {
-                        'utilisateur_id': user_id,
-                        'semaine_id': journee_courante,
-                        'saison_id': saison_id,
-                        'type_joker': 'VOL',
-                        'cible_vol_id': cible_vol_id
-                    })
+                    stock['joker_vol'] += 1
+                # Supprimer l'ancien historique
+                supabase._request('DELETE', f'jokers_historique?id=eq.{joker_ancien["id"]}')
+
+            # Appliquer le nouveau joker
+            if nouveau_type == "DOUBLE" and stock.get('joker_double', 0) > 0:
+                supabase._request('PATCH',
+                    f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
+                    {'joker_double': stock['joker_double'] - 1}
+                )
+                supabase._request('POST', 'jokers_historique', {
+                    'utilisateur_id': user_id,
+                    'semaine_id': journee_courante,
+                    'saison_id': saison_id,
+                    'type_joker': 'DOUBLE'
+                })
+            elif nouveau_type == "VOL" and stock.get('joker_vol', 0) > 0 and cible_vol_id:
+                supabase._request('PATCH',
+                    f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
+                    {'joker_vol': stock['joker_vol'] - 1}
+                )
+                supabase._request('POST', 'jokers_historique', {
+                    'utilisateur_id': user_id,
+                    'semaine_id': journee_courante,
+                    'saison_id': saison_id,
+                    'type_joker': 'VOL',
+                    'cible_vol_id': cible_vol_id
+                })
+
+        # Si meme type VOL mais cible differente, juste mettre a jour la cible
+        elif ancien_type == "VOL" and nouveau_type == "VOL" and joker_ancien and cible_vol_id:
+            if joker_ancien.get('cible_id') != cible_vol_id:
+                supabase._request('PATCH',
+                    f'jokers_historique?id=eq.{joker_ancien["id"]}',
+                    {'cible_vol_id': cible_vol_id}
+                )
 
         return True, "Pronostics enregistres avec succes!"
 
@@ -458,74 +500,91 @@ def afficher_pronostics(user):
     stock_voles = stock.get('joker_vol', 0) if stock else 0
 
     # Verifier si un joker a deja ete utilise cette semaine
-    joker_deja_utilise = get_joker_semaine(user['id'])
+    joker_actuel = get_joker_semaine(user['id'])
 
-    if joker_deja_utilise:
-        st.markdown(f"""
-        <div style='text-align:center; background: #1a1a2e; border: 1px solid #FFD700; border-radius: 8px; padding: 10px; margin: 5px 0;'>
-            <span style='color: #FFD700;'>⚡ Joker deja active cette semaine: <b>{joker_deja_utilise}</b></span>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+    # Si joker deja utilise, initialiser le state avec le joker actuel
+    if joker_actuel and 'joker_init_done' not in st.session_state:
+        if joker_actuel['type'] == 'DOUBLE':
+            st.session_state.joker_selected = "DOUBLE"
+            stock_doubles += 1  # Ajouter 1 car on peut le reutiliser
+        elif joker_actuel['type'] == 'VOL':
+            st.session_state.joker_selected = "VOLE"
+            st.session_state.joker_cible_id = joker_actuel['cible_id']
+            stock_voles += 1  # Ajouter 1 car on peut le reutiliser
+        st.session_state.joker_init_done = True
+    elif joker_actuel:
+        # Ajuster le stock pour l'affichage (le joker actuel peut etre change)
+        if joker_actuel['type'] == 'DOUBLE':
+            stock_doubles += 1
+        elif joker_actuel['type'] == 'VOL':
+            stock_voles += 1
 
-        jk1, jk2 = st.columns(2)
-        with jk1:
-            can_use_double = stock_doubles > 0
-            joker_double = st.checkbox(
-                f"⚡ Points Doubles ({stock_doubles}/3)",
-                value=(st.session_state.joker_selected == "DOUBLE"),
-                key="chk_joker_double",
-                disabled=not can_use_double
-            )
-            if joker_double and can_use_double:
-                st.session_state.joker_selected = "DOUBLE"
-            elif st.session_state.joker_selected == "DOUBLE" and not joker_double:
-                st.session_state.joker_selected = "AUCUN"
+    # Stocker l'ancien joker pour la mise a jour
+    st.session_state.joker_ancien = joker_actuel
 
-        with jk2:
-            can_use_vole = stock_voles > 0
-            joker_vole = st.checkbox(
-                f"🎯 Points Voles ({stock_voles}/2)",
-                value=(st.session_state.joker_selected == "VOLE"),
-                key="chk_joker_vole",
-                disabled=not can_use_vole
-            )
-            if joker_vole and can_use_vole:
-                st.session_state.joker_selected = "VOLE"
-            elif st.session_state.joker_selected == "VOLE" and not joker_vole:
-                st.session_state.joker_selected = "AUCUN"
-                st.session_state.joker_cible_id = None
+    st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
 
-        if joker_double and joker_vole:
-            st.warning("Un seul joker a la fois!")
-            pronos_valides = False
+    if joker_actuel:
+        joker_label = "Points Doubles" if joker_actuel['type'] == 'DOUBLE' else "Points Voles"
+        st.markdown(f"<div style='text-align:center; color:#FFD700; font-size:0.75em; margin-bottom:5px;'>Joker actuel: {joker_label} (modifiable)</div>", unsafe_allow_html=True)
 
-        # Selection de la cible pour le joker VOLE
-        if st.session_state.joker_selected == "VOLE":
-            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-            st.markdown("<div style='text-align:center; color:#FF6B6B; font-size:0.85em;'>🎯 Choisissez le joueur a voler :</div>", unsafe_allow_html=True)
+    jk1, jk2 = st.columns(2)
+    with jk1:
+        can_use_double = stock_doubles > 0
+        joker_double = st.checkbox(
+            f"⚡ Points Doubles ({stock_doubles}/3)",
+            value=(st.session_state.joker_selected == "DOUBLE"),
+            key="chk_joker_double",
+            disabled=not can_use_double
+        )
+        if joker_double and can_use_double:
+            st.session_state.joker_selected = "DOUBLE"
+        elif st.session_state.joker_selected == "DOUBLE" and not joker_double:
+            st.session_state.joker_selected = "AUCUN"
 
-            # Recuperer les autres joueurs actifs
-            autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
-            autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
+    with jk2:
+        can_use_vole = stock_voles > 0
+        joker_vole = st.checkbox(
+            f"🎯 Points Voles ({stock_voles}/2)",
+            value=(st.session_state.joker_selected == "VOLE"),
+            key="chk_joker_vole",
+            disabled=not can_use_vole
+        )
+        if joker_vole and can_use_vole:
+            st.session_state.joker_selected = "VOLE"
+        elif st.session_state.joker_selected == "VOLE" and not joker_vole:
+            st.session_state.joker_selected = "AUCUN"
+            st.session_state.joker_cible_id = None
 
-            if autres_joueurs:
-                options = {j['id']: j['pseudo'] for j in autres_joueurs}
-                joueur_ids = list(options.keys())
-                joueur_pseudos = list(options.values())
+    if joker_double and joker_vole:
+        st.warning("Un seul joker a la fois!")
+        pronos_valides = False
 
-                # Trouver l'index actuel
-                current_index = 0
-                if st.session_state.joker_cible_id in joueur_ids:
-                    current_index = joueur_ids.index(st.session_state.joker_cible_id)
+    # Selection de la cible pour le joker VOLE
+    if st.session_state.joker_selected == "VOLE":
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; color:#FF6B6B; font-size:0.85em;'>🎯 Choisissez le joueur a voler :</div>", unsafe_allow_html=True)
 
-                cible_pseudo = st.selectbox(
-                    "Joueur cible",
-                    joueur_pseudos,
-                    index=current_index,
-                    key="select_cible_vol",
-                    label_visibility="collapsed"
+        # Recuperer les autres joueurs actifs
+        autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
+        autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
+
+        if autres_joueurs:
+            options = {j['id']: j['pseudo'] for j in autres_joueurs}
+            joueur_ids = list(options.keys())
+            joueur_pseudos = list(options.values())
+
+            # Trouver l'index actuel
+            current_index = 0
+            if st.session_state.joker_cible_id in joueur_ids:
+                current_index = joueur_ids.index(st.session_state.joker_cible_id)
+
+            cible_pseudo = st.selectbox(
+                "Joueur cible",
+                joueur_pseudos,
+                index=current_index,
+                key="select_cible_vol",
+                label_visibility="collapsed"
                 )
                 st.session_state.joker_cible_id = joueur_ids[joueur_pseudos.index(cible_pseudo)]
             else:
@@ -544,13 +603,16 @@ def afficher_pronostics(user):
             pronos_data = {mid: {'home': d['home'], 'away': d['away'], 'mise': d['mise']}
                           for mid, d in st.session_state.pronos.items()}
             cible_id = st.session_state.joker_cible_id if st.session_state.joker_selected == "VOLE" else None
-            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected, cible_id)
+            joker_ancien = st.session_state.get('joker_ancien', None)
+            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected, cible_id, joker_ancien)
             if success:
                 st.success(message)
                 st.balloons()
                 st.session_state.pronos = {}
                 st.session_state.joker_selected = "AUCUN"
                 st.session_state.joker_cible_id = None
+                st.session_state.joker_ancien = None
+                st.session_state.joker_init_done = False
                 st.session_state.mode_edition_pronos = False
             else:
                 st.error(message)
