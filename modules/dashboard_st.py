@@ -360,15 +360,40 @@ def afficher_dashboard(user):
     if pronos and matchs:
         st.markdown("---")
 
-        # Titre avec symbole joker si actif
+        # Titre
+        st.markdown("### Mes pronostics")
+
+        # Bandeau joker si actif
         if joker_actif:
             if joker_actif['type'] == 'DOUBLE':
-                st.markdown("### Mes pronostics ⚡")
+                st.markdown("""
+                <div style="
+                    background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+                    color: #000;
+                    padding: 8px 15px;
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    font-weight: bold;
+                    text-align: center;
+                ">
+                    ⚡ JOKER POINTS DOUBLES ACTIVE ⚡
+                </div>
+                """, unsafe_allow_html=True)
             elif joker_actif['type'] == 'VOL':
-                cible = joker_actif.get('cible_pseudo', '')
-                st.markdown(f"### Mes pronostics 🎯 → {cible}")
-        else:
-            st.markdown("### Mes pronostics")
+                cible = joker_actif.get('cible_pseudo', '???')
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(90deg, #8B0000 0%, #DC143C 100%);
+                    color: #FFF;
+                    padding: 8px 15px;
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    font-weight: bold;
+                    text-align: center;
+                ">
+                    🎯 JOKER POINTS VOLES sur {cible} 🎯
+                </div>
+                """, unsafe_allow_html=True)
 
         # Afficher les pronostics en compact
         for match in matchs:
