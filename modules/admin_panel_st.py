@@ -500,6 +500,9 @@ def afficher_panel_admin():
         st.markdown("#### 3. Gestion des Matchs de la Journee")
         st.caption("Voir et modifier les 4 matchs selectionnes pour la journee.")
 
+        # Reinitialiser Supabase pour cette section (evite UnboundLocalError)
+        supabase = get_supabase()
+
         # Afficher les matchs actuels
         matchs_journee = supabase._request('GET',
             f'matches?journee=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
