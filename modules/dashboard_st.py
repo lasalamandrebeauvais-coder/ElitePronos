@@ -357,6 +357,13 @@ def afficher_dashboard(user):
     joker_actif = get_joker_semaine(user['id'])
     matchs = get_matchs_semaine()
 
+    # DEBUG - Verification joker
+    supabase_debug = get_supabase()
+    saisons_debug = supabase_debug._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
+    journee_debug = saisons_debug[0].get('journee_courante', 1) if saisons_debug else 0
+    jokers_debug = supabase_debug._request('GET', f'jokers_historique?utilisateur_id=eq.{user["id"]}&select=*')
+    st.caption(f"DEBUG: Journee={journee_debug}, User={user['id']}, Jokers en base={jokers_debug}, joker_actif={joker_actif}")
+
     if pronos and matchs:
         st.markdown("---")
 
