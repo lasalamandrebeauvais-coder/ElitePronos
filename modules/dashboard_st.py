@@ -357,6 +357,9 @@ def afficher_dashboard(user):
     joker_actif = get_joker_semaine(user['id'])
     matchs = get_matchs_semaine()
 
+    # DEBUG
+    st.warning(f"pronos={len(pronos) if pronos else 0}, matchs={len(matchs) if matchs else 0}, joker={joker_actif}")
+
     if pronos and matchs:
         st.markdown("---")
 
