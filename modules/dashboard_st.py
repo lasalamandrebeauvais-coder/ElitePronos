@@ -350,6 +350,52 @@ def afficher_dashboard(user):
         jokers_restants = stats['jokers_doubles'] + stats['jokers_voles']
         st.metric("Jokers Restants", jokers_restants)
 
+    # === MES PRONOSTICS DE LA JOURNEE ===
+    from modules.pronostics_st import get_pronos_existants, get_joker_semaine, get_matchs_semaine
+
+    pronos = get_pronos_existants(user['id'])
+    joker_actif = get_joker_semaine(user['id'])
+    matchs = get_matchs_semaine()
+
+    if pronos and matchs:
+        st.markdown("---")
+
+        # Titre avec symbole joker si actif
+        if joker_actif:
+            if joker_actif['type'] == 'DOUBLE':
+                st.markdown("### Mes pronostics ⚡")
+            elif joker_actif['type'] == 'VOL':
+                cible = joker_actif.get('cible_pseudo', '')
+                st.markdown(f"### Mes pronostics 🎯 → {cible}")
+        else:
+            st.markdown("### Mes pronostics")
+
+        # Afficher les pronostics en compact
+        for match in matchs:
+            match_id = match[0]
+            home = match[2]
+            away = match[3]
+            if match_id in pronos:
+                p = pronos[match_id]
+                st.markdown(f"""
+                <div style="
+                    background: #0A183D;
+                    border: 1px solid #333;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    margin: 4px 0;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 0.85em;
+                ">
+                    <span style="color: #FFF; flex: 1;">{home}</span>
+                    <span style="color: #4488FF; font-weight: bold; margin: 0 10px;">{p['home']} - {p['away']}</span>
+                    <span style="color: #FFF; flex: 1; text-align: right;">{away}</span>
+                    <span style="color: #00FF00; margin-left: 15px; font-weight: bold;">{p['mise']}pts</span>
+                </div>
+                """, unsafe_allow_html=True)
+
     # === COUNTDOWN J1 ===
     countdown = get_countdown_j1()
     if countdown and not countdown.get('passed', True):
