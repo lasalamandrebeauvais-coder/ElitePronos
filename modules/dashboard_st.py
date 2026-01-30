@@ -290,18 +290,18 @@ def afficher_dashboard(user):
 
     # Box 3: Jokers
     with col3:
-        # Afficher les jokers restants
-        doubles_icons = "⚡" * stats['jokers_doubles'] + "<span style='color:#444;'>⚡</span>" * (3 - stats['jokers_doubles'])
-        voles_icons = "🎯" * stats['jokers_voles'] + "<span style='color:#444;'>🎯</span>" * (2 - stats['jokers_voles'])
+        # Afficher uniquement les jokers restants (sans les gris)
+        doubles_icons = "⚡ " * stats['jokers_doubles'] if stats['jokers_doubles'] > 0 else "0"
+        voles_icons = "🎯 " * stats['jokers_voles'] if stats['jokers_voles'] > 0 else "0"
 
         st.markdown(f"""
         <div class="stat-box">
             <div class="stat-label">Jokers Disponibles</div>
             <div style="font-size: 1.5em; margin: 10px 0;">
-                <span style="color: #FFD700;">{doubles_icons}</span>
+                <span style="color: #FFD700;">{doubles_icons.strip()}</span>
             </div>
             <div style="font-size: 1.5em; margin: 5px 0;">
-                <span style="color: #FFD700;">{voles_icons}</span>
+                <span style="color: #FFD700;">{voles_icons.strip()}</span>
             </div>
             <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles ({stats['jokers_doubles']}/3) | 🎯 Voles ({stats['jokers_voles']}/2)</div>
         </div>
