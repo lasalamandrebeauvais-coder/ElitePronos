@@ -128,10 +128,11 @@ def get_joker_semaine(user_id):
         return None
 
 
-def sauvegarder_pronostics(user_id, pronos_data, joker_type):
+def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None):
     """
     Sauvegarde les pronostics dans Supabase
     pronos_data: dict {match_id: {'home': int, 'away': int, 'mise': int}}
+    cible_vol_id: ID du joueur cible pour le joker VOL
     """
     supabase = get_supabase()
     saison_id = get_saison_actuelle()
@@ -184,7 +185,7 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type):
                         'saison_id': saison_id,
                         'type_joker': 'DOUBLE'
                     })
-                elif joker_type == "VOLE" and stock.get('joker_vol', 0) > 0:
+                elif joker_type == "VOLE" and stock.get('joker_vol', 0) > 0 and cible_vol_id:
                     supabase._request('PATCH',
                         f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
                         {'joker_vol': stock['joker_vol'] - 1}
@@ -193,7 +194,8 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type):
                         'utilisateur_id': user_id,
                         'semaine_id': journee_courante,
                         'saison_id': saison_id,
-                        'type_joker': 'VOL'
+                        'type_joker': 'VOL',
+                        'cible_vol_id': cible_vol_id
                     })
 
         return True, "Pronostics enregistres avec succes!"
@@ -354,6 +356,8 @@ def afficher_pronostics(user):
         st.session_state.pronos = pronos_existants if pronos_existants else {}
     if 'joker_selected' not in st.session_state:
         st.session_state.joker_selected = "AUCUN"
+    if 'joker_cible_id' not in st.session_state:
+        st.session_state.joker_cible_id = None
 
     total_mise = 0
     pronos_valides = True
@@ -491,10 +495,42 @@ def afficher_pronostics(user):
                 st.session_state.joker_selected = "VOLE"
             elif st.session_state.joker_selected == "VOLE" and not joker_vole:
                 st.session_state.joker_selected = "AUCUN"
+                st.session_state.joker_cible_id = None
 
         if joker_double and joker_vole:
             st.warning("Un seul joker a la fois!")
             pronos_valides = False
+
+        # Selection de la cible pour le joker VOLE
+        if st.session_state.joker_selected == "VOLE":
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align:center; color:#FF6B6B; font-size:0.85em;'>🎯 Choisissez le joueur a voler :</div>", unsafe_allow_html=True)
+
+            # Recuperer les autres joueurs actifs
+            autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
+            autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
+
+            if autres_joueurs:
+                options = {j['id']: j['pseudo'] for j in autres_joueurs}
+                joueur_ids = list(options.keys())
+                joueur_pseudos = list(options.values())
+
+                # Trouver l'index actuel
+                current_index = 0
+                if st.session_state.joker_cible_id in joueur_ids:
+                    current_index = joueur_ids.index(st.session_state.joker_cible_id)
+
+                cible_pseudo = st.selectbox(
+                    "Joueur cible",
+                    joueur_pseudos,
+                    index=current_index,
+                    key="select_cible_vol",
+                    label_visibility="collapsed"
+                )
+                st.session_state.joker_cible_id = joueur_ids[joueur_pseudos.index(cible_pseudo)]
+            else:
+                st.warning("Aucun autre joueur disponible")
+                pronos_valides = False
 
     # VALIDATION
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
@@ -507,12 +543,14 @@ def afficher_pronostics(user):
         if pronos_valides:
             pronos_data = {mid: {'home': d['home'], 'away': d['away'], 'mise': d['mise']}
                           for mid, d in st.session_state.pronos.items()}
-            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected)
+            cible_id = st.session_state.joker_cible_id if st.session_state.joker_selected == "VOLE" else None
+            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected, cible_id)
             if success:
                 st.success(message)
                 st.balloons()
                 st.session_state.pronos = {}
                 st.session_state.joker_selected = "AUCUN"
+                st.session_state.joker_cible_id = None
                 st.session_state.mode_edition_pronos = False
             else:
                 st.error(message)
