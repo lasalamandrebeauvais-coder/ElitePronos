@@ -92,10 +92,21 @@ def suspendre_compte(user_id):
 
 
 def supprimer_compte(user_id):
-    """Supprime un utilisateur"""
+    """Supprime un utilisateur et toutes ses donnees liees"""
     supabase = get_supabase()
-    supabase._request('DELETE', f'utilisateurs?id=eq.{user_id}')
-    return True
+
+    try:
+        # Supprimer les donnees liees (contraintes FK)
+        supabase._request('DELETE', f'predictions?user_id=eq.{user_id}')
+        supabase._request('DELETE', f'stock_jokers?utilisateur_id=eq.{user_id}')
+        supabase._request('DELETE', f'jokers_historique?utilisateur_id=eq.{user_id}')
+
+        # Supprimer l'utilisateur
+        result = supabase._request('DELETE', f'utilisateurs?id=eq.{user_id}')
+        return True
+    except Exception as e:
+        print(f"Erreur suppression compte: {e}")
+        return False
 
 
 @st.dialog("Confirmer la suppression")
@@ -110,8 +121,10 @@ def confirmer_suppression(user_id, pseudo):
             st.rerun()
     with col2:
         if st.button("Supprimer", type="primary", use_container_width=True):
-            supprimer_compte(user_id)
-            st.session_state.admin_message = f"✅ {pseudo} a ete supprime."
+            if supprimer_compte(user_id):
+                st.session_state.admin_message = f"✅ {pseudo} a ete supprime."
+            else:
+                st.session_state.admin_message = f"❌ Erreur lors de la suppression de {pseudo}."
             st.rerun()
 
 
@@ -170,8 +183,10 @@ def afficher_panel_admin():
                             st.rerun()
 
                         if st.button("Refuser", key=f"refuser_{user_id}"):
-                            supprimer_compte(user_id)
-                            st.session_state.admin_message = f"❌ {pseudo} refuse et supprime."
+                            if supprimer_compte(user_id):
+                                st.session_state.admin_message = f"❌ {pseudo} refuse et supprime."
+                            else:
+                                st.session_state.admin_message = f"⚠️ Erreur lors du refus de {pseudo}."
                             st.rerun()
 
                     st.markdown("---")
