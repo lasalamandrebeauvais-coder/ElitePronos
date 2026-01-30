@@ -136,8 +136,12 @@ def afficher_panel_admin():
         st.success(st.session_state.admin_message)
         st.session_state.admin_message = None
 
-    # Header avec mascotte
-    col_title, col_mascot = st.columns([4, 1])
+    # Header avec bouton retour et mascotte
+    col_back, col_title, col_mascot = st.columns([0.6, 3.5, 1])
+    with col_back:
+        if st.button("◀", help="Retour", use_container_width=True):
+            st.session_state.page = "Accueil"
+            st.rerun()
     with col_title:
         st.markdown("## Panel Administration")
     with col_mascot:

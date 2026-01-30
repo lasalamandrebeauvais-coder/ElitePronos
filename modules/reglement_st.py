@@ -13,8 +13,12 @@ ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 def afficher_reglement():
     """Affiche le reglement officiel d'Elite Pronos"""
 
-    # Header avec mascotte en haut a droite
-    col_title, col_mascot = st.columns([4, 1])
+    # Header avec bouton retour et mascotte
+    col_back, col_title, col_mascot = st.columns([0.6, 3.5, 1])
+    with col_back:
+        if st.button("◀", help="Retour", use_container_width=True):
+            st.session_state.page = "Accueil"
+            st.rerun()
     with col_title:
         st.markdown("## Reglement Officiel")
     with col_mascot:
