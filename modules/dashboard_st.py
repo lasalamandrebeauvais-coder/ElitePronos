@@ -351,28 +351,36 @@ def afficher_dashboard(user):
         st.metric("Jokers Restants", jokers_restants)
 
     # === MES PRONOSTICS DE LA JOURNEE ===
-    from modules.pronostics_st import get_pronos_existants, get_joker_semaine, get_matchs_semaine
+    st.markdown("---")
+    st.markdown("### Mes pronostics")
 
+    # Recuperer le joker directement
+    supabase = get_supabase()
+    journee = get_journee_courante(saison_id)
+
+    joker_data = supabase._request('GET',
+        f'jokers_historique?utilisateur_id=eq.{user["id"]}&semaine_id=eq.{journee}&select=type_joker,cible_vol_id'
+    )
+
+    if joker_data and len(joker_data) > 0:
+        type_joker = joker_data[0].get('type_joker')
+        if type_joker == 'DOUBLE':
+            st.info("⚡ **Points Doubles** joue cette semaine")
+        elif type_joker == 'VOL':
+            cible_id = joker_data[0].get('cible_vol_id')
+            cible_pseudo = "???"
+            if cible_id:
+                cible_user = supabase._request('GET', f'utilisateurs?id=eq.{cible_id}&select=pseudo')
+                if cible_user and len(cible_user) > 0:
+                    cible_pseudo = cible_user[0].get('pseudo', '???')
+            st.info(f"🎯 **Points Voles** joue cette semaine sur **{cible_pseudo}**")
+
+    # Recuperer et afficher les pronostics
+    from modules.pronostics_st import get_pronos_existants, get_matchs_semaine
     pronos = get_pronos_existants(user['id'])
-    joker_actif = get_joker_semaine(user['id'])
     matchs = get_matchs_semaine()
 
-    # DEBUG
-    st.warning(f"pronos={len(pronos) if pronos else 0}, matchs={len(matchs) if matchs else 0}, joker={joker_actif}")
-
     if pronos and matchs:
-        st.markdown("---")
-
-        # Titre
-        st.markdown("### Mes pronostics")
-
-        # Ligne joker si actif
-        if joker_actif:
-            if joker_actif['type'] == 'DOUBLE':
-                st.info("⚡ Le joker **Points Doubles** a ete joue cette semaine")
-            elif joker_actif['type'] == 'VOL':
-                cible = joker_actif.get('cible_pseudo', '???')
-                st.info(f"🎯 Le joker **Points Voles** a ete joue cette semaine sur **{cible}**")
 
         # Afficher les pronostics en compact
         for match in matchs:
