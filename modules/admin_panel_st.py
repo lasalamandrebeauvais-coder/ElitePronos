@@ -296,6 +296,9 @@ def afficher_panel_admin():
     with tab3:
         st.markdown("### Gestion de la Journee")
 
+        # Initialiser Supabase pour cet onglet
+        supabase = get_supabase()
+
         saison = get_saison_actuelle()
         journee = get_journee_courante(saison)
 
