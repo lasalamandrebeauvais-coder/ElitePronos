@@ -106,7 +106,7 @@ def get_pronos_existants(user_id):
 
 def get_joker_semaine(user_id):
     """Recupere le joker utilise cette semaine depuis Supabase
-    Retourne un dict avec type_joker, id, cible_vol_id ou None
+    Retourne un dict avec type_joker, id, cible_vol_id, cible_pseudo ou None
     """
     supabase = get_supabase()
 
@@ -122,11 +122,20 @@ def get_joker_semaine(user_id):
         )
 
         if joker and len(joker) > 0:
-            return {
+            joker_data = {
                 'id': joker[0].get('id'),
                 'type': joker[0].get('type_joker'),
-                'cible_id': joker[0].get('cible_vol_id')
+                'cible_id': joker[0].get('cible_vol_id'),
+                'cible_pseudo': None
             }
+            # Recuperer le pseudo de la cible si joker VOL
+            if joker_data['cible_id']:
+                cible = supabase._request('GET',
+                    f'utilisateurs?id=eq.{joker_data["cible_id"]}&select=pseudo'
+                )
+                if cible and len(cible) > 0:
+                    joker_data['cible_pseudo'] = cible[0].get('pseudo')
+            return joker_data
         return None
 
     except Exception as e:
@@ -368,6 +377,38 @@ def afficher_pronostics(user):
                     <span style="color: #4488FF; font-weight: bold; font-size: 1.2em;">{p['home']} - {p['away']}</span>
                     <span style="color: #FFFFFF;">{away}</span>
                     <span style="color: #00FF00; font-weight: bold;">{p['mise']} pts</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Afficher le joker utilise cette semaine
+        joker_semaine = get_joker_semaine(user['id'])
+        if joker_semaine:
+            if joker_semaine['type'] == 'DOUBLE':
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border: 2px solid #FFD700;
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin: 10px 0;
+                    text-align: center;
+                ">
+                    <span style="color: #FFD700; font-size: 1.1em;">⚡ Joker actif: <b>Points Doubles</b></span>
+                </div>
+                """, unsafe_allow_html=True)
+            elif joker_semaine['type'] == 'VOL':
+                cible_pseudo = joker_semaine.get('cible_pseudo', 'Inconnu')
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #2d1a3e 100%);
+                    border: 2px solid #FF6B6B;
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin: 10px 0;
+                    text-align: center;
+                ">
+                    <span style="color: #FF6B6B; font-size: 1.1em;">🎯 Joker actif: <b>Points Voles</b></span><br>
+                    <span style="color: #FFFFFF; font-size: 0.9em;">Cible: <b>{cible_pseudo}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
 
