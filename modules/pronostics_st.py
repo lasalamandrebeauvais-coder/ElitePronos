@@ -585,9 +585,9 @@ def afficher_pronostics(user):
                 index=current_index,
                 key="select_cible_vol",
                 label_visibility="collapsed"
-                )
-                st.session_state.joker_cible_id = joueur_ids[joueur_pseudos.index(cible_pseudo)]
-            else:
+            )
+            st.session_state.joker_cible_id = joueur_ids[joueur_pseudos.index(cible_pseudo)]
+        else:
                 st.warning("Aucun autre joueur disponible")
                 pronos_valides = False
 
