@@ -594,11 +594,11 @@ else:
                     """, unsafe_allow_html=True)
 
                     for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
-                        st.markdown(f"""<div style="display: flex; justify-content: space-between; padding: 6px 8px; margin: 3px 0; background: #002040; border-radius: 5px; font-size: 0.8em;">
-                            <span style="color: #FFFFFF;">{home}</span>
-                            <span style="color: #4488FF; font-weight: bold;">{score_h}-{score_a}</span>
-                            <span style="color: #FFFFFF;">{away}</span>
-                            <span style="color: #00FF00; font-weight: bold;">{mise}pt</span>
+                        st.markdown(f"""<div style="display: grid; grid-template-columns: 2fr 50px 2fr 45px; align-items: center; padding: 6px 8px; margin: 3px 0; background: #002040; border-radius: 5px; font-size: 0.8em;">
+                            <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
+                            <span style="color: #4488FF; font-weight: bold; text-align: center;">{score_h}-{score_a}</span>
+                            <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
+                            <span style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pt</span>
                         </div>""", unsafe_allow_html=True)
 
                     st.markdown("</div>", unsafe_allow_html=True)
@@ -689,7 +689,8 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
 
             # === BLOC 3: SYNTHESE TENDANCES (% votes, jokers, grosses mises) ===
-            if synthese['nb_joueurs'] > 0:
+            # Afficher seulement apres la deadline
+            if synthese['nb_joueurs'] > 0 and not pronostics_ouverts:
                 # Section jokers
                 jokers_html = ""
                 if synthese.get('jokers'):

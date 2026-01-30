@@ -442,29 +442,59 @@ def afficher_pronostics(user):
 
     # JOKERS
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-    st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
 
-    jk1, jk2 = st.columns(2)
-    with jk1:
-        joker_double = st.checkbox("Points Doubles",
-                                   value=(st.session_state.joker_selected == "DOUBLE"),
-                                   key="chk_joker_double")
-        if joker_double:
-            st.session_state.joker_selected = "DOUBLE"
-        elif st.session_state.joker_selected == "DOUBLE":
-            st.session_state.joker_selected = "AUCUN"
-    with jk2:
-        joker_vole = st.checkbox("Points Voles",
-                                 value=(st.session_state.joker_selected == "VOLE"),
-                                 key="chk_joker_vole")
-        if joker_vole:
-            st.session_state.joker_selected = "VOLE"
-        elif st.session_state.joker_selected == "VOLE":
-            st.session_state.joker_selected = "AUCUN"
+    # Recuperer le stock de jokers et verifier si deja utilise cette semaine
+    supabase = get_supabase()
+    saison_id = get_saison_actuelle()
+    stock = supabase.get_stock_jokers(user['id'], saison_id)
+    if not stock:
+        stock = supabase.init_stock_jokers(user['id'], saison_id)
 
-    if joker_double and joker_vole:
-        st.warning("Un seul joker a la fois!")
-        pronos_valides = False
+    stock_doubles = stock.get('joker_double', 0) if stock else 0
+    stock_voles = stock.get('joker_vol', 0) if stock else 0
+
+    # Verifier si un joker a deja ete utilise cette semaine
+    joker_deja_utilise = get_joker_semaine(user['id'])
+
+    if joker_deja_utilise:
+        st.markdown(f"""
+        <div style='text-align:center; background: #1a1a2e; border: 1px solid #FFD700; border-radius: 8px; padding: 10px; margin: 5px 0;'>
+            <span style='color: #FFD700;'>⚡ Joker deja active cette semaine: <b>{joker_deja_utilise}</b></span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+
+        jk1, jk2 = st.columns(2)
+        with jk1:
+            can_use_double = stock_doubles > 0
+            joker_double = st.checkbox(
+                f"⚡ Points Doubles ({stock_doubles}/3)",
+                value=(st.session_state.joker_selected == "DOUBLE"),
+                key="chk_joker_double",
+                disabled=not can_use_double
+            )
+            if joker_double and can_use_double:
+                st.session_state.joker_selected = "DOUBLE"
+            elif st.session_state.joker_selected == "DOUBLE" and not joker_double:
+                st.session_state.joker_selected = "AUCUN"
+
+        with jk2:
+            can_use_vole = stock_voles > 0
+            joker_vole = st.checkbox(
+                f"🎯 Points Voles ({stock_voles}/2)",
+                value=(st.session_state.joker_selected == "VOLE"),
+                key="chk_joker_vole",
+                disabled=not can_use_vole
+            )
+            if joker_vole and can_use_vole:
+                st.session_state.joker_selected = "VOLE"
+            elif st.session_state.joker_selected == "VOLE" and not joker_vole:
+                st.session_state.joker_selected = "AUCUN"
+
+        if joker_double and joker_vole:
+            st.warning("Un seul joker a la fois!")
+            pronos_valides = False
 
     # VALIDATION
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)

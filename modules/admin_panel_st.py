@@ -8,6 +8,7 @@ from datetime import datetime
 
 # Supabase
 from modules.supabase_db import get_supabase
+from modules.login_st import get_current_user
 
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
@@ -95,6 +96,23 @@ def supprimer_compte(user_id):
     supabase = get_supabase()
     supabase._request('DELETE', f'utilisateurs?id=eq.{user_id}')
     return True
+
+
+@st.dialog("Confirmer la suppression")
+def confirmer_suppression(user_id, pseudo):
+    """Dialog de confirmation pour supprimer un utilisateur"""
+    st.warning(f"Voulez-vous vraiment supprimer **{pseudo}** ?")
+    st.caption("Cette action est irreversible.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Annuler", use_container_width=True):
+            st.rerun()
+    with col2:
+        if st.button("Supprimer", type="primary", use_container_width=True):
+            supprimer_compte(user_id)
+            st.success(f"{pseudo} a ete supprime.")
+            st.rerun()
 
 
 def afficher_panel_admin():
@@ -235,8 +253,11 @@ def afficher_panel_admin():
                     # Admin: couronne si admin
                     if is_admin_user:
                         st.markdown("👑", unsafe_allow_html=True)
-                    if not is_super:
-                        new_admin = st.checkbox("", value=is_admin_user, key=f"admin_{user_id}", label_visibility="collapsed")
+                    # Seul Baggio peut promouvoir/revoquer les admins
+                    current_user = get_current_user()
+                    is_current_super = current_user and is_super_admin(current_user.get('pseudo', ''))
+                    if is_current_super and not is_super:
+                        new_admin = st.checkbox("Admin", value=is_admin_user, key=f"admin_{user_id}", label_visibility="collapsed")
                         if new_admin != is_admin_user:
                             promouvoir_admin(user_id) if new_admin else revoquer_admin(user_id)
                             st.rerun()
@@ -244,9 +265,8 @@ def afficher_panel_admin():
                 with cols[5]:
                     # Supprimer
                     if not is_super:
-                        if st.checkbox("🗑", value=False, key=f"del_{user_id}", label_visibility="collapsed"):
-                            supprimer_compte(user_id)
-                            st.rerun()
+                        if st.button("🗑", key=f"del_{user_id}"):
+                            confirmer_suppression(user_id, pseudo)
 
     # === ONGLET 3 : GESTION JOURNEE ===
     with tab3:

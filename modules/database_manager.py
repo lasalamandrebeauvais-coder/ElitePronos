@@ -478,26 +478,24 @@ def verifier_cible_eligible(cible_id, semaine_id):
 
 def get_joker_actif_semaine(utilisateur_id, semaine_id):
     """Récupère le joker actif pour un utilisateur cette semaine"""
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        from modules.supabase_db import get_supabase
+        supabase = get_supabase()
 
-    cursor.execute('''
-        SELECT type_joker, cible_vol_id
-        FROM jokers_historique
-        WHERE utilisateur_id = ? AND semaine_id = ?
-        ORDER BY date_utilisation DESC
-        LIMIT 1
-    ''', (utilisateur_id, semaine_id))
+        result = supabase._request('GET',
+            f'jokers_historique?utilisateur_id=eq.{utilisateur_id}&semaine_id=eq.{semaine_id}&select=type_joker,cible_vol_id&order=date_utilisation.desc&limit=1'
+        )
 
-    result = cursor.fetchone()
-    conn.close()
+        if result and len(result) > 0:
+            return {
+                'type': result[0].get('type_joker'),
+                'cible_id': result[0].get('cible_vol_id')
+            }
+        return None
 
-    if result:
-        return {
-            'type': result[0],
-            'cible_id': result[1]
-        }
-    return None
+    except Exception as e:
+        print(f"Erreur get_joker_actif_semaine: {e}")
+        return None
 
 
 # ============================================

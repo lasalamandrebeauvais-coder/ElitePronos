@@ -117,13 +117,17 @@ def get_user_stats_supabase(user_id, saison_id):
 
         # === 3. JOKERS DISPONIBLES ===
         stock = supabase.get_stock_jokers(user_id, saison_id)
+        if not stock:
+            # Initialiser le stock si absent
+            stock = supabase.init_stock_jokers(user_id, saison_id)
+
         if stock:
             stats['jokers_doubles'] = stock.get('joker_double', 0) or 0
             stats['jokers_voles'] = stock.get('joker_vol', 0) or 0
         else:
-            # Stock par defaut si non trouve (nouveau joueur)
-            stats['jokers_doubles'] = 3
-            stats['jokers_voles'] = 2
+            # Fallback si erreur d'initialisation
+            stats['jokers_doubles'] = 0
+            stats['jokers_voles'] = 0
 
     except Exception as e:
         print(f"Erreur get_user_stats_supabase: {e}")
