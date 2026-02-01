@@ -239,9 +239,14 @@ def cloturer_journee(semaine_id, saison_id):
 
 def creer_matchs_journee(semaine_id, saison_id):
     """
-    Importe TOUS les matchs de la journee depuis l'API (is_active=false par defaut).
-    L'admin active manuellement les matchs souhaites via le panneau admin.
+    Importe les matchs de la journee:
+    - Tous les matchs Ligue 1
+    - 11 meilleurs matchs etrangers (PL, La Liga, Serie A, Bundesliga)
+    Tous avec is_active=false (selection manuelle admin)
     """
+    import random
+    from datetime import datetime, timedelta
+
     print(f"Import des matchs pour J{semaine_id}...")
 
     # Verifier si des matchs existent deja
@@ -253,21 +258,104 @@ def creer_matchs_journee(semaine_id, saison_id):
         print(f"Matchs J{semaine_id} deja existants ({len(existing.json())} matchs)")
         return
 
-    # Recuperer depuis l'API
-    matchs_api = get_matchs_api(semaine_id, saison_id)
-    if not matchs_api:
-        print("Impossible de recuperer les matchs API")
-        return
+    # === CONFIGURATION ===
+    CHAMPIONNATS = {'PL': 'Premier League', 'PD': 'La Liga', 'SA': 'Serie A', 'BL1': 'Bundesliga'}
 
-    # Creer TOUS les matchs dans Supabase (is_active=false pour selection manuelle)
-    import random
-    count = 0
-    for m in matchs_api:
+    MEGA_CLUBS = {
+        'Real Madrid', 'FC Barcelona', 'Atletico Madrid',
+        'Manchester United', 'Manchester City', 'Liverpool', 'Arsenal', 'Chelsea', 'Tottenham',
+        'Juventus', 'AC Milan', 'Inter Milan', 'AS Roma', 'SSC Napoli',
+        'Bayern Munich', 'Borussia Dortmund'
+    }
+
+    DERBIES = [
+        ('Real Madrid', 'FC Barcelona'), ('Real Madrid', 'Atletico Madrid'),
+        ('Manchester United', 'Manchester City'), ('Manchester United', 'Liverpool'),
+        ('Arsenal', 'Tottenham'), ('Arsenal', 'Chelsea'),
+        ('AC Milan', 'Inter Milan'), ('Juventus', 'Inter Milan'),
+        ('AS Roma', 'SS Lazio'), ('Bayern Munich', 'Borussia Dortmund'),
+    ]
+
+    TOP_CLUBS = {
+        'PL': {'Manchester City', 'Arsenal', 'Liverpool', 'Chelsea', 'Manchester United', 'Tottenham', 'Newcastle'},
+        'PD': {'Real Madrid', 'FC Barcelona', 'Atletico Madrid', 'Athletic Bilbao', 'Real Sociedad', 'Sevilla'},
+        'SA': {'Inter Milan', 'AC Milan', 'Juventus', 'SSC Napoli', 'AS Roma', 'SS Lazio', 'Atalanta'},
+        'BL1': {'Bayern Munich', 'Borussia Dortmund', 'RB Leipzig', 'Bayer Leverkusen', 'Eintracht Frankfurt'}
+    }
+
+    def score_match(m, code):
         home = m.get('homeTeam', {}).get('name', '')
         away = m.get('awayTeam', {}).get('name', '')
-        date = m.get('utcDate', '')
+        score = 0
+        for d1, d2 in DERBIES:
+            if (d1 in home and d2 in away) or (d2 in home and d1 in away):
+                score += 2000
+                break
+        for mc in MEGA_CLUBS:
+            if mc in home or mc in away:
+                score += 1000
+                break
+        top = TOP_CLUBS.get(code, set())
+        if any(t in home for t in top) and any(t in away for t in top):
+            score += 500
+        return score
 
-        # Cotes par defaut (a modifier manuellement dans admin)
+    all_matchs = []
+
+    # === 1. MATCHS LIGUE 1 ===
+    matchs_l1 = get_matchs_api(semaine_id, saison_id)
+    if matchs_l1:
+        for m in matchs_l1:
+            all_matchs.append({
+                'championnat': 'Ligue 1',
+                'equipe_home': m.get('homeTeam', {}).get('name', ''),
+                'equipe_away': m.get('awayTeam', {}).get('name', ''),
+                'date_match': m.get('utcDate', ''),
+                'score': 9999
+            })
+        print(f"  {len(matchs_l1)} matchs Ligue 1")
+
+    # === 2. MATCHS ETRANGERS ===
+    # Determiner la periode (dates des matchs L1)
+    if matchs_l1:
+        dates = [m.get('utcDate', '')[:10] for m in matchs_l1 if m.get('utcDate')]
+        if dates:
+            dt_min = datetime.strptime(min(dates), '%Y-%m-%d') - timedelta(days=1)
+            dt_max = datetime.strptime(max(dates), '%Y-%m-%d') + timedelta(days=1)
+            date_from = dt_min.strftime('%Y-%m-%d')
+            date_to = dt_max.strftime('%Y-%m-%d')
+        else:
+            today = datetime.now()
+            date_from = (today - timedelta(days=3)).strftime('%Y-%m-%d')
+            date_to = (today + timedelta(days=4)).strftime('%Y-%m-%d')
+    else:
+        today = datetime.now()
+        date_from = (today - timedelta(days=3)).strftime('%Y-%m-%d')
+        date_to = (today + timedelta(days=4)).strftime('%Y-%m-%d')
+
+    matchs_etrangers = []
+    for code, nom in CHAMPIONNATS.items():
+        url = f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}'
+        resp = requests.get(url, headers=FOOTBALL_HEADERS)
+        if resp.status_code == 200:
+            for m in resp.json().get('matches', []):
+                if m.get('status') != 'FINISHED':
+                    matchs_etrangers.append({
+                        'championnat': nom,
+                        'equipe_home': m.get('homeTeam', {}).get('name', ''),
+                        'equipe_away': m.get('awayTeam', {}).get('name', ''),
+                        'date_match': m.get('utcDate', ''),
+                        'score': score_match(m, code)
+                    })
+
+    # Trier et prendre top 11
+    matchs_etrangers.sort(key=lambda x: x['score'], reverse=True)
+    all_matchs.extend(matchs_etrangers[:11])
+    print(f"  {len(matchs_etrangers[:11])} matchs etrangers selectionnes")
+
+    # === 3. IMPORT SUPABASE ===
+    count = 0
+    for m in all_matchs:
         cote_h = round(random.uniform(1.5, 3.5), 2)
         cote_n = round(random.uniform(3.0, 4.0), 2)
         cote_a = round(random.uniform(1.8, 4.0), 2)
@@ -278,20 +366,20 @@ def creer_matchs_journee(semaine_id, saison_id):
             json={
                 'saison_id': saison_id,
                 'semaine_id': semaine_id,
-                'championnat': 'Ligue 1',
-                'equipe_home': home,
-                'equipe_away': away,
+                'championnat': m['championnat'],
+                'equipe_home': m['equipe_home'],
+                'equipe_away': m['equipe_away'],
                 'cote_home': cote_h,
                 'cote_draw': cote_n,
                 'cote_away': cote_a,
-                'date_match': date,
-                'is_active': False  # Inactif par defaut - activation manuelle
+                'date_match': m['date_match'],
+                'is_active': False
             }
         )
-        print(f"  -> {home} vs {away}")
+        print(f"  -> [{m['championnat']}] {m['equipe_home']} vs {m['equipe_away']}")
         count += 1
 
-    print(f"{count} matchs importes pour J{semaine_id} (inactifs - a activer manuellement)")
+    print(f"{count} matchs importes pour J{semaine_id} (inactifs)")
 
 
 def run_auto_update():
