@@ -238,8 +238,11 @@ def cloturer_journee(semaine_id, saison_id):
 
 
 def creer_matchs_journee(semaine_id, saison_id):
-    """Cree les 4 meilleurs matchs pour une journee depuis l'API"""
-    print(f"Creation des matchs pour J{semaine_id}...")
+    """
+    Importe TOUS les matchs de la journee depuis l'API (is_active=false par defaut).
+    L'admin active manuellement les matchs souhaites via le panneau admin.
+    """
+    print(f"Import des matchs pour J{semaine_id}...")
 
     # Verifier si des matchs existent deja
     existing = requests.get(
@@ -247,7 +250,7 @@ def creer_matchs_journee(semaine_id, saison_id):
         headers=SUPABASE_HEADERS
     )
     if existing.status_code == 200 and existing.json():
-        print(f"Matchs J{semaine_id} deja existants")
+        print(f"Matchs J{semaine_id} deja existants ({len(existing.json())} matchs)")
         return
 
     # Recuperer depuis l'API
@@ -256,45 +259,15 @@ def creer_matchs_journee(semaine_id, saison_id):
         print("Impossible de recuperer les matchs API")
         return
 
-    # Mega clubs et derbys pour scoring
-    MEGA_CLUBS = {'Paris Saint-Germain', 'Olympique de Marseille', 'Olympique Lyonnais', 'Real Madrid', 'FC Barcelona'}
-    TOP_10_L1 = {'Paris Saint-Germain', 'Olympique de Marseille', 'AS Monaco', 'Lille', 'Olympique Lyonnais',
-                 'OGC Nice', 'Racing Club de Lens', 'Stade Rennais', 'Stade Brestois', 'RC Strasbourg'}
-    DERBYS = [('Paris Saint-Germain', 'Olympique de Marseille'), ('Olympique Lyonnais', 'AS Saint-Etienne'),
-              ('Racing Club de Lens', 'Lille'), ('OGC Nice', 'AS Monaco')]
-
-    def score_match(m):
-        home = m.get('homeTeam', {}).get('name', '')
-        away = m.get('awayTeam', {}).get('name', '')
-        score = 0
-        # Derby
-        for d1, d2 in DERBYS:
-            if (d1 in home and d2 in away) or (d2 in home and d1 in away):
-                score += 1000
-        # Mega club
-        if any(mc in home or mc in away for mc in MEGA_CLUBS):
-            score += 800
-        # Top 10 affiche
-        home_top = any(t in home for t in TOP_10_L1)
-        away_top = any(t in away for t in TOP_10_L1)
-        if home_top and away_top:
-            score += 500
-        elif home_top or away_top:
-            score += 200
-        return score
-
-    # Trier et prendre les 4 meilleurs
-    matchs_api.sort(key=score_match, reverse=True)
-    top_4 = matchs_api[:4]
-
-    # Creer dans Supabase
+    # Creer TOUS les matchs dans Supabase (is_active=false pour selection manuelle)
     import random
-    for m in top_4:
+    count = 0
+    for m in matchs_api:
         home = m.get('homeTeam', {}).get('name', '')
         away = m.get('awayTeam', {}).get('name', '')
         date = m.get('utcDate', '')
 
-        # Generer cotes aleatoires (a remplacer par vraies cotes)
+        # Cotes par defaut (a modifier manuellement dans admin)
         cote_h = round(random.uniform(1.5, 3.5), 2)
         cote_n = round(random.uniform(3.0, 4.0), 2)
         cote_a = round(random.uniform(1.8, 4.0), 2)
@@ -312,12 +285,13 @@ def creer_matchs_journee(semaine_id, saison_id):
                 'cote_draw': cote_n,
                 'cote_away': cote_a,
                 'date_match': date,
-                'is_active': True
+                'is_active': False  # Inactif par defaut - activation manuelle
             }
         )
         print(f"  -> {home} vs {away}")
+        count += 1
 
-    print(f"4 matchs crees pour J{semaine_id}")
+    print(f"{count} matchs importes pour J{semaine_id} (inactifs - a activer manuellement)")
 
 
 def run_auto_update():

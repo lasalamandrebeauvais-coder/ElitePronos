@@ -1481,3 +1481,75 @@ def update_scores_from_api(semaine_id, saison_id=None):
 
     except Exception as e:
         return False, str(e)
+
+
+def importer_matchs_journee_supabase(semaine_id, saison_id=None):
+    """
+    Importe TOUS les matchs d'une journee depuis l'API Football-Data.
+    Les matchs sont crees avec is_active=False (selection manuelle par admin).
+
+    Returns:
+        tuple: (success, message, nb_matchs)
+    """
+    import requests
+    import random
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        supabase = get_supabase()
+        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        headers = {'X-Auth-Token': API_TOKEN}
+
+        # Verifier si des matchs existent deja
+        existing = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id'
+        ) or []
+
+        if existing:
+            return True, f"Matchs J{semaine_id} deja importes ({len(existing)} matchs)", len(existing)
+
+        # Recuperer depuis l'API
+        url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
+        response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            return False, f"Erreur API: {response.status_code}", 0
+
+        matchs_api = response.json().get('matches', [])
+
+        if not matchs_api:
+            return False, "Aucun match trouve pour cette journee", 0
+
+        # Importer TOUS les matchs avec is_active=False
+        count = 0
+        for m in matchs_api:
+            home = m.get('homeTeam', {}).get('name', '')
+            away = m.get('awayTeam', {}).get('name', '')
+            date = m.get('utcDate', '')
+
+            # Cotes par defaut (a modifier manuellement)
+            cote_h = round(random.uniform(1.5, 3.5), 2)
+            cote_n = round(random.uniform(3.0, 4.0), 2)
+            cote_a = round(random.uniform(1.8, 4.0), 2)
+
+            supabase._request('POST', 'matches', {
+                'saison_id': saison_id,
+                'semaine_id': semaine_id,
+                'championnat': 'Ligue 1',
+                'equipe_home': home,
+                'equipe_away': away,
+                'cote_home': cote_h,
+                'cote_draw': cote_n,
+                'cote_away': cote_a,
+                'date_match': date,
+                'is_active': False  # Inactif par defaut
+            })
+            count += 1
+
+        return True, f"{count} matchs importes (inactifs - a activer manuellement)", count
+
+    except Exception as e:
+        return False, str(e), 0

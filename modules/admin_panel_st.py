@@ -323,17 +323,16 @@ def afficher_panel_admin():
                         st.error(f"❌ Erreur: {str(e)}")
 
         with col_import2:
-            if st.button("IMPORTER SEMAINE COURANTE", use_container_width=True):
-                with st.spinner("Import des matchs de la semaine..."):
+            if st.button("IMPORTER TOUS LES MATCHS", use_container_width=True):
+                with st.spinner("Import des matchs depuis l'API..."):
                     try:
-                        from modules.bot_sourcing import sourcing_semaine_courante
-                        nb = sourcing_semaine_courante()
-                        st.success(f"✅ {nb} match(s) importe(s) pour cette semaine")
-
-                        # Kingo fait ses pronostics automatiquement
-                        from modules.kingo_bot import kingo_pronostique_semaine
-                        if kingo_pronostique_semaine():
-                            st.info("👑 Kingo a fait ses pronostics!")
+                        from modules.database_manager import importer_matchs_journee_supabase
+                        success, message, nb = importer_matchs_journee_supabase(journee, saison)
+                        if success:
+                            st.success(f"✅ {message}")
+                            st.info("👇 Activez les matchs souhaites dans 'Gestion des Matchs' ci-dessous")
+                        else:
+                            st.error(f"❌ {message}")
                     except Exception as e:
                         st.error(f"❌ Erreur: {str(e)}")
 
@@ -544,8 +543,8 @@ def afficher_panel_admin():
         st.markdown("---")
 
         # === SECTION 3: GESTION DES MATCHS ===
-        st.markdown("#### 3. Gestion des Matchs de la Journee")
-        st.caption("Voir et modifier les 4 matchs selectionnes pour la journee.")
+        st.markdown("#### 3. Selection des Matchs de la Journee")
+        st.caption("Activez les matchs sur lesquels les joueurs pourront pronostiquer.")
 
         # Reinitialiser Supabase pour cette section (evite UnboundLocalError)
         supabase = get_supabase()
@@ -555,42 +554,49 @@ def afficher_panel_admin():
             f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
         ) or []
 
-        if matchs_journee:
-            st.markdown(f"**Matchs actifs pour J{semaine_selectionnee}:**")
-            for m in matchs_journee:
-                st.write(f"• {m['equipe_home']} vs {m['equipe_away']} (Cotes: {m.get('cote_home', '-')} / {m.get('cote_draw', '-')} / {m.get('cote_away', '-')})")
-        else:
-            st.warning("Aucun match actif pour cette journee.")
+        # Recuperer tous les matchs de la journee (actifs et inactifs)
+        tous_matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active,date_match&order=date_match'
+        ) or []
 
-        # Modification manuelle des matchs
-        with st.expander("Modifier manuellement les matchs"):
-            st.caption("Desactiver/Activer des matchs pour la journee")
+        nb_actifs = len(matchs_journee)
+        nb_total = len(tous_matchs)
 
-            # Recuperer tous les matchs de la journee (actifs et inactifs)
-            tous_matchs = supabase._request('GET',
-                f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active&order=id'
-            ) or []
+        if nb_total > 0:
+            st.info(f"**{nb_actifs} matchs actifs** sur {nb_total} disponibles pour J{semaine_selectionnee}")
 
-            if tous_matchs:
-                for m in tous_matchs:
-                    col_m1, col_m2 = st.columns([3, 1])
-                    with col_m1:
-                        st.write(f"{m['equipe_home']} vs {m['equipe_away']}")
-                    with col_m2:
-                        is_actif = m.get('is_active', False)
-                        new_actif = st.checkbox("Actif", value=is_actif, key=f"match_actif_{m['id']}")
-                        if new_actif != is_actif:
-                            supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
-                            st.rerun()
+            # Afficher tous les matchs avec checkboxes
+            st.markdown("**Cochez les matchs a activer:**")
+
+            for m in tous_matchs:
+                col_m1, col_m2, col_m3 = st.columns([3, 1, 1])
+                with col_m1:
+                    st.write(f"{m['equipe_home']} vs {m['equipe_away']}")
+                with col_m2:
+                    if m.get('date_match'):
+                        from datetime import datetime
+                        try:
+                            dt = datetime.fromisoformat(m['date_match'].replace('Z', '+00:00'))
+                            st.caption(dt.strftime('%d/%m %H:%M'))
+                        except:
+                            st.caption("-")
+                with col_m3:
+                    is_actif = m.get('is_active', False)
+                    new_actif = st.checkbox("Actif", value=is_actif, key=f"match_actif_{m['id']}")
+                    if new_actif != is_actif:
+                        supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
+                        st.rerun()
 
             # Bouton pour faire repronostiquer Kingo apres modification
-            if st.button("Appliquer et Kingo repronostique", use_container_width=True):
+            if st.button("KINGO REPRONOSTIQUE", type="primary", use_container_width=True):
                 from modules.kingo_bot import kingo_pronostique_semaine
                 if kingo_pronostique_semaine(semaine_selectionnee, saison, force=True):
-                    st.success("👑 Matchs mis a jour et Kingo a refait ses pronostics!")
+                    st.success("👑 Kingo a fait ses pronostics sur les matchs actifs!")
                 else:
-                    st.warning("Matchs mis a jour mais Kingo n'a pas pu pronostiquer.")
+                    st.warning("Kingo n'a pas pu pronostiquer.")
                 st.rerun()
+        else:
+            st.warning(f"Aucun match importe pour J{semaine_selectionnee}. Cliquez sur 'IMPORTER TOUS LES MATCHS' ci-dessus.")
 
         # === MODIFICATION DES COTES ===
         with st.expander("Modifier les cotes des matchs"):
