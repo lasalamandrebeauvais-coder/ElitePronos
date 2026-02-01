@@ -24,7 +24,6 @@ from modules.notifier_st import (
     envoyer_synthese_paris,
     envoyer_resultats_ironiques
 )
-from modules.calcul_gains import calculer_tous_gains_semaine, sauvegarder_resultats_semaine
 
 
 def get_utilisateurs_en_attente():

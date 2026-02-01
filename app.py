@@ -1,7 +1,6 @@
 import streamlit as st
 import sys
 import os
-import sqlite3
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,8 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Import des modules
-from modules import DB_PATH, create_database
+# Import des modules (Supabase uniquement)
 from modules.inscription_st import afficher_formulaire_inscription
 from modules.admin_panel_st import afficher_panel_admin
 from modules.login_st import (
@@ -27,81 +25,8 @@ from modules.login_st import (
     init_session
 )
 from modules.dashboard_st import afficher_dashboard
-from modules.database_manager import init_database
 from modules.reglement_st import afficher_reglement
-from modules.scheduler_resultats import demarrer_scheduler, get_scheduler_status
-
-# Initialiser la base de donnees (cree les tables si elles n'existent pas)
-create_database()
-init_database()
-
-# Migration: Ajouter les colonnes manquantes pour les scores en direct
-try:
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    # Verifier et ajouter les colonnes si elles n'existent pas
-    colonnes_a_ajouter = [
-        ("score_mi_temps_home", "INTEGER"),
-        ("score_mi_temps_away", "INTEGER"),
-        ("status", "TEXT DEFAULT 'SCHEDULED'"),
-        ("saison_id", "INTEGER DEFAULT 2024"),
-        ("is_active", "BOOLEAN DEFAULT 1"),
-    ]
-    for col_name, col_type in colonnes_a_ajouter:
-        try:
-            cursor.execute(f"ALTER TABLE matches ADD COLUMN {col_name} {col_type}")
-        except:
-            pass
-    conn.commit()
-    conn.close()
-except Exception as e:
-    pass
-
-# Initialisation des matchs J19 avec scores (pour Streamlit Cloud)
-try:
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    # Verifier si les matchs J19 existent
-    cursor.execute("SELECT COUNT(*) FROM matches WHERE semaine_id = 19 AND saison_id = 2025")
-    nb_matchs = cursor.fetchone()[0]
-    if nb_matchs == 0:
-        # Inserer les matchs J19 avec les scores
-        matchs_j19 = [
-            (19, 'Ligue 1', 'AJ Auxerre', 'Paris Saint-Germain FC', 4.40, 4.30, 1.75, '2026-01-24 19:00:00', 0, 1, 'FINISHED', 2025, 1),
-            (19, 'Ligue 1', 'Le Havre AC', 'AS Monaco FC', 4.40, 4.00, 1.80, '2026-01-24 21:00:00', None, None, 'SCHEDULED', 2025, 1),
-            (19, 'Ligue 1', 'Olympique de Marseille', 'Racing Club de Lens', 1.80, 3.80, 4.40, '2026-01-25 21:00:00', None, None, 'SCHEDULED', 2025, 1),
-            (19, 'Ligue 1', 'FC Metz', 'Olympique Lyonnais', 3.40, 3.50, 2.10, '2026-01-26 17:00:00', None, None, 'SCHEDULED', 2025, 1),
-        ]
-        cursor.executemany("""
-            INSERT INTO matches (semaine_id, championnat, equipe_home, equipe_away, cote_home, cote_draw, cote_away,
-                                 date_match, score_final_home, score_final_away, status, saison_id, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, matchs_j19)
-        conn.commit()
-    else:
-        # Mettre a jour le score Auxerre-PSG si pas deja fait
-        cursor.execute("""
-            UPDATE matches SET score_final_home = 0, score_final_away = 1, status = 'FINISHED'
-            WHERE equipe_home LIKE '%Auxerre%' AND equipe_away LIKE '%Paris%'
-            AND semaine_id = 19 AND score_final_home IS NULL
-        """)
-        conn.commit()
-    conn.close()
-except Exception as e:
-    pass
-
-# Demarrer le scheduler de mise a jour des scores (toutes les 10 min)
-demarrer_scheduler()
-
-# Activation temporaire du compte admin "baggio"
-try:
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE utilisateurs SET statut = 'Actif' WHERE pseudo = 'baggio'")
-    conn.commit()
-    conn.close()
-except:
-    pass
+from modules.scheduler_resultats import get_scheduler_status
 
 # Initialiser la session
 init_session()

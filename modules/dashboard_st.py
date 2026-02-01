@@ -14,6 +14,44 @@ from modules.database_manager import (
     get_journee_courante
 )
 
+# Cache pour les donnees lourdes (TTL 30 secondes pour mise a jour rapide)
+@st.cache_data(ttl=30)
+def get_classement_cache(saison_id):
+    """Recupere le classement general avec cache"""
+    supabase = get_supabase()
+
+    # Une seule requete pour toutes les predictions
+    all_predictions = supabase._request('GET',
+        f'predictions?saison_id=eq.{saison_id}&select=user_id,points_gagnes,is_score_exact'
+    ) or []
+
+    # Agreger par utilisateur
+    user_stats = {}
+    for p in all_predictions:
+        uid = p['user_id']
+        if uid not in user_stats:
+            user_stats[uid] = {'points': 0, 'exacts': 0}
+        user_stats[uid]['points'] += (p.get('points_gagnes') or 0)
+        if p.get('is_score_exact'):
+            user_stats[uid]['exacts'] += 1
+
+    # Recuperer les pseudos
+    utilisateurs = supabase.get_all_utilisateurs(statut='Actif')
+
+    classement = []
+    for u in utilisateurs:
+        uid = u['id']
+        stats = user_stats.get(uid, {'points': 0, 'exacts': 0})
+        classement.append({
+            'id': uid,
+            'pseudo': u['pseudo'],
+            'points': stats['points'],
+            'scores_exacts': stats['exacts']
+        })
+
+    classement.sort(key=lambda x: x['points'], reverse=True)
+    return classement
+
 # Chemin avatars
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 
@@ -29,9 +67,7 @@ def get_avatar_path(pseudo):
 def get_user_stats_supabase(user_id, saison_id):
     """
     Recupere les statistiques du joueur depuis Supabase
-    - Classement general
-    - Forme (5 dernieres journees)
-    - Jokers disponibles
+    Version optimisee avec cache
     """
     supabase = get_supabase()
 
@@ -47,31 +83,10 @@ def get_user_stats_supabase(user_id, saison_id):
     }
 
     try:
-        # === 1. CLASSEMENT GENERAL ===
-        # Recuperer tous les utilisateurs actifs avec leurs points
-        utilisateurs = supabase.get_all_utilisateurs(statut='Actif')
-        classement = []
-
-        for u in utilisateurs:
-            predictions = supabase._request('GET',
-                f'predictions?user_id=eq.{u["id"]}&saison_id=eq.{saison_id}&select=points_gagnes,is_score_exact'
-            ) or []
-
-            total = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
-            exacts = sum(1 for p in predictions if p.get('is_score_exact'))
-
-            classement.append({
-                'id': u['id'],
-                'pseudo': u['pseudo'],
-                'points': total,
-                'scores_exacts': exacts
-            })
-
-        # Trier par points
-        classement.sort(key=lambda x: x['points'], reverse=True)
+        # === 1. CLASSEMENT (depuis cache) ===
+        classement = get_classement_cache(saison_id)
         stats['nb_joueurs'] = len(classement)
 
-        # Trouver le rang du joueur
         for idx, joueur in enumerate(classement):
             if joueur['id'] == user_id:
                 stats['rang'] = idx + 1
@@ -79,35 +94,24 @@ def get_user_stats_supabase(user_id, saison_id):
                 stats['scores_exacts'] = joueur['scores_exacts']
                 break
 
-        # === 2. FORME (5 dernieres journees) ===
-        # Recuperer les matchs par journee
+        # === 2. FORME (simplifie - une seule requete) ===
+        predictions_user = supabase._request('GET',
+            f'predictions?user_id=eq.{user_id}&saison_id=eq.{saison_id}&select=points_gagnes,match_id,matches(semaine_id)'
+        ) or []
+
+        # Grouper par journee
         journee_courante = get_journee_courante(saison_id)
+        pts_par_journee = {}
+        for p in predictions_user:
+            if p.get('matches'):
+                j = p['matches'].get('semaine_id')
+                if j and j >= journee_courante - 4:
+                    pts_par_journee[j] = pts_par_journee.get(j, 0) + (p.get('points_gagnes') or 0)
 
-        # Calculer les points par journee pour les 5 dernieres
-        forme_data = []
-        for j in range(max(1, journee_courante - 4), journee_courante + 1):
-            # Recuperer les matchs de cette journee
-            matchs = supabase.get_matches_journee(saison_id, j)
-            if not matchs:
-                continue
+        stats['nb_semaines'] = len(pts_par_journee)
 
-            match_ids = [m['id'] for m in matchs]
-            match_ids_str = ','.join(map(str, match_ids))
-
-            # Recuperer les predictions du joueur pour cette journee
-            predictions = supabase._request('GET',
-                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=points_gagnes'
-            ) or []
-
-            if predictions:
-                pts_journee = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
-                forme_data.append({'journee': j, 'points': pts_journee})
-
-        stats['nb_semaines'] = len(forme_data)
-
-        # Convertir en indicateurs de forme (5 derniers)
-        for fd in forme_data[-5:]:
-            pts = fd['points']
+        for j in sorted(pts_par_journee.keys())[-5:]:
+            pts = pts_par_journee[j]
             if pts >= 50:
                 stats['forme'].append('up')
             elif pts >= 0:
@@ -115,19 +119,11 @@ def get_user_stats_supabase(user_id, saison_id):
             else:
                 stats['forme'].append('down')
 
-        # === 3. JOKERS DISPONIBLES ===
+        # === 3. JOKERS ===
         stock = supabase.get_stock_jokers(user_id, saison_id)
-        if not stock:
-            # Initialiser le stock si absent
-            stock = supabase.init_stock_jokers(user_id, saison_id)
-
         if stock:
             stats['jokers_doubles'] = stock.get('joker_double', 0) or 0
             stats['jokers_voles'] = stock.get('joker_vol', 0) or 0
-        else:
-            # Fallback si erreur d'initialisation
-            stats['jokers_doubles'] = 0
-            stats['jokers_voles'] = 0
 
     except Exception as e:
         print(f"Erreur get_user_stats_supabase: {e}")

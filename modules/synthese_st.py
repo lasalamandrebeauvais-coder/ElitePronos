@@ -6,11 +6,13 @@ Version Supabase avec debrief fin de journee
 import os
 import random
 from datetime import datetime
+import streamlit as st
 
 # Import Supabase
 from modules.supabase_db import get_supabase
 
 
+@st.cache_data(ttl=30)
 def get_stats_semaine(saison_id, semaine_id):
     """
     Recupere les statistiques des paris pour la semaine via Supabase
@@ -309,10 +311,10 @@ def generer_synthese_html(stats, saison_id, semaine_id):
     return html
 
 
+@st.cache_data(ttl=30)
 def get_synthese_accueil(saison_id, semaine_id):
     """
-    Retourne la synthese complete pour l'accueil
-    dict avec 'commentaire', 'stats_html', 'debrief', 'message_nouvelle_journee'
+    Retourne la synthese complete pour l'accueil (cache 30s)
     """
     stats = get_stats_semaine(saison_id, semaine_id)
 
@@ -361,9 +363,10 @@ def get_synthese_accueil(saison_id, semaine_id):
     }
 
 
+@st.cache_data(ttl=30)
 def get_debrief_rivaux(user_id, saison_id, semaine_id):
     """
-    Genere un debrief specifique sur les rivaux du joueur
+    Genere un debrief specifique sur les rivaux (cache 30s)
     """
     supabase = get_supabase()
 

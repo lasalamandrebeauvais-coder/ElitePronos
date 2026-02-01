@@ -14,60 +14,60 @@ AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets'
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
+@st.cache_data(ttl=30)
 def get_classement_general_complet():
     """
-    Recupere le classement general avec toutes les stats depuis Supabase:
-    - Place, Pseudo, Points, Bons pronos, Scores exacts, Grand Chelem
-    - Jokers restants (Doubles, Voles), Meilleure place
+    Recupere le classement general avec cache (TTL 60s)
+    Version optimisee : 2 requetes au lieu de N
     """
     try:
         client = get_supabase()
 
-        # Recuperer tous les utilisateurs actifs
+        # 1. Une seule requete pour TOUTES les predictions
+        all_predictions = client._request('GET',
+            'predictions?select=user_id,points_gagnes,is_score_exact'
+        ) or []
+
+        # 2. Agreger les stats par utilisateur
+        user_stats = {}
+        for p in all_predictions:
+            uid = p['user_id']
+            if uid not in user_stats:
+                user_stats[uid] = {'points': 0, 'bons': 0, 'exacts': 0}
+            pts = p.get('points_gagnes') or 0
+            user_stats[uid]['points'] += pts
+            if pts > 0:
+                user_stats[uid]['bons'] += 1
+            if p.get('is_score_exact'):
+                user_stats[uid]['exacts'] += 1
+
+        # 3. Une seule requete pour les utilisateurs + jokers
         utilisateurs = client.get_all_utilisateurs(statut='Actif')
-        if not utilisateurs:
-            return []
+
+        # 4. Une seule requete pour tous les jokers
+        all_jokers = client._request('GET', 'stock_jokers?select=utilisateur_id,joker_double,joker_vol') or []
+        jokers_dict = {j['utilisateur_id']: j for j in all_jokers}
 
         classement = []
         for user in utilisateurs:
-            user_id = user['id']
-            pseudo = user['pseudo']
-
-            # Recuperer toutes les predictions de cet utilisateur
-            predictions = client._request('GET',
-                f'predictions?user_id=eq.{user_id}&select=points_gagnes,is_score_exact,match_id'
-            ) or []
-
-            # Calculer les stats
-            total_points = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
-            bons_pronos = sum(1 for p in predictions if (p.get('points_gagnes') or 0) > 0)
-            scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
-
-            # Grand Chelem: compter les semaines avec 4+ bons pronos
-            # (simplifie pour l'instant)
-            nb_grand_chelem = 0
-
-            # Jokers restants (valeurs par defaut)
-            stock = client.get_stock_jokers(user_id)
-            jokers_double = stock.get('joker_double', 3) if stock else 3
-            jokers_vol = stock.get('joker_vol', 2) if stock else 2
+            uid = user['id']
+            stats = user_stats.get(uid, {'points': 0, 'bons': 0, 'exacts': 0})
+            jokers = jokers_dict.get(uid, {})
 
             classement.append({
-                'user_id': user_id,
-                'pseudo': pseudo,
-                'points': total_points,
-                'bons_pronos': bons_pronos,
-                'scores_exacts': scores_exacts,
-                'grand_chelem': nb_grand_chelem,
-                'jokers_double': jokers_double,
-                'jokers_vol': jokers_vol,
-                'meilleure_place': 1  # Placeholder
+                'user_id': uid,
+                'pseudo': user['pseudo'],
+                'points': stats['points'],
+                'bons_pronos': stats['bons'],
+                'scores_exacts': stats['exacts'],
+                'grand_chelem': 0,
+                'jokers_double': jokers.get('joker_double', 3) or 3,
+                'jokers_vol': jokers.get('joker_vol', 2) or 2,
+                'meilleure_place': 1
             })
 
-        # Trier par points decroissants
         classement.sort(key=lambda x: x['points'], reverse=True)
 
-        # Ajouter les places et meilleure place
         for idx, joueur in enumerate(classement):
             joueur['place'] = idx + 1
             joueur['meilleure_place'] = idx + 1
@@ -79,8 +79,9 @@ def get_classement_general_complet():
         return []
 
 
+@st.cache_data(ttl=30)
 def get_historique_joueur(user_id):
-    """Recupere l'historique des pronostics par journee pour un joueur depuis Supabase"""
+    """Recupere l'historique des pronostics par journee pour un joueur (cache 30s)"""
     try:
         client = get_supabase()
 
@@ -133,8 +134,9 @@ def get_historique_joueur(user_id):
         return []
 
 
+@st.cache_data(ttl=30)
 def get_records_joueur(user_id):
-    """Recupere les records d'un joueur depuis Supabase"""
+    """Recupere les records d'un joueur (cache 30s)"""
     try:
         client = get_supabase()
 
@@ -182,23 +184,18 @@ def afficher_classement(user):
     </style>
     """, unsafe_allow_html=True)
 
-    # Header avec bouton retour JAUNE et mascotte
-    col_back, col_title, col_mascot = st.columns([0.6, 4.5, 0.8])
+    # Header avec bouton retour, actualiser et mascotte
+    col_back, col_title, col_refresh, col_mascot = st.columns([0.5, 3.5, 0.8, 0.7])
     with col_back:
-        st.markdown("""
-        <style>
-            div[data-testid="column"]:first-child button {
-                color: #FFD700 !important;
-                border-color: #FFD700 !important;
-                background-color: transparent !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
         if st.button("◀", help="Retour", use_container_width=True, key="btn_retour_classement"):
             st.session_state.dashboard_section = None
             st.rerun()
     with col_title:
-        st.markdown("## 🏆 Classement Elite")
+        st.markdown("## Classement Elite")
+    with col_refresh:
+        if st.button("🔄", help="Actualiser", use_container_width=True, key="btn_refresh_classement"):
+            st.cache_data.clear()
+            st.rerun()
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo classements.png")
         if os.path.exists(mascot_path):

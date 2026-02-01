@@ -162,7 +162,7 @@ def kingo_pronostique_semaine(semaine_id=None, saison_id=None, force=False):
 
         # Recuperer les matchs de la semaine
         matchs = supabase._request('GET',
-            f'matches?journee=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away&order=id'
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away&order=id'
         )
 
         if not matchs or len(matchs) == 0:

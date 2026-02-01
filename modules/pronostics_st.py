@@ -36,7 +36,7 @@ def get_matchs_semaine():
 
         # Recuperer les matchs de cette journee
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.{journee_courante}&is_active=eq.true&select=id,championnat,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match,score_final_home&order=id&limit=4'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{journee_courante}&is_active=eq.true&select=id,championnat,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match,score_final_home&order=id&limit=4'
         ) or []
 
         # Convertir au format tuple pour compatibilite
@@ -75,7 +75,7 @@ def get_pronos_existants(user_id):
 
         # Recuperer les match_ids de cette journee
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.{journee_courante}&is_active=eq.true&select=id'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{journee_courante}&is_active=eq.true&select=id'
         ) or []
 
         if not matchs:
@@ -268,7 +268,7 @@ def get_deadline_pronostics():
             return None
 
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.{journee_courante}&is_active=eq.true&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{journee_courante}&is_active=eq.true&select=date_match&order=date_match&limit=1'
         )
 
         if matchs and len(matchs) > 0 and matchs[0].get('date_match'):

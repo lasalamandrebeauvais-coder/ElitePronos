@@ -89,7 +89,7 @@ class SupabaseClient:
     def get_matches_journee(self, saison_id, semaine_id):
         """Recupere les matchs d'une journee"""
         return self._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.{semaine_id}&is_active=eq.true&select=*&order=date_match'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&is_active=eq.true&select=*&order=date_match'
         ) or []
 
     def get_match_by_id(self, match_id):

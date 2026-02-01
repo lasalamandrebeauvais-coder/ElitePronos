@@ -18,8 +18,7 @@ from modules.database_manager import (
     get_date_j1,
     get_saison_actuelle,
     get_saison_label,
-    get_joker_actif_semaine,
-    get_connection
+    get_joker_actif_semaine
 )
 
 
@@ -1003,45 +1002,50 @@ def envoyer_synthese_paris(semaine_id):
     """
     Envoie la synthese des paris a tous les joueurs
     A appeler 15min apres la deadline
+    Version Supabase
     """
-    import sqlite3
-    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+    from modules.supabase_db import get_supabase
+    supabase = get_supabase()
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    # Recuperer les matchs de la semaine
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away') or []
+    match_ids = [m['id'] for m in matchs]
+    match_map = {m['id']: m for m in matchs}
 
-    # Recuperer tous les pronostics de la semaine
-    cursor.execute("""
-        SELECT u.pseudo, u.id, m.equipe_home, m.equipe_away,
-               p.score_prono_home, p.score_prono_away, p.mise_points
-        FROM predictions p
-        JOIN utilisateurs u ON p.user_id = u.id
-        JOIN matches m ON p.match_id = m.id
-        WHERE m.semaine_id = ?
-        ORDER BY u.pseudo, m.id
-    """, (semaine_id,))
+    if not match_ids:
+        return []
 
-    rows = cursor.fetchall()
+    # Recuperer toutes les predictions pour ces matchs
+    predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points') or []
+
+    # Recuperer les utilisateurs
+    users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+    user_map = {u['id']: u['pseudo'] for u in users}
+
+    # Construire les rows (pseudo, user_id, home, away, prono_h, prono_a, mise)
+    rows = []
+    for p in predictions:
+        match = match_map.get(p['match_id'])
+        pseudo = user_map.get(p['user_id'], 'Inconnu')
+        if match:
+            rows.append((pseudo, p['user_id'], match['equipe_home'], match['equipe_away'],
+                        p['score_prono_home'], p['score_prono_away'], p['mise_points']))
+
+    # Trier par pseudo puis match_id
+    rows.sort(key=lambda x: (x[0], x[2]))
 
     # === RECUPERER LES JOKERS ACTIFS ===
-    cursor.execute("""
-        SELECT u.pseudo, jh.type_joker, u2.pseudo as cible_pseudo
-        FROM jokers_historique jh
-        JOIN utilisateurs u ON jh.utilisateur_id = u.id
-        LEFT JOIN utilisateurs u2 ON jh.cible_vol_id = u2.id
-        WHERE jh.semaine_id = ?
-    """, (semaine_id,))
+    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker,cible_vol_id') or []
 
-    jokers_rows = cursor.fetchall()
     jokers_actifs = []
-    for jrow in jokers_rows:
+    for jrow in jokers_data:
+        pseudo = user_map.get(jrow['utilisateur_id'], 'Inconnu')
+        cible_pseudo = user_map.get(jrow.get('cible_vol_id'), '') if jrow.get('cible_vol_id') else ''
         jokers_actifs.append({
-            'pseudo': jrow[0],
-            'type_joker': jrow[1],
-            'cible_pseudo': jrow[2] or ''
+            'pseudo': pseudo,
+            'type_joker': jrow['type_joker'],
+            'cible_pseudo': cible_pseudo
         })
-
-    conn.close()
 
     # Organiser par joueur
     data_paris = {}
@@ -1108,34 +1112,37 @@ def envoyer_resultats_ironiques(semaine_id):
     """
     Envoie le recapitulatif des resultats avec commentaires ironiques
     A appeler apres le calcul des points
+    Version Supabase
     """
-    import sqlite3
-    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
+    from modules.supabase_db import get_supabase
+    supabase = get_supabase()
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    # Recuperer les matchs de la semaine
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id') or []
+    match_ids = [m['id'] for m in matchs]
 
-    # Calculer le classement de la semaine
-    cursor.execute("""
-        SELECT u.pseudo, COALESCE(SUM(p.points_gagnes), 0) as total_points
-        FROM utilisateurs u
-        LEFT JOIN predictions p ON p.user_id = u.id
-        LEFT JOIN matches m ON p.match_id = m.id AND m.semaine_id = ?
-        WHERE u.statut = 'Actif'
-        GROUP BY u.id, u.pseudo
-        ORDER BY total_points DESC
-    """, (semaine_id,))
+    # Recuperer les utilisateurs actifs
+    users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+    user_map = {u['id']: u['pseudo'] for u in users}
 
-    rows = cursor.fetchall()
-    conn.close()
+    # Calculer les points par utilisateur pour cette semaine
+    points_par_user = {u['id']: 0 for u in users}
+
+    if match_ids:
+        predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,points_gagnes') or []
+        for p in predictions:
+            if p['user_id'] in points_par_user and p.get('points_gagnes') is not None:
+                points_par_user[p['user_id']] += p['points_gagnes']
+
+    # Trier par points decroissants
+    sorted_users = sorted(points_par_user.items(), key=lambda x: x[1], reverse=True)
 
     # Construire le classement
     classement = []
-    for i, row in enumerate(rows, 1):
-        pseudo, points = row
+    for i, (user_id, points) in enumerate(sorted_users, 1):
         classement.append({
             'rang': i,
-            'pseudo': pseudo,
+            'pseudo': user_map.get(user_id, 'Inconnu'),
             'points': points,
             'evolution': 0  # TODO: calculer par rapport a la semaine precedente
         })
