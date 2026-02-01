@@ -195,6 +195,131 @@ def calculer_points(match, users_double):
     return updates
 
 
+def check_journee_terminee(semaine_id, saison_id):
+    """Verifie si tous les matchs de la journee sont termines"""
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id,score_final_home",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code == 200:
+        matchs = response.json()
+        if not matchs:
+            return False  # Pas de matchs actifs
+        # Tous les matchs ont un score ?
+        return all(m.get('score_final_home') is not None for m in matchs)
+    return False
+
+
+def cloturer_journee(semaine_id, saison_id):
+    """Cloture une journee terminee et passe a la suivante"""
+    print(f"Cloture de la journee {semaine_id}...")
+
+    # 1. Desactiver les matchs de la journee terminee
+    requests.patch(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}",
+        headers=SUPABASE_HEADERS,
+        json={'is_active': False}
+    )
+
+    # 2. Incrementer journee_courante dans saisons
+    nouvelle_journee = semaine_id + 1
+    requests.patch(
+        f"{SUPABASE_URL}/rest/v1/saisons?annee_debut=eq.{saison_id}",
+        headers=SUPABASE_HEADERS,
+        json={'journee_courante': nouvelle_journee}
+    )
+
+    print(f"Journee avancee a {nouvelle_journee}")
+
+    # 3. Creer les matchs de la nouvelle journee
+    creer_matchs_journee(nouvelle_journee, saison_id)
+
+    return nouvelle_journee
+
+
+def creer_matchs_journee(semaine_id, saison_id):
+    """Cree les 4 meilleurs matchs pour une journee depuis l'API"""
+    print(f"Creation des matchs pour J{semaine_id}...")
+
+    # Verifier si des matchs existent deja
+    existing = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id",
+        headers=SUPABASE_HEADERS
+    )
+    if existing.status_code == 200 and existing.json():
+        print(f"Matchs J{semaine_id} deja existants")
+        return
+
+    # Recuperer depuis l'API
+    matchs_api = get_matchs_api(semaine_id, saison_id)
+    if not matchs_api:
+        print("Impossible de recuperer les matchs API")
+        return
+
+    # Mega clubs et derbys pour scoring
+    MEGA_CLUBS = {'Paris Saint-Germain', 'Olympique de Marseille', 'Olympique Lyonnais', 'Real Madrid', 'FC Barcelona'}
+    TOP_10_L1 = {'Paris Saint-Germain', 'Olympique de Marseille', 'AS Monaco', 'Lille', 'Olympique Lyonnais',
+                 'OGC Nice', 'Racing Club de Lens', 'Stade Rennais', 'Stade Brestois', 'RC Strasbourg'}
+    DERBYS = [('Paris Saint-Germain', 'Olympique de Marseille'), ('Olympique Lyonnais', 'AS Saint-Etienne'),
+              ('Racing Club de Lens', 'Lille'), ('OGC Nice', 'AS Monaco')]
+
+    def score_match(m):
+        home = m.get('homeTeam', {}).get('name', '')
+        away = m.get('awayTeam', {}).get('name', '')
+        score = 0
+        # Derby
+        for d1, d2 in DERBYS:
+            if (d1 in home and d2 in away) or (d2 in home and d1 in away):
+                score += 1000
+        # Mega club
+        if any(mc in home or mc in away for mc in MEGA_CLUBS):
+            score += 800
+        # Top 10 affiche
+        home_top = any(t in home for t in TOP_10_L1)
+        away_top = any(t in away for t in TOP_10_L1)
+        if home_top and away_top:
+            score += 500
+        elif home_top or away_top:
+            score += 200
+        return score
+
+    # Trier et prendre les 4 meilleurs
+    matchs_api.sort(key=score_match, reverse=True)
+    top_4 = matchs_api[:4]
+
+    # Creer dans Supabase
+    import random
+    for m in top_4:
+        home = m.get('homeTeam', {}).get('name', '')
+        away = m.get('awayTeam', {}).get('name', '')
+        date = m.get('utcDate', '')
+
+        # Generer cotes aleatoires (a remplacer par vraies cotes)
+        cote_h = round(random.uniform(1.5, 3.5), 2)
+        cote_n = round(random.uniform(3.0, 4.0), 2)
+        cote_a = round(random.uniform(1.8, 4.0), 2)
+
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/matches",
+            headers=SUPABASE_HEADERS,
+            json={
+                'saison_id': saison_id,
+                'semaine_id': semaine_id,
+                'championnat': 'Ligue 1',
+                'equipe_home': home,
+                'equipe_away': away,
+                'cote_home': cote_h,
+                'cote_draw': cote_n,
+                'cote_away': cote_a,
+                'date_match': date,
+                'is_active': True
+            }
+        )
+        print(f"  -> {home} vs {away}")
+
+    print(f"4 matchs crees pour J{semaine_id}")
+
+
 def run_auto_update():
     """Fonction principale d'automatisation"""
     print(f"=== Auto Update Scores - {datetime.now()} ===")
@@ -268,6 +393,13 @@ def run_auto_update():
 
     print(f"Scores mis a jour: {scores_updated}")
     print(f"Points calcules: {points_calculated}")
+
+    # Verifier si la journee est terminee (tous les matchs ont des scores)
+    if check_journee_terminee(semaine_id, saison_id):
+        print(f"Journee {semaine_id} terminee - Passage a la suivante...")
+        nouvelle_journee = cloturer_journee(semaine_id, saison_id)
+        print(f"Nouvelle journee active: {nouvelle_journee}")
+
     print("=== Fin ===")
 
 
