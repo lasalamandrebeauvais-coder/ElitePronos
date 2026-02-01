@@ -419,19 +419,30 @@ def afficher_panel_admin():
         st.markdown("#### 1. Valider les Resultats")
         st.caption("Recupere les scores officiels depuis l'API et fige les resultats de la journee.")
 
-        col_val1, col_val2 = st.columns(2)
+        col_val1, col_val2, col_val3 = st.columns(3)
 
         with col_val1:
-            if st.button("VALIDER LES RESULTATS", type="primary", use_container_width=True):
+            if st.button("ACTUALISER SCORES", type="primary", use_container_width=True):
+                with st.spinner("Mise a jour des scores..."):
+                    from modules.database_manager import update_scores_from_api
+                    success, message = update_scores_from_api(semaine_selectionnee, saison)
+                    # Invalider le cache
+                    st.cache_data.clear()
+
+                if success:
+                    st.success(f"✅ {message}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {message}")
+
+        with col_val2:
+            if st.button("VALIDER JOURNEE", use_container_width=True):
                 with st.spinner("Recuperation des scores..."):
-                    # Utiliser la version Supabase
                     from modules.database_manager import valider_resultats_journee_supabase, calculer_gains_supabase
                     success, message = valider_resultats_journee_supabase(semaine_selectionnee, saison)
 
                 if success:
                     st.success(f"✅ {message}")
-
-                    # Calculer automatiquement les gains via Supabase
                     with st.spinner("Calcul des points..."):
                         success_calc, msg_calc = calculer_gains_supabase(semaine_selectionnee, saison)
                         if success_calc:
@@ -441,14 +452,51 @@ def afficher_panel_admin():
                 else:
                     st.error(f"❌ {message}")
 
-        with col_val2:
-            if st.button("Mettre a jour calendrier (reports)", use_container_width=True):
+        with col_val3:
+            if st.button("Calendrier (reports)", use_container_width=True):
                 with st.spinner("Verification des reports..."):
                     success, message = mettre_a_jour_calendrier_reports(saison)
                 if success:
                     st.success(f"✅ {message}")
                 else:
                     st.error(f"❌ {message}")
+
+        # Bouton FORCER RECALCUL (reset + recalcul complet)
+        if st.button("FORCER RECALCUL POINTS", type="secondary", use_container_width=True):
+            with st.spinner("Reset et recalcul de tous les points..."):
+                try:
+                    supabase = get_supabase()
+
+                    # Recuperer les matchs termines de cette journee
+                    matchs = supabase._request('GET',
+                        f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&score_final_home=not.is.null&select=id'
+                    ) or []
+
+                    if not matchs:
+                        st.warning("Aucun match termine pour cette journee")
+                    else:
+                        # Reset les points de toutes les predictions de ces matchs
+                        match_ids = [m['id'] for m in matchs]
+                        for mid in match_ids:
+                            supabase._request('PATCH', f'predictions?match_id=eq.{mid}', {
+                                'points_gagnes': None,
+                                'is_score_exact': None
+                            })
+
+                        # Recalculer
+                        from modules.database_manager import calculer_gains_supabase
+                        success, msg = calculer_gains_supabase(semaine_selectionnee, saison)
+
+                        st.cache_data.clear()
+
+                        if success:
+                            st.success(f"✅ Points recalcules: {msg}")
+                        else:
+                            st.error(f"❌ Erreur: {msg}")
+
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erreur: {str(e)}")
 
         st.markdown("---")
 
@@ -505,7 +553,7 @@ def afficher_panel_admin():
 
         # Afficher les matchs actuels
         matchs_journee = supabase._request('GET',
-            f'matches?journee=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
+            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
         ) or []
 
         if matchs_journee:
@@ -521,7 +569,7 @@ def afficher_panel_admin():
 
             # Recuperer tous les matchs de la journee (actifs et inactifs)
             tous_matchs = supabase._request('GET',
-                f'matches?journee=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active&order=id'
+                f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active&order=id'
             ) or []
 
             if tous_matchs:
@@ -544,6 +592,171 @@ def afficher_panel_admin():
                 else:
                     st.warning("Matchs mis a jour mais Kingo n'a pas pu pronostiquer.")
                 st.rerun()
+
+        # === MODIFICATION DES COTES ===
+        with st.expander("Modifier les cotes des matchs"):
+            st.caption("Saisir manuellement les cotes de chaque match (source: Winamax, Betclic...)")
+
+            if matchs_journee:
+                cotes_modifiees = False
+
+                for m in matchs_journee:
+                    st.markdown(f"**{m['equipe_home']} vs {m['equipe_away']}**")
+
+                    col_c1, col_c2, col_c3 = st.columns(3)
+
+                    with col_c1:
+                        new_cote_home = st.number_input(
+                            "Cote 1 (Dom)",
+                            min_value=1.01,
+                            max_value=15.0,
+                            value=float(m.get('cote_home') or 2.0),
+                            step=0.05,
+                            key=f"cote_home_{m['id']}"
+                        )
+
+                    with col_c2:
+                        new_cote_draw = st.number_input(
+                            "Cote N (Nul)",
+                            min_value=1.01,
+                            max_value=15.0,
+                            value=float(m.get('cote_draw') or 3.0),
+                            step=0.05,
+                            key=f"cote_draw_{m['id']}"
+                        )
+
+                    with col_c3:
+                        new_cote_away = st.number_input(
+                            "Cote 2 (Ext)",
+                            min_value=1.01,
+                            max_value=15.0,
+                            value=float(m.get('cote_away') or 2.5),
+                            step=0.05,
+                            key=f"cote_away_{m['id']}"
+                        )
+
+                    # Stocker les nouvelles valeurs dans session_state
+                    if f"cotes_to_save_{m['id']}" not in st.session_state:
+                        st.session_state[f"cotes_to_save_{m['id']}"] = {
+                            'home': m.get('cote_home'),
+                            'draw': m.get('cote_draw'),
+                            'away': m.get('cote_away')
+                        }
+
+                    st.session_state[f"cotes_to_save_{m['id']}"] = {
+                        'home': new_cote_home,
+                        'draw': new_cote_draw,
+                        'away': new_cote_away
+                    }
+
+                    st.markdown("---")
+
+                # Bouton pour sauvegarder toutes les cotes
+                if st.button("SAUVEGARDER LES COTES", type="primary", use_container_width=True):
+                    nb_updates = 0
+                    for m in matchs_journee:
+                        cotes = st.session_state.get(f"cotes_to_save_{m['id']}")
+                        if cotes:
+                            supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {
+                                'cote_home': round(cotes['home'], 2),
+                                'cote_draw': round(cotes['draw'], 2),
+                                'cote_away': round(cotes['away'], 2)
+                            })
+                            nb_updates += 1
+
+                    st.success(f"Cotes mises a jour pour {nb_updates} matchs!")
+                    st.cache_data.clear()
+                    st.rerun()
+            else:
+                st.info("Aucun match actif pour modifier les cotes.")
+
+        # === MODIFICATION MANUELLE DES SCORES ===
+        with st.expander("Modifier les scores des matchs (Manuel)"):
+            st.caption("Saisir manuellement les scores finaux si l'API est incorrecte")
+
+            # Recuperer matchs avec scores actuels
+            matchs_scores = supabase._request('GET',
+                f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home,score_final_away&order=id'
+            ) or []
+
+            if matchs_scores:
+                for m in matchs_scores:
+                    st.markdown(f"**{m['equipe_home']} vs {m['equipe_away']}**")
+
+                    col_s1, col_s2, col_s3 = st.columns([2, 1, 2])
+
+                    with col_s1:
+                        score_home = st.number_input(
+                            f"Score {m['equipe_home'][:10]}",
+                            min_value=0,
+                            max_value=15,
+                            value=int(m.get('score_final_home') or 0),
+                            step=1,
+                            key=f"score_home_{m['id']}"
+                        )
+
+                    with col_s2:
+                        st.markdown("<div style='text-align:center; padding-top:25px;'>-</div>", unsafe_allow_html=True)
+
+                    with col_s3:
+                        score_away = st.number_input(
+                            f"Score {m['equipe_away'][:10]}",
+                            min_value=0,
+                            max_value=15,
+                            value=int(m.get('score_final_away') or 0),
+                            step=1,
+                            key=f"score_away_{m['id']}"
+                        )
+
+                    # Stocker dans session_state
+                    st.session_state[f"scores_to_save_{m['id']}"] = {
+                        'home': score_home,
+                        'away': score_away
+                    }
+
+                    st.markdown("---")
+
+                # Bouton pour sauvegarder tous les scores
+                if st.button("SAUVEGARDER LES SCORES", type="primary", use_container_width=True, key="btn_save_scores"):
+                    nb_updates = 0
+                    match_ids_updated = []
+
+                    for m in matchs_scores:
+                        scores = st.session_state.get(f"scores_to_save_{m['id']}")
+                        if scores:
+                            old_home = m.get('score_final_home')
+                            old_away = m.get('score_final_away')
+
+                            # Verifier si le score a change ou est nouveau
+                            if scores['home'] > 0 or scores['away'] > 0:
+                                if old_home != scores['home'] or old_away != scores['away']:
+                                    supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {
+                                        'score_final_home': scores['home'],
+                                        'score_final_away': scores['away'],
+                                        'status': 'FINISHED'
+                                    })
+                                    nb_updates += 1
+                                    match_ids_updated.append(m['id'])
+
+                    if nb_updates > 0:
+                        # Reset les points pour ces matchs
+                        for mid in match_ids_updated:
+                            supabase._request('PATCH', f'predictions?match_id=eq.{mid}', {
+                                'points_gagnes': None,
+                                'is_score_exact': None
+                            })
+
+                        # Recalculer les gains
+                        from modules.database_manager import calculer_gains_supabase
+                        calculer_gains_supabase(semaine_selectionnee, saison)
+
+                        st.success(f"Scores mis a jour pour {nb_updates} matchs + points recalcules!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.info("Aucun score modifie.")
+            else:
+                st.info("Aucun match actif pour cette journee.")
 
         st.markdown("---")
 

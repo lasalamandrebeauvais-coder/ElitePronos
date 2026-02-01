@@ -32,17 +32,35 @@ MEGA_CLUBS = {
     'FC Bayern München',
 }
 
-# === GRANDS CLUBS : Pour detecter les grosses affiches ===
-GRANDS_CLUBS = {
-    # Ligue 1 - Top clubs
+# === TOP 10 LIGUE 1 : Pour detecter les grosses affiches ===
+# Mis a jour selon le classement 2024-2025
+TOP_10_LIGUE_1 = {
+    # 1. PSG
     'Paris Saint-Germain', 'Paris Saint-Germain FC', 'PSG',
+    # 2. Marseille
     'Olympique de Marseille', 'Olympique Marseille', 'OM',
-    'Olympique Lyonnais', 'Olympique Lyon', 'OL',
+    # 3. Monaco
     'AS Monaco', 'AS Monaco FC', 'Monaco',
+    # 4. Lille
     'LOSC Lille', 'Lille OSC', 'Lille',
-    'RC Lens', 'Racing Club de Lens', 'Lens',
-    'Stade Rennais', 'Stade Rennais FC 1901', 'Rennes',
+    # 5. Lyon
+    'Olympique Lyonnais', 'Olympique Lyon', 'OL',
+    # 6. Nice
     'OGC Nice', 'Nice',
+    # 7. Lens
+    'RC Lens', 'Racing Club de Lens', 'Lens',
+    # 8. Rennes
+    'Stade Rennais', 'Stade Rennais FC 1901', 'Rennes',
+    # 9. Brest
+    'Stade Brestois 29', 'Stade Brestois', 'Brest',
+    # 10. Strasbourg
+    'RC Strasbourg Alsace', 'RC Strasbourg', 'Strasbourg',
+}
+
+# === GRANDS CLUBS : Pour detecter les grosses affiches (Top 10 L1 + Europe) ===
+GRANDS_CLUBS = {
+    # Top 10 Ligue 1 (inclus automatiquement)
+    *TOP_10_LIGUE_1,
     # Premier League
     'Manchester United FC', 'Manchester City FC', 'Liverpool FC', 'Arsenal FC',
     'Chelsea FC', 'Tottenham Hotspur FC',
@@ -89,8 +107,17 @@ def est_mega_club(equipe):
     return False
 
 
+def est_top10_ligue1(equipe):
+    """Verifie si une equipe fait partie du Top 10 Ligue 1"""
+    equipe_lower = equipe.lower()
+    for club in TOP_10_LIGUE_1:
+        if club.lower() in equipe_lower or equipe_lower in club.lower():
+            return True
+    return False
+
+
 def est_grand_club(equipe):
-    """Verifie si une equipe est un grand club"""
+    """Verifie si une equipe est un grand club (Top 10 L1 ou grand club europeen)"""
     equipe_lower = equipe.lower()
     for club in GRANDS_CLUBS:
         if club.lower() in equipe_lower or equipe_lower in club.lower():
@@ -99,8 +126,8 @@ def est_grand_club(equipe):
 
 
 def est_grosse_affiche(home, away):
-    """Verifie si le match oppose 2 grands clubs"""
-    return est_grand_club(home) and est_grand_club(away)
+    """Verifie si le match oppose 2 clubs du Top 10 Ligue 1"""
+    return est_top10_ligue1(home) and est_top10_ligue1(away)
 
 
 def est_derby(home, away):

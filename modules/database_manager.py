@@ -770,7 +770,7 @@ def get_date_j1(saison_id=None):
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.1&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.1&select=date_match&order=date_match&limit=1'
         )
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')
@@ -861,7 +861,7 @@ def get_date_premiere_journee(semaine_id, saison_id=None):
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
         matchs = supabase._request('GET',
-            f'matches?saison_id=eq.{saison_id}&journee=eq.{semaine_id}&select=date_match&order=date_match&limit=1'
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=date_match&order=date_match&limit=1'
         )
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')
@@ -1174,7 +1174,7 @@ def valider_resultats_journee_supabase(semaine_id, saison_id=None):
 
         # Recuperer les matchs de la journee depuis Supabase
         matchs_db = supabase._request('GET',
-            f'matches?journee=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away'
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away'
         ) or []
 
         if not matchs_db:
@@ -1221,10 +1221,194 @@ def valider_resultats_journee_supabase(semaine_id, saison_id=None):
         return False, str(e)
 
 
+def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
+    """
+    Retourne les user_ids qui ont fait un Grand Chelem (4/4 1N2 corrects) la semaine precedente.
+    """
+    from modules.supabase_db import get_supabase
+
+    semaine_prec = semaine_id - 1
+    if semaine_prec < 1:
+        return set()
+
+    try:
+        supabase = get_supabase()
+
+        # Recuperer tous les matchs termines de la semaine precedente
+        matchs_prec = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&select=id,score_final_home,score_final_away'
+        ) or []
+
+        if len(matchs_prec) < 4:
+            return set()  # Pas assez de matchs pour un Grand Chelem
+
+        match_ids = [m['id'] for m in matchs_prec]
+        matchs_dict = {m['id']: (m['score_final_home'], m['score_final_away']) for m in matchs_prec}
+
+        # Recuperer toutes les predictions de ces matchs
+        predictions = supabase._request('GET',
+            f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away'
+        ) or []
+
+        # Compter les 1N2 corrects par user
+        user_corrects = {}
+        for pred in predictions:
+            user_id = pred['user_id']
+            match_id = pred['match_id']
+
+            if match_id not in matchs_dict:
+                continue
+
+            score_h, score_a = matchs_dict[match_id]
+            prono_h = pred['score_prono_home']
+            prono_a = pred['score_prono_away']
+
+            bon_resultat = (
+                (prono_h > prono_a and score_h > score_a) or
+                (prono_h < prono_a and score_h < score_a) or
+                (prono_h == prono_a and score_h == score_a)
+            )
+
+            if bon_resultat:
+                user_corrects[user_id] = user_corrects.get(user_id, 0) + 1
+
+        # Retourner les users avec 4/4 corrects
+        return {uid for uid, count in user_corrects.items() if count >= 4}
+
+    except Exception as e:
+        print(f"Erreur Grand Chelem: {e}")
+        return set()
+
+
 def calculer_gains_supabase(semaine_id, saison_id=None):
     """
-    Calcule les gains de tous les joueurs pour une semaine via Supabase.
+    Calcule les gains avec les COTES pour chaque match termine.
+    Formule: mise × cote + bonus 10pts si score exact
+
+    JOKERS:
+    - DOUBLE: ×2 sur tous les gains (pertes incluses)
+    - VOL: pronostics deja copies lors de la validation
+
+    BONUS:
+    - Grand Chelem: +40 pts si 4/4 1N2 corrects la semaine precedente
     """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    BONUS_EXACT = 10  # Bonus pour score exact
+    BONUS_GRAND_CHELEM = 40  # Bonus Grand Chelem
+
+    try:
+        supabase = get_supabase()
+
+        # Recuperer les jokers DOUBLE actifs pour cette semaine
+        jokers_double = supabase._request('GET',
+            f'jokers_historique?semaine_id=eq.{semaine_id}&type_joker=eq.DOUBLE&select=utilisateur_id'
+        ) or []
+        users_avec_double = {j['utilisateur_id'] for j in jokers_double}
+
+        # Recuperer les users avec Grand Chelem la semaine precedente
+        users_grand_chelem = get_users_grand_chelem_semaine_precedente(semaine_id, saison_id)
+        bonus_grand_chelem_applique = set()  # Pour eviter de l'appliquer 2 fois
+
+        # Recuperer les matchs termines avec cotes
+        matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&score_final_home=not.is.null&select=id,score_final_home,score_final_away,cote_home,cote_draw,cote_away'
+        ) or []
+
+        if not matchs:
+            return False, "Aucun match termine"
+
+        total_updates = 0
+        for match in matchs:
+            match_id = match['id']
+            score_h = match['score_final_home']
+            score_a = match['score_final_away']
+            cote_home = match.get('cote_home', 2.0)
+            cote_draw = match.get('cote_draw', 3.0)
+            cote_away = match.get('cote_away', 2.0)
+
+            # Recuperer les predictions NON ENCORE CALCULEES
+            predictions = supabase._request('GET',
+                f'predictions?match_id=eq.{match_id}&points_gagnes=is.null&select=id,user_id,score_prono_home,score_prono_away,mise_points'
+            ) or []
+
+            for pred in predictions:
+                user_id = pred['user_id']
+                prono_h = pred['score_prono_home']
+                prono_a = pred['score_prono_away']
+                mise = pred['mise_points']
+
+                # Determiner la cote applicable selon le prono
+                if prono_h > prono_a:
+                    cote = cote_home
+                elif prono_h < prono_a:
+                    cote = cote_away
+                else:
+                    cote = cote_draw
+
+                points = 0
+                is_exact = False
+
+                # Verifier si bon resultat (1N2)
+                bon_resultat = (
+                    (prono_h > prono_a and score_h > score_a) or
+                    (prono_h < prono_a and score_h < score_a) or
+                    (prono_h == prono_a and score_h == score_a)
+                )
+
+                if bon_resultat:
+                    points = round(mise * cote, 1)
+                    # Bonus score exact
+                    if prono_h == score_h and prono_a == score_a:
+                        points += BONUS_EXACT
+                        is_exact = True
+                else:
+                    points = -mise  # Perte de la mise
+
+                # JOKER DOUBLE: x2 sur les gains ET les pertes
+                if user_id in users_avec_double:
+                    points = points * 2
+
+                # BONUS GRAND CHELEM: +40 pts (une seule fois par user)
+                if user_id in users_grand_chelem and user_id not in bonus_grand_chelem_applique:
+                    points += BONUS_GRAND_CHELEM
+                    bonus_grand_chelem_applique.add(user_id)
+
+                supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
+                    'points_gagnes': points,
+                    'is_score_exact': is_exact
+                })
+                total_updates += 1
+
+        # Invalider le cache Streamlit
+        try:
+            import streamlit as st
+            st.cache_data.clear()
+        except:
+            pass
+
+        info_parts = []
+        if users_avec_double:
+            info_parts.append(f"{len(users_avec_double)} jokers DOUBLE")
+        if bonus_grand_chelem_applique:
+            info_parts.append(f"{len(bonus_grand_chelem_applique)} Grand Chelem")
+        extra_info = f" ({', '.join(info_parts)})" if info_parts else ""
+
+        return True, f"Gains calcules pour {total_updates} predictions{extra_info}"
+
+    except Exception as e:
+        return False, str(e)
+
+
+def update_scores_from_api(semaine_id, saison_id=None):
+    """
+    Met a jour les scores depuis l'API et calcule les points automatiquement.
+    Fonction all-in-one pour mise a jour en temps reel.
+    """
+    import requests
     from modules.supabase_db import get_supabase
 
     if saison_id is None:
@@ -1232,56 +1416,68 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
     try:
         supabase = get_supabase()
+        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        headers = {'X-Auth-Token': API_TOKEN}
 
-        # Recuperer les matchs avec scores
-        matchs = supabase._request('GET',
-            f'matches?journee=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,score_final_home,score_final_away'
+        # Recuperer les matchs de la journee depuis Supabase
+        matchs_db = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away'
         ) or []
 
-        # Verifier que tous les matchs ont des scores
-        matchs_avec_scores = [m for m in matchs if m.get('score_final_home') is not None]
-        if len(matchs_avec_scores) < len(matchs):
-            return False, "Tous les matchs n'ont pas encore de scores"
+        # Appeler l'API pour les scores
+        url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
+        response = requests.get(url, headers=headers)
 
-        # Calculer les gains pour chaque prediction
-        total_updates = 0
-        for match in matchs:
-            match_id = match['id']
-            score_h = match['score_final_home']
-            score_a = match['score_final_away']
+        if response.status_code != 200:
+            return False, f"Erreur API: {response.status_code}"
 
-            # Recuperer les predictions pour ce match
-            predictions = supabase._request('GET',
-                f'predictions?match_id=eq.{match_id}&select=id,user_id,score_prono_home,score_prono_away,mise_points'
-            ) or []
+        matchs_api = response.json().get('matches', [])
 
-            for pred in predictions:
-                prono_h = pred['score_prono_home']
-                prono_a = pred['score_prono_away']
-                mise = pred['mise_points']
+        # Mettre a jour les scores
+        updates = 0
+        for m_api in matchs_api:
+            home_api = m_api.get('homeTeam', {}).get('name')
+            away_api = m_api.get('awayTeam', {}).get('name')
+            score = m_api.get('score', {}).get('fullTime', {})
+            status = m_api.get('status')
 
-                # Calculer les points
-                points = 0
-                is_exact = False
+            if score.get('home') is None:
+                continue  # Match pas encore termine
 
-                # Score exact
-                if prono_h == score_h and prono_a == score_a:
-                    points = mise * 3
-                    is_exact = True
-                # Bon resultat (1N2)
-                elif (prono_h > prono_a and score_h > score_a) or \
-                     (prono_h < prono_a and score_h < score_a) or \
-                     (prono_h == prono_a and score_h == score_a):
-                    points = mise
+            # Trouver le match correspondant dans la DB
+            for m_db in matchs_db:
+                # Matching par nom d'equipe (flexible)
+                home_match = (home_api and (home_api in m_db['equipe_home'] or m_db['equipe_home'] in home_api))
+                away_match = (away_api and (away_api in m_db['equipe_away'] or m_db['equipe_away'] in away_api))
 
-                # Mettre a jour la prediction
-                supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
-                    'points_gagnes': points,
-                    'is_score_exact': is_exact
-                })
-                total_updates += 1
+                if home_match and away_match:
+                    # Verifier si le score a change
+                    old_home = m_db.get('score_final_home')
+                    old_away = m_db.get('score_final_away')
+                    new_home = score['home']
+                    new_away = score['away']
 
-        return True, f"Gains calcules pour {total_updates} predictions"
+                    if old_home != new_home or old_away != new_away:
+                        # Score different -> Mettre a jour
+                        supabase._request('PATCH', f"matches?id=eq.{m_db['id']}", {
+                            'score_final_home': new_home,
+                            'score_final_away': new_away,
+                            'status': 'FINISHED'
+                        })
+                        updates += 1
+
+                        # Reset les points des predictions pour ce match (force recalcul)
+                        supabase._request('PATCH', f"predictions?match_id=eq.{m_db['id']}", {
+                            'points_gagnes': None,
+                            'is_score_exact': None
+                        })
+                    break
+
+        # TOUJOURS calculer les points (meme sans nouveaux scores)
+        # Pour rattraper les calculs manques
+        calculer_gains_supabase(semaine_id, saison_id)
+
+        return True, f"{updates} score(s) mis a jour, points recalcules"
 
     except Exception as e:
         return False, str(e)
