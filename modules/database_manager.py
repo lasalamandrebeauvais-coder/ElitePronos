@@ -1587,13 +1587,16 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
     try:
         supabase = get_supabase()
 
-        # Verifier si des matchs existent deja
+        # Verifier les matchs existants (pour eviter les doublons)
         existing = supabase._request('GET',
-            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id'
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away'
         ) or []
 
-        if existing:
-            return True, f"Matchs J{semaine_id} deja importes ({len(existing)} matchs)", len(existing)
+        # Creer un set des matchs existants pour verification rapide
+        existing_matchs = set()
+        for e in existing:
+            key = f"{e['equipe_home']}_{e['equipe_away']}"
+            existing_matchs.add(key)
 
         all_matchs_to_import = []
 
@@ -1614,6 +1617,12 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
                     'date_match': m.get('utcDate', ''),
                     'score_interet': score
                 })
+        else:
+            # Erreur API L1 - retourner l'erreur
+            return False, f"Erreur API Ligue 1: {resp_l1.status_code} - {resp_l1.text[:200]}", 0
+
+        if not matchs_l1:
+            return False, f"Aucun match L1 trouve pour J{semaine_id} saison {saison_id}", 0
 
         # === 2. RECUPERER LES MATCHS ETRANGERS (meme weekend) ===
         # Calculer les dates du weekend de la journee L1
@@ -1643,46 +1652,64 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
 
         matchs_etrangers = []
 
-        for code, nom in CHAMPIONNATS.items():
-            url = f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}'
-            resp = requests.get(url, headers=headers)
+        # Championnats etrangers (optionnel - ne bloque pas si erreur)
+        try:
+            for code, nom in CHAMPIONNATS.items():
+                try:
+                    url = f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}'
+                    resp = requests.get(url, headers=headers, timeout=10)
 
-            if resp.status_code == 200:
-                matchs = resp.json().get('matches', [])
-                for m in matchs:
-                    # Ignorer les matchs deja termines
-                    status = m.get('status', '')
-                    if status == 'FINISHED':
-                        continue
+                    if resp.status_code == 200:
+                        matchs = resp.json().get('matches', [])
+                        for m in matchs:
+                            # Ignorer les matchs deja termines
+                            status = m.get('status', '')
+                            if status == 'FINISHED':
+                                continue
 
-                    score = score_match(m, code)
-                    matchs_etrangers.append({
-                        'championnat': nom,
-                        'equipe_home': m.get('homeTeam', {}).get('name', ''),
-                        'equipe_away': m.get('awayTeam', {}).get('name', ''),
-                        'date_match': m.get('utcDate', ''),
-                        'score_interet': score
-                    })
+                            score = score_match(m, code)
+                            matchs_etrangers.append({
+                                'championnat': nom,
+                                'equipe_home': m.get('homeTeam', {}).get('name', ''),
+                                'equipe_away': m.get('awayTeam', {}).get('name', ''),
+                                'date_match': m.get('utcDate', ''),
+                                'score_interet': score
+                            })
+                except Exception:
+                    pass  # Ignorer les erreurs sur championnats etrangers
+        except Exception:
+            pass  # Continuer avec L1 seulement
 
         # Trier par score d'interet et prendre les 11 meilleurs etrangers
-        matchs_etrangers.sort(key=lambda x: x['score_interet'], reverse=True)
-        top_11_etrangers = matchs_etrangers[:11]
-        all_matchs_to_import.extend(top_11_etrangers)
+        if matchs_etrangers:
+            matchs_etrangers.sort(key=lambda x: x['score_interet'], reverse=True)
+            top_11_etrangers = matchs_etrangers[:11]
+            all_matchs_to_import.extend(top_11_etrangers)
 
         # === 3. TRIER TOUS LES MATCHS ET ACTIVER LES 4 MEILLEURS ===
         # Trier tous les matchs par score d'interet
         all_matchs_to_import.sort(key=lambda x: x['score_interet'], reverse=True)
 
-        # === 4. IMPORTER DANS SUPABASE ===
+        # === 4. IMPORTER DANS SUPABASE (seulement les nouveaux) ===
         count = 0
+        skipped = 0
+        nb_existing_active = len(existing)  # Conserver le compte des matchs deja actifs
+
         for i, m in enumerate(all_matchs_to_import):
+            # Verifier si le match existe deja
+            match_key = f"{m['equipe_home']}_{m['equipe_away']}"
+            if match_key in existing_matchs:
+                skipped += 1
+                continue
+
             # Cotes par defaut (a modifier manuellement)
             cote_h = round(random.uniform(1.5, 3.5), 2)
             cote_n = round(random.uniform(3.0, 4.0), 2)
             cote_a = round(random.uniform(1.8, 4.0), 2)
 
-            # Les 4 premiers sont actifs par defaut (choix Kingo)
-            is_active = (i < 4)
+            # Activer seulement si moins de 4 matchs actifs au total
+            # (Les matchs existants sont probablement deja actifs)
+            is_active = False  # Nouveaux matchs inactifs par defaut
 
             supabase._request('POST', 'matches', {
                 'saison_id': saison_id,
@@ -1699,13 +1726,13 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
             count += 1
 
         nb_l1 = len([m for m in all_matchs_to_import if m['championnat'] == 'Ligue 1'])
-        nb_etrangers = count - nb_l1
+        nb_etrangers = len(all_matchs_to_import) - nb_l1
+        total = count + len(existing)
 
-        # Lister les 4 matchs actives
-        top4 = all_matchs_to_import[:4]
-        top4_noms = [f"{m['equipe_home']} vs {m['equipe_away']}" for m in top4]
+        if count == 0:
+            return True, f"Deja {len(existing)} matchs, {skipped} ignores (doublons)", len(existing)
 
-        return True, f"{count} matchs ({nb_l1} L1 + {nb_etrangers} etrangers) - 4 actifs: {', '.join(top4_noms)}", count
+        return True, f"{count} nouveaux matchs ajoutes ({total} total: {nb_l1} L1 + {nb_etrangers} etrangers)", total
 
     except Exception as e:
         return False, str(e), 0
