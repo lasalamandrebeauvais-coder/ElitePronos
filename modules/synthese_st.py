@@ -127,8 +127,13 @@ def get_stats_semaine(saison_id, semaine_id):
 def generer_commentaire_ironique(stats):
     """
     Genere un commentaire ironique base sur les stats
+    AVANT DEADLINE: Kingo reste evasif (pas de noms, pas de details)
+    APRES DEADLINE: Kingo peut reveler les infos
     """
     commentaires = []
+
+    # Deadline passee = au moins 1 match termine ou en cours
+    deadline_passee = stats.get('matchs_termines', 0) > 0
 
     # Commentaire sur le nombre de joueurs
     nb = stats['nb_joueurs']
@@ -141,30 +146,56 @@ def generer_commentaire_ironique(stats):
 
     # Commentaire sur les grosses mises
     if stats['grosses_mises']:
-        gros = stats['grosses_mises'][0]
-        phrases_mises = [
-            f"**{gros['pseudo']}** mise gros ({gros['mise']} pts) sur {gros['match']}. Confiance ou folie ?",
-            f"Attention, **{gros['pseudo']}** sort l'artillerie lourde avec {gros['mise']} pts !",
-            f"**{gros['pseudo']}** n'a pas froid aux yeux : {gros['mise']} pts d'un coup !",
-        ]
+        if deadline_passee:
+            # APRES DEADLINE: on peut reveler
+            gros = stats['grosses_mises'][0]
+            phrases_mises = [
+                f"**{gros['pseudo']}** a mise gros ({gros['mise']} pts) sur {gros['match']}. Confiance ou folie ?",
+                f"**{gros['pseudo']}** avait sorti l'artillerie lourde avec {gros['mise']} pts !",
+                f"**{gros['pseudo']}** n'avait pas froid aux yeux : {gros['mise']} pts d'un coup !",
+            ]
+        else:
+            # AVANT DEADLINE: rester evasif
+            phrases_mises = [
+                "Quelqu'un a sorti l'artillerie lourde cette semaine... Mais qui ?",
+                "Une grosse mise a ete placee. Le suspense reste entier !",
+                "Certains n'ont pas froid aux yeux avec leurs mises... A suivre !",
+                "Des paris audacieux ont ete enregistres. Je ne dirai rien de plus !",
+            ]
         commentaires.append(random.choice(phrases_mises))
 
     # Commentaire sur les jokers
     if stats['jokers']:
         joker = stats['jokers'][0]
-        if joker['type'] == 'DOUBLE':
-            phrases_joker = [
-                f"**{joker['pseudo']}** joue son joker Points Doubles. Ca passe ou ca casse !",
-                f"Joker Points Doubles pour **{joker['pseudo']}** ! La pression monte...",
-            ]
+        if deadline_passee:
+            # APRES DEADLINE: on peut reveler
+            if joker['type'] == 'DOUBLE':
+                phrases_joker = [
+                    f"**{joker['pseudo']}** a joue son joker Points Doubles. Ca passe ou ca casse !",
+                    f"Joker Points Doubles pour **{joker['pseudo']}** ! La pression etait maximale...",
+                ]
+            else:
+                phrases_joker = [
+                    f"**{joker['pseudo']}** a utilise le vol de pronostics. Strategie ou desespoir ?",
+                    f"**{joker['pseudo']}** avait sorti le joker Vol !",
+                ]
         else:
-            phrases_joker = [
-                f"**{joker['pseudo']}** utilise le vol de pronostics. Strategie ou desespoir ?",
-                f"Attention, **{joker['pseudo']}** a sorti le joker Vol ! Qui est la cible ?",
-            ]
+            # AVANT DEADLINE: rester evasif
+            nb_jokers = len(stats['jokers'])
+            if nb_jokers == 1:
+                phrases_joker = [
+                    "Un joker a ete active cette semaine... Lequel et par qui ? Mystere !",
+                    "Quelqu'un a decide de jouer son joker. La tension monte !",
+                    "Un joueur a sorti son arme secrete. Je garde le secret !",
+                ]
+            else:
+                phrases_joker = [
+                    f"{nb_jokers} jokers actives cette semaine ! Ca va chauffer...",
+                    f"Plusieurs jokers en jeu ! Les strategies se devoilent...",
+                ]
         commentaires.append(random.choice(phrases_joker))
 
-    # Commentaire sur les votes
+    # Commentaire sur les votes (anonyme, OK avant et apres deadline)
     for m in stats['matchs']:
         if m['pct_home'] >= 70:
             phrases = [
@@ -186,11 +217,19 @@ def generer_commentaire_ironique(stats):
 
     # Si pas assez de commentaires, ajouter un generique
     if len(commentaires) < 2:
-        generiques = [
-            "Que le meilleur pronostiqueur gagne !",
-            "Les cotes sont la, les pronos sont faits. Que le spectacle commence !",
-            "La tension monte avant le coup d'envoi...",
-        ]
+        if deadline_passee:
+            generiques = [
+                "Les jeux sont faits, les resultats tombent !",
+                "Les pronostics ont ete reveles. Qui avait raison ?",
+                "Le verdict est en cours...",
+            ]
+        else:
+            generiques = [
+                "Que le meilleur pronostiqueur gagne !",
+                "Les pronos sont faits, le suspense reste entier...",
+                "La tension monte avant le coup d'envoi...",
+                "Chacun garde ses secrets pour l'instant !",
+            ]
         commentaires.append(random.choice(generiques))
 
     return " ".join(commentaires[:3])
