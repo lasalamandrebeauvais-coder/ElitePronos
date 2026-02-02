@@ -1516,6 +1516,9 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
 
     # Mega clubs europeens (score +1000)
     MEGA_CLUBS = {
+        # Ligue 1
+        'Paris Saint-Germain', 'Olympique de Marseille', 'Olympique Lyonnais',
+        # Etrangers
         'Real Madrid', 'FC Barcelona', 'Atletico Madrid',
         'Manchester United', 'Manchester City', 'Liverpool', 'Arsenal', 'Chelsea', 'Tottenham',
         'Juventus', 'AC Milan', 'Inter Milan', 'AS Roma', 'SSC Napoli',
@@ -1524,6 +1527,12 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
 
     # Derbies celebres (score +2000)
     DERBIES = [
+        # Ligue 1
+        ('Paris Saint-Germain', 'Olympique de Marseille'),  # Le Classique
+        ('Olympique Lyonnais', 'AS Saint-Etienne'),  # Derby du Rhone
+        ('Racing Club de Lens', 'Lille'),  # Derby du Nord
+        ('OGC Nice', 'AS Monaco'),  # Derby de la Cote d'Azur
+        # Etrangers
         ('Real Madrid', 'FC Barcelona'),  # El Clasico
         ('Real Madrid', 'Atletico Madrid'),  # Derby de Madrid
         ('Manchester United', 'Manchester City'),  # Derby de Manchester
@@ -1538,6 +1547,8 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
 
     # Top clubs par championnat (score +500 si 2 top clubs s'affrontent)
     TOP_CLUBS = {
+        'FL1': {'Paris Saint-Germain', 'Olympique de Marseille', 'AS Monaco', 'Lille', 'Olympique Lyonnais',
+                'OGC Nice', 'Racing Club de Lens', 'Stade Rennais', 'Stade Brestois', 'RC Strasbourg'},
         'PL': {'Manchester City', 'Arsenal', 'Liverpool', 'Chelsea', 'Manchester United', 'Tottenham', 'Newcastle', 'Brighton', 'Aston Villa', 'West Ham'},
         'PD': {'Real Madrid', 'FC Barcelona', 'Atletico Madrid', 'Athletic Bilbao', 'Real Sociedad', 'Real Betis', 'Villarreal', 'Sevilla'},
         'SA': {'Inter Milan', 'AC Milan', 'Juventus', 'SSC Napoli', 'AS Roma', 'SS Lazio', 'Atalanta', 'Fiorentina'},
@@ -1589,16 +1600,19 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
         # === 1. RECUPERER TOUS LES MATCHS LIGUE 1 ===
         url_l1 = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
         resp_l1 = requests.get(url_l1, headers=headers)
+        matchs_l1 = []
 
         if resp_l1.status_code == 200:
             matchs_l1 = resp_l1.json().get('matches', [])
             for m in matchs_l1:
+                # Calculer le score d'interet pour L1 aussi
+                score = score_match(m, 'FL1')
                 all_matchs_to_import.append({
                     'championnat': 'Ligue 1',
                     'equipe_home': m.get('homeTeam', {}).get('name', ''),
                     'equipe_away': m.get('awayTeam', {}).get('name', ''),
                     'date_match': m.get('utcDate', ''),
-                    'score_interet': 9999  # L1 toujours prioritaire
+                    'score_interet': score
                 })
 
         # === 2. RECUPERER LES MATCHS ETRANGERS (meme weekend) ===
@@ -1650,18 +1664,25 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
                         'score_interet': score
                     })
 
-        # Trier par score d'interet et prendre les 11 meilleurs
+        # Trier par score d'interet et prendre les 11 meilleurs etrangers
         matchs_etrangers.sort(key=lambda x: x['score_interet'], reverse=True)
         top_11_etrangers = matchs_etrangers[:11]
         all_matchs_to_import.extend(top_11_etrangers)
 
-        # === 3. IMPORTER DANS SUPABASE ===
+        # === 3. TRIER TOUS LES MATCHS ET ACTIVER LES 4 MEILLEURS ===
+        # Trier tous les matchs par score d'interet
+        all_matchs_to_import.sort(key=lambda x: x['score_interet'], reverse=True)
+
+        # === 4. IMPORTER DANS SUPABASE ===
         count = 0
-        for m in all_matchs_to_import:
+        for i, m in enumerate(all_matchs_to_import):
             # Cotes par defaut (a modifier manuellement)
             cote_h = round(random.uniform(1.5, 3.5), 2)
             cote_n = round(random.uniform(3.0, 4.0), 2)
             cote_a = round(random.uniform(1.8, 4.0), 2)
+
+            # Les 4 premiers sont actifs par defaut (choix Kingo)
+            is_active = (i < 4)
 
             supabase._request('POST', 'matches', {
                 'saison_id': saison_id,
@@ -1673,14 +1694,18 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
                 'cote_draw': cote_n,
                 'cote_away': cote_a,
                 'date_match': m['date_match'],
-                'is_active': False  # Inactif par defaut
+                'is_active': is_active
             })
             count += 1
 
         nb_l1 = len([m for m in all_matchs_to_import if m['championnat'] == 'Ligue 1'])
         nb_etrangers = count - nb_l1
 
-        return True, f"{count} matchs importes ({nb_l1} L1 + {nb_etrangers} etrangers)", count
+        # Lister les 4 matchs actives
+        top4 = all_matchs_to_import[:4]
+        top4_noms = [f"{m['equipe_home']} vs {m['equipe_away']}" for m in top4]
+
+        return True, f"{count} matchs ({nb_l1} L1 + {nb_etrangers} etrangers) - 4 actifs: {', '.join(top4_noms)}", count
 
     except Exception as e:
         return False, str(e), 0

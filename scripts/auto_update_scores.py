@@ -262,6 +262,7 @@ def creer_matchs_journee(semaine_id, saison_id):
     CHAMPIONNATS = {'PL': 'Premier League', 'PD': 'La Liga', 'SA': 'Serie A', 'BL1': 'Bundesliga'}
 
     MEGA_CLUBS = {
+        'Paris Saint-Germain', 'Olympique de Marseille', 'Olympique Lyonnais',
         'Real Madrid', 'FC Barcelona', 'Atletico Madrid',
         'Manchester United', 'Manchester City', 'Liverpool', 'Arsenal', 'Chelsea', 'Tottenham',
         'Juventus', 'AC Milan', 'Inter Milan', 'AS Roma', 'SSC Napoli',
@@ -269,6 +270,10 @@ def creer_matchs_journee(semaine_id, saison_id):
     }
 
     DERBIES = [
+        ('Paris Saint-Germain', 'Olympique de Marseille'),  # Le Classique
+        ('Olympique Lyonnais', 'AS Saint-Etienne'),  # Derby du Rhone
+        ('Racing Club de Lens', 'Lille'),  # Derby du Nord
+        ('OGC Nice', 'AS Monaco'),  # Derby Cote d'Azur
         ('Real Madrid', 'FC Barcelona'), ('Real Madrid', 'Atletico Madrid'),
         ('Manchester United', 'Manchester City'), ('Manchester United', 'Liverpool'),
         ('Arsenal', 'Tottenham'), ('Arsenal', 'Chelsea'),
@@ -277,6 +282,8 @@ def creer_matchs_journee(semaine_id, saison_id):
     ]
 
     TOP_CLUBS = {
+        'FL1': {'Paris Saint-Germain', 'Olympique de Marseille', 'AS Monaco', 'Lille', 'Olympique Lyonnais',
+                'OGC Nice', 'Racing Club de Lens', 'Stade Rennais', 'Stade Brestois', 'RC Strasbourg'},
         'PL': {'Manchester City', 'Arsenal', 'Liverpool', 'Chelsea', 'Manchester United', 'Tottenham', 'Newcastle'},
         'PD': {'Real Madrid', 'FC Barcelona', 'Atletico Madrid', 'Athletic Bilbao', 'Real Sociedad', 'Sevilla'},
         'SA': {'Inter Milan', 'AC Milan', 'Juventus', 'SSC Napoli', 'AS Roma', 'SS Lazio', 'Atalanta'},
@@ -311,7 +318,7 @@ def creer_matchs_journee(semaine_id, saison_id):
                 'equipe_home': m.get('homeTeam', {}).get('name', ''),
                 'equipe_away': m.get('awayTeam', {}).get('name', ''),
                 'date_match': m.get('utcDate', ''),
-                'score': 9999
+                'score': score_match(m, 'FL1')  # Scoring L1 aussi
             })
         print(f"  {len(matchs_l1)} matchs Ligue 1")
 
@@ -348,17 +355,24 @@ def creer_matchs_journee(semaine_id, saison_id):
                         'score': score_match(m, code)
                     })
 
-    # Trier et prendre top 11
+    # Trier etrangers et prendre top 11
     matchs_etrangers.sort(key=lambda x: x['score'], reverse=True)
     all_matchs.extend(matchs_etrangers[:11])
     print(f"  {len(matchs_etrangers[:11])} matchs etrangers selectionnes")
 
+    # Trier TOUS les matchs par score pour determiner les 4 meilleurs
+    all_matchs.sort(key=lambda x: x['score'], reverse=True)
+
     # === 3. IMPORT SUPABASE ===
     count = 0
-    for m in all_matchs:
+    for i, m in enumerate(all_matchs):
         cote_h = round(random.uniform(1.5, 3.5), 2)
         cote_n = round(random.uniform(3.0, 4.0), 2)
         cote_a = round(random.uniform(1.8, 4.0), 2)
+
+        # Les 4 premiers sont actifs par defaut
+        is_active = (i < 4)
+        status_txt = "ACTIF" if is_active else ""
 
         requests.post(
             f"{SUPABASE_URL}/rest/v1/matches",
@@ -373,13 +387,13 @@ def creer_matchs_journee(semaine_id, saison_id):
                 'cote_draw': cote_n,
                 'cote_away': cote_a,
                 'date_match': m['date_match'],
-                'is_active': False
+                'is_active': is_active
             }
         )
-        print(f"  -> [{m['championnat']}] {m['equipe_home']} vs {m['equipe_away']}")
+        print(f"  -> [{m['championnat']}] {m['equipe_home']} vs {m['equipe_away']} {status_txt}")
         count += 1
 
-    print(f"{count} matchs importes pour J{semaine_id} (inactifs)")
+    print(f"{count} matchs importes pour J{semaine_id} (4 actifs par defaut)")
 
 
 def run_auto_update():
