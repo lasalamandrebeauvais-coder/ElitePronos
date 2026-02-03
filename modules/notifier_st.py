@@ -14,11 +14,9 @@ from modules.database_manager import (
     get_setting,
     is_mode_officiel,
     get_utilisateurs_emails,
-    get_utilisateurs_sans_pronos_j1,
     get_date_j1,
     get_saison_actuelle,
-    get_saison_label,
-    get_joker_actif_semaine
+    get_saison_label
 )
 
 
@@ -896,21 +894,7 @@ def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_spec
 # ENVOI DE CAMPAGNES
 # ============================================
 
-def envoyer_campagne_lancement():
-    """Envoie l'email de lancement a tous les utilisateurs"""
-    utilisateurs = get_utilisateurs_emails()
-    resultats = []
-
-    for user in utilisateurs:
-        html = email_lancement_saison(user)
-        success, msg = send_email(
-            user['email'],
-            f"Elite Pronos - La saison {get_saison_label(get_saison_actuelle())} commence !",
-            html
-        )
-        resultats.append({'user': user['pseudo'], 'success': success, 'message': msg})
-
-    return resultats
+## envoyer_campagne_lancement supprime (non utilise)
 
 
 def envoyer_email_bienvenue(utilisateur):
@@ -964,38 +948,8 @@ def envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
     )
 
 
-def envoyer_rappels_j7():
-    """Envoie les rappels J-7 aux joueurs sans pronostics"""
-    utilisateurs = get_utilisateurs_sans_pronos_j1()
-    resultats = []
-
-    for user in utilisateurs:
-        html = email_rappel_j7(user)
-        success, msg = send_email(
-            user['email'],
-            "Elite Pronos - Plus que 7 jours !",
-            html
-        )
-        resultats.append({'user': user['pseudo'], 'success': success, 'message': msg})
-
-    return resultats
-
-
-def envoyer_rappels_j1():
-    """Envoie les rappels J-1 aux joueurs sans pronostics"""
-    utilisateurs = get_utilisateurs_sans_pronos_j1()
-    resultats = []
-
-    for user in utilisateurs:
-        html = email_rappel_j1(user)
-        success, msg = send_email(
-            user['email'],
-            "URGENT - Dernier jour pour vos pronostics !",
-            html
-        )
-        resultats.append({'user': user['pseudo'], 'success': success, 'message': msg})
-
-    return resultats
+## envoyer_rappels_j7 et envoyer_rappels_j1 supprimes
+## (utilisaient SQLite, non appeles depuis l'admin)
 
 
 def envoyer_synthese_paris(semaine_id):
