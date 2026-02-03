@@ -434,21 +434,41 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
-        # === SECTION 2: ENVOI RESUME & DEBRIEF ===
-        st.markdown("#### 2. Envoyer le Resume & Debrief")
-        st.caption("Envoie l'email de synthese des paris et le compte-rendu ironique a tous les joueurs.")
+        # === SECTION 2: EMAILS ===
+        st.markdown("#### 2. Gestion des Emails")
+
+        # Verifier le mode
+        from modules.database_manager import is_mode_officiel
+        mode = is_mode_officiel()
+        if mode:
+            st.success("**Mode: OFFICIEL** - Les emails sont envoyes reellement")
+        else:
+            st.warning("**Mode: TEST** - Les emails sont simules (non envoyes)")
+
+        # Tableau descriptif des emails
+        st.markdown("""
+        | Email | Destinataires | Contenu | Quand l'envoyer |
+        |-------|--------------|---------|-----------------|
+        | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
+        | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
+        | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a l'inscription |
+        | **Alerte Inscription** | Admin (Baggio) | Notification nouveau joueur inscrit | Automatique a l'inscription |
+        """)
+
+        st.markdown("---")
 
         col_email1, col_email2 = st.columns(2)
 
         with col_email1:
+            st.markdown("**Synthese des Paris**")
+            st.caption("Recap pronos + tendances 1N2")
             if st.button("ENVOYER SYNTHESE PARIS", type="secondary", use_container_width=True):
                 with st.spinner("Envoi des emails de synthese..."):
                     try:
                         resultats = envoyer_synthese_paris(semaine_selectionnee)
                         nb_envoyes = sum(1 for r in resultats if r['success'])
-                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) de synthese envoye(s)")
+                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
 
-                        # Afficher les details
                         with st.expander("Details des envois"):
                             for r in resultats:
                                 if r['success']:
@@ -459,14 +479,15 @@ def afficher_panel_admin():
                         st.error(f"❌ Erreur: {str(e)}")
 
         with col_email2:
+            st.markdown("**Debrief Ironique**")
+            st.caption("Classement + commentaires")
             if st.button("ENVOYER DEBRIEF IRONIQUE", type="secondary", use_container_width=True):
                 with st.spinner("Envoi du debrief ironique..."):
                     try:
                         resultats = envoyer_resultats_ironiques(semaine_selectionnee)
                         nb_envoyes = sum(1 for r in resultats if r['success'])
-                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) de debrief envoye(s)")
+                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
 
-                        # Afficher les details
                         with st.expander("Details des envois"):
                             for r in resultats:
                                 if r['success']:
@@ -475,6 +496,24 @@ def afficher_panel_admin():
                                     st.write(f"✗ {r['user']}: {r['message']}")
                     except Exception as e:
                         st.error(f"❌ Erreur: {str(e)}")
+
+        # Bouton test email
+        st.markdown("---")
+        if st.button("TESTER ENVOI EMAIL (admin)", use_container_width=True):
+            with st.spinner("Test d'envoi..."):
+                try:
+                    from modules.notifier_st import send_email, get_base_template
+                    test_html = get_base_template(
+                        "<h2>Test Email</h2><p>Si vous recevez cet email, la configuration SMTP fonctionne.</p>",
+                        "Test"
+                    )
+                    success, msg = send_email("elite.pronos.2@gmail.com", "Elite Pronos - Test Email", test_html)
+                    if success:
+                        st.success(f"✅ {msg}")
+                    else:
+                        st.error(f"❌ {msg}")
+                except Exception as e:
+                    st.error(f"❌ Erreur: {str(e)}")
 
         st.markdown("---")
 
