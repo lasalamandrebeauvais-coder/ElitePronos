@@ -118,7 +118,10 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
         # Envoyer alerte admin (nouvel inscrit)
         # L'email de bienvenue est envoye quand l'admin valide l'inscription
         if HAS_MANAGER:
-            envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
+            try:
+                envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
+            except Exception as e:
+                print(f"Erreur envoi alerte admin: {e}")
 
         # Message adapte selon le statut
         if is_first_user:
