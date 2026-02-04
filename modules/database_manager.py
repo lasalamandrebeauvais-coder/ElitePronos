@@ -850,17 +850,7 @@ def get_date_premiere_journee(semaine_id, saison_id=None):
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')
     except Exception:
-        # Fallback SQLite (local)
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT MIN(date_match) FROM matches
-            WHERE saison_id = ? AND semaine_id = ?
-        ''', (saison_id, semaine_id))
-        result = cursor.fetchone()
-        conn.close()
-        if result and result[0]:
-            date_str = result[0]
+        pass
 
     if date_str:
         try:
@@ -928,7 +918,7 @@ def get_countdown_pronostics_journee(semaine_id, saison_id=None):
 def get_journee_courante(saison_id=None):
     """
     Retourne le numero de la journee courante.
-    Utilise Supabase si disponible, sinon SQLite.
+    Utilise Supabase.
     """
     if saison_id is None:
         saison_id = get_saison_actuelle()
@@ -946,22 +936,9 @@ def get_journee_courante(saison_id=None):
         if saisons and len(saisons) > 0:
             return saisons[0].get('journee_courante', 1)
     except Exception:
-        pass  # Fallback SQLite
+        pass
 
-    # Fallback SQLite (local)
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Trouver la prochaine journee avec des matchs non joues
-    cursor.execute('''
-        SELECT MIN(semaine_id) FROM matches
-        WHERE saison_id = ? AND score_final_home IS NULL
-    ''', (saison_id,))
-
-    result = cursor.fetchone()
-    conn.close()
-
-    return result[0] if result and result[0] else 1
+    return 1
 
 
 # ============================================

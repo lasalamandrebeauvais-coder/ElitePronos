@@ -529,10 +529,9 @@ else:
                     st.markdown("</div>", unsafe_allow_html=True)
 
             else:
-                # PRONOSTICS FERMÉS: Afficher les matchs avec scores live (Supabase)
+                # PRONOSTICS FERMÉS: Afficher les matchs avec scores live (reutilise matchs_journee)
                 from datetime import datetime
-                matchs_live_data = supabase.get_matches_journee(saison_id, journee_courante)
-                matchs_live = [(m['id'], m['equipe_home'], m['equipe_away'], m.get('date_match'), m.get('score_mi_temps_home'), m.get('score_mi_temps_away'), m.get('score_final_home'), m.get('score_final_away'), m.get('status', 'SCHEDULED')) for m in matchs_live_data]
+                matchs_live = [(m['id'], m['equipe_home'], m['equipe_away'], m.get('date_match'), m.get('score_mi_temps_home'), m.get('score_mi_temps_away'), m.get('score_final_home'), m.get('score_final_away'), m.get('status', 'SCHEDULED')) for m in matchs_journee]
 
                 if matchs_live:
                     # Statut du bot de mise a jour
@@ -778,13 +777,28 @@ else:
                     else:
                         joueurs_journee = []
 
-                    for joueur_id, pseudo, total_pts in joueurs_journee:
-                        joker_data = supabase.get_joker_semaine(joueur_id, journee_courante)
-                        joker_type = joker_data.get('type_joker') if joker_data else None
-                        joker_icon = "⚡" if joker_type == "DOUBLE" else "🎯" if joker_type == "VOL" else "-"
+                    # Batch: recuperer TOUS les jokers et pronos des rivaux en 2 appels (au lieu de N*2)
+                    all_rivaux_ids = [j[0] for j in joueurs_journee]
+                    all_rivaux_str = ','.join(map(str, all_rivaux_ids))
 
-                        pronos_data = supabase._request('GET', f'predictions?user_id=eq.{joueur_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match)') or []
-                        pronos_joueur = [(p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away')) for p in pronos_data if p.get('matches')]
+                    # 1 seul appel pour tous les jokers
+                    all_jokers = supabase._request('GET', f'jokers_historique?utilisateur_id=in.({all_rivaux_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker') or []
+                    jokers_map = {j['utilisateur_id']: j['type_joker'] for j in all_jokers}
+
+                    # 1 seul appel pour tous les pronos
+                    all_pronos = supabase._request('GET', f'predictions?user_id=in.({all_rivaux_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match)') or []
+                    pronos_par_joueur = {}
+                    for p in all_pronos:
+                        uid = p['user_id']
+                        if uid not in pronos_par_joueur:
+                            pronos_par_joueur[uid] = []
+                        if p.get('matches'):
+                            pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away')))
+
+                    for joueur_id, pseudo, total_pts in joueurs_journee:
+                        joker_type = jokers_map.get(joueur_id)
+                        joker_icon = "⚡" if joker_type == "DOUBLE" else "🎯" if joker_type == "VOL" else "-"
+                        pronos_joueur = pronos_par_joueur.get(joueur_id, [])
 
                         total_color = "#00FF00" if total_pts >= 0 else "#FF4444"
                         st.markdown(f"""
