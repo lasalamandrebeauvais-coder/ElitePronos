@@ -11,7 +11,6 @@ from datetime import datetime
 
 # Import des fonctions de database_manager
 from modules.database_manager import (
-    get_setting,
     is_mode_officiel,
     get_utilisateurs_emails,
     get_date_j1,
@@ -36,12 +35,12 @@ def get_streamlit_secret(key, default=''):
 
 
 def get_smtp_config():
-    """Recupere la configuration SMTP depuis les settings, env ou Streamlit secrets"""
+    """Recupere la configuration SMTP depuis Streamlit secrets ou env"""
     return {
-        'host': get_setting('smtp_host') or get_streamlit_secret('SMTP_HOST', 'smtp.gmail.com'),
-        'port': int(get_setting('smtp_port') or get_streamlit_secret('SMTP_PORT', '587')),
-        'user': get_setting('smtp_user') or get_streamlit_secret('SMTP_USER', ''),
-        'password': get_setting('smtp_password') or get_streamlit_secret('SMTP_PASSWORD', '')
+        'host': get_streamlit_secret('SMTP_HOST', 'smtp.gmail.com'),
+        'port': int(get_streamlit_secret('SMTP_PORT', '587')),
+        'user': get_streamlit_secret('SMTP_USER', ''),
+        'password': get_streamlit_secret('SMTP_PASSWORD', '')
     }
 
 

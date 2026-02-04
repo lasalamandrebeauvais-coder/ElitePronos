@@ -769,17 +769,7 @@ def get_date_j1(saison_id=None):
         if matchs and len(matchs) > 0:
             date_str = matchs[0].get('date_match')
     except Exception:
-        # Fallback SQLite (local)
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT MIN(date_match) FROM matches
-            WHERE saison_id = ? AND semaine_id = 1
-        ''', (saison_id,))
-        result = cursor.fetchone()
-        conn.close()
-        if result and result[0]:
-            date_str = result[0]
+        pass
 
     if date_str:
         try:
@@ -1103,19 +1093,11 @@ def valider_resultats_journee(semaine_id, saison_id=None):
 
 
 def get_utilisateurs_emails():
-    """Récupère tous les utilisateurs avec leur email"""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        SELECT id, pseudo, prenom, email FROM utilisateurs
-        WHERE statut = 'Actif' AND email IS NOT NULL AND email != ''
-    ''')
-
-    users = cursor.fetchall()
-    conn.close()
-
-    return [{'id': u[0], 'pseudo': u[1], 'prenom': u[2], 'email': u[3]} for u in users]
+    """Recupere tous les utilisateurs actifs avec leur email via Supabase"""
+    from modules.supabase_db import get_supabase
+    supabase = get_supabase()
+    users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&email=not.is.null&select=id,pseudo,prenom,email') or []
+    return [u for u in users if u.get('email')]
 
 
 def get_utilisateurs_sans_pronos_j1(saison_id=None):
