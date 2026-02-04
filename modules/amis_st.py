@@ -26,10 +26,15 @@ def afficher_amis(user):
     """Affiche le module de gestion des amis/rivaux avec checkboxes"""
 
     # Header avec bouton retour
-    col_back, col_title = st.columns([0.6, 5])
+    col_back, col_home, col_title = st.columns([0.5, 0.5, 5])
     with col_back:
         if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
+            st.rerun()
+    with col_home:
+        if st.button("🏠", help="Accueil", use_container_width=True):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
             st.rerun()
 
     with col_title:

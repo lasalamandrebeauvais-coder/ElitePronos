@@ -323,11 +323,16 @@ def afficher_pronostics(user):
     mode_edition = st.session_state.get('mode_edition_pronos', False)
 
     # Header
-    col_back, col_title, col_mascot, col_countdown = st.columns([0.6, 2.5, 0.8, 2])
+    col_back, col_home, col_title, col_mascot, col_countdown = st.columns([0.5, 0.5, 2.5, 0.8, 2])
     with col_back:
         if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
             st.session_state.mode_edition_pronos = False
+            st.rerun()
+    with col_home:
+        if st.button("🏠", help="Accueil", use_container_width=True):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
             st.rerun()
     with col_title:
         st.markdown("### Pronostics")

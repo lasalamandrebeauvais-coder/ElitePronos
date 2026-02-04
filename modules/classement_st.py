@@ -184,11 +184,16 @@ def afficher_classement(user):
     </style>
     """, unsafe_allow_html=True)
 
-    # Header avec bouton retour, actualiser et mascotte
-    col_back, col_title, col_refresh, col_mascot = st.columns([0.5, 3.5, 0.8, 0.7])
+    # Header avec bouton retour, accueil, actualiser et mascotte
+    col_back, col_home, col_title, col_refresh, col_mascot = st.columns([0.5, 0.5, 3, 0.8, 0.7])
     with col_back:
         if st.button("◀", help="Retour", use_container_width=True, key="btn_retour_classement"):
             st.session_state.dashboard_section = None
+            st.rerun()
+    with col_home:
+        if st.button("🏠", help="Accueil", use_container_width=True, key="btn_accueil_classement"):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
             st.rerun()
     with col_title:
         st.markdown("## Classement Elite")

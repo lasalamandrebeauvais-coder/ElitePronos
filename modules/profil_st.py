@@ -60,10 +60,15 @@ def afficher_profil(user):
     """Affiche la page profil"""
 
     # Header avec bouton retour
-    col_back, col_title, col_mascot = st.columns([0.6, 3.5, 1])
+    col_back, col_home, col_title, col_mascot = st.columns([0.5, 0.5, 3, 1])
     with col_back:
         if st.button("◀", help="Retour", use_container_width=True):
             st.session_state.dashboard_section = None
+            st.rerun()
+    with col_home:
+        if st.button("🏠", help="Accueil", use_container_width=True):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
             st.rerun()
     with col_title:
         st.markdown("## Mon Profil")

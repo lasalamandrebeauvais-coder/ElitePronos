@@ -236,6 +236,10 @@ def afficher_dashboard(user):
         st.caption(f"@{user['pseudo']} - Saison {get_saison_label(saison_id)}")
 
     with header_col3:
+        if st.button("🏠 Accueil", use_container_width=True):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
+            st.rerun()
         if st.button("Deconnexion", type="secondary"):
             from modules.login_st import logout
             logout()
