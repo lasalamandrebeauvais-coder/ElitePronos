@@ -126,21 +126,17 @@ def confirmer_suppression(user_id, pseudo):
         if st.button("Annuler", use_container_width=True):
             st.rerun()
     with col2:
-        if st.button("Supprimer", type="primary", use_container_width=True):
+        if st.button("Supprimer definitivement", type="primary", use_container_width=True):
             if supprimer_compte(user_id):
-                st.session_state.admin_message = f"✅ {pseudo} a ete supprime."
+                st.session_state.admin_message = f"@{pseudo} a ete supprime."
+                st.session_state.admin_tab = 1  # Rester sur l'onglet Utilisateurs
             else:
-                st.session_state.admin_message = f"❌ Erreur lors de la suppression de {pseudo}."
+                st.session_state.admin_message = f"Erreur lors de la suppression de {pseudo}."
             st.rerun()
 
 
 def afficher_panel_admin():
     """Affiche le panneau d'administration"""
-
-    # Afficher message de confirmation si present
-    if st.session_state.get('admin_message'):
-        st.success(st.session_state.admin_message)
-        st.session_state.admin_message = None
 
     # Header avec bouton retour et mascotte
     col_back, col_title, col_mascot = st.columns([0.6, 3.5, 1])
@@ -221,6 +217,11 @@ def afficher_panel_admin():
             }
         </style>
         """, unsafe_allow_html=True)
+
+        # Message de confirmation suppression
+        if st.session_state.get('admin_message'):
+            st.success(st.session_state.admin_message)
+            st.session_state.admin_message = None
 
         # Afficher le nombre d'admins
         nb_admins = get_nombre_admins()
