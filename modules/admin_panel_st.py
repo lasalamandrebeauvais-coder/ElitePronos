@@ -22,7 +22,8 @@ from modules.database_manager import (
 )
 from modules.notifier_st import (
     envoyer_synthese_paris,
-    envoyer_resultats_ironiques
+    envoyer_resultats_ironiques,
+    envoyer_email_bienvenue
 )
 
 
@@ -77,9 +78,15 @@ def get_tous_utilisateurs():
 
 
 def activer_compte(user_id):
-    """Active le compte d'un utilisateur"""
+    """Active le compte d'un utilisateur et envoie l'email de bienvenue"""
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'Actif'})
+
+    # Envoyer l'email de bienvenue
+    user_data = supabase._request('GET', f'utilisateurs?id=eq.{user_id}&select=pseudo,prenom,email')
+    if user_data and user_data[0].get('email'):
+        envoyer_email_bienvenue(user_data[0])
+
     return True
 
 
@@ -451,7 +458,7 @@ def afficher_panel_admin():
         |-------|--------------|---------|-----------------|
         | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
         | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
-        | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a l'inscription |
+        | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a la validation admin |
         | **Alerte Inscription** | Admin (Baggio) | Notification nouveau joueur inscrit | Automatique a l'inscription |
         """)
 

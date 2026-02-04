@@ -321,12 +321,7 @@ def set_setting(cle, valeur):
 
 def is_mode_officiel():
     """Vérifie si l'application est en mode officiel"""
-    # Priorite: BDD > Streamlit secrets > Env > False
-    db_setting = get_setting('is_officiel')
-    if db_setting:
-        return db_setting == 'True'
-
-    # Verifier Streamlit secrets
+    # Priorite: Streamlit secrets > Env > False
     try:
         import streamlit as st
         if hasattr(st, 'secrets') and 'IS_OFFICIEL' in st.secrets:
@@ -334,7 +329,6 @@ def is_mode_officiel():
     except:
         pass
 
-    # Verifier variable d'environnement
     import os
     return os.environ.get('IS_OFFICIEL', 'False') == 'True'
 

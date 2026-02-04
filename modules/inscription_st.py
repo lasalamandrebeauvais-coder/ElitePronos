@@ -23,7 +23,7 @@ try:
         get_countdown_j1,
         get_saison_actuelle
     )
-    from modules.notifier_st import envoyer_email_bienvenue, envoyer_alerte_nouvel_inscrit
+    from modules.notifier_st import envoyer_alerte_nouvel_inscrit
     HAS_MANAGER = True
 except ImportError:
     HAS_MANAGER = False
@@ -115,14 +115,9 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
         saison_id = get_saison_actuelle() if HAS_MANAGER else 2025
         supabase.init_stock_jokers(user_id, saison_id)
 
-        # Envoyer emails si HAS_MANAGER
+        # Envoyer alerte admin (nouvel inscrit)
+        # L'email de bienvenue est envoye quand l'admin valide l'inscription
         if HAS_MANAGER:
-            # Envoyer email de bienvenue au joueur
-            if email:
-                user_info = {'id': user_id, 'pseudo': pseudo, 'prenom': prenom, 'email': email}
-                envoyer_email_bienvenue(user_info)
-
-            # Envoyer email alerte admin (nouvel inscrit)
             envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email)
 
         # Message adapte selon le statut

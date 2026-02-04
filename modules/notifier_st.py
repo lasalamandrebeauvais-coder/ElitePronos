@@ -600,18 +600,33 @@ def email_rappel_j1(utilisateur):
 # EMAILS ADMIN : SYNTHESE & RESULTATS
 # ============================================
 
-def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_matchs=None):
+def email_synthese_paris(semaine_id, jokers_actifs=None, stats_matchs=None, commentaire_bot=""):
     """
     Email de synthese des paris de tous les joueurs
     Envoye 15min apres la deadline
-    data_paris: liste de dicts {pseudo, matchs: [{equipes, prono, mise}]}
     jokers_actifs: liste de dicts {pseudo, type_joker, cible_pseudo}
     stats_matchs: dict {equipes: {dom: %, nul: %, ext: %}}
+    commentaire_bot: commentaire ironique du bot
     """
     if jokers_actifs is None:
         jokers_actifs = []
     if stats_matchs is None:
         stats_matchs = {}
+
+    # === COMMENTAIRE DU BOT ===
+    commentaire_html = ""
+    if commentaire_bot:
+        commentaire_html = f'''
+        <div style="background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+            <div style="display: flex; align-items: flex-start;">
+                <div style="font-size: 32px; margin-right: 15px;">🤖</div>
+                <div>
+                    <div style="color: #9b59b6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Bot Elite</div>
+                    <p style="color: #cccccc; margin: 0; line-height: 1.6; font-style: italic;">{commentaire_bot}</p>
+                </div>
+            </div>
+        </div>
+        '''
 
     # === SECTION JOKERS ACTIFS ===
     jokers_html = ""
@@ -695,70 +710,15 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
         </div>
         '''
 
-    # === TABLEAU DES PRONOSTICS ===
-    rows_html = ""
-    for joueur in data_paris:
-        pseudo = joueur['pseudo']
-        joker_badge = ""
-
-        # Verifier si ce joueur a un joker actif
-        for j in jokers_actifs:
-            if j.get('pseudo') == pseudo:
-                if j.get('type_joker') == 'double':
-                    joker_badge = ' <span style="background: #FFD700; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 10px;">x2</span>'
-                elif j.get('type_joker') == 'vol':
-                    joker_badge = ' <span style="background: #9b59b6; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px;">🎭</span>'
-                break
-
-        for i, match in enumerate(joueur.get('matchs', [])):
-            equipes = match.get('equipes', 'Match inconnu')
-            prono = f"{match.get('home', '?')}-{match.get('away', '?')}"
-            mise = match.get('mise', 0)
-
-            if i == 0:
-                rows_html += f'''
-                <tr style="border-bottom: 1px solid #333;">
-                    <td rowspan="{len(joueur.get('matchs', []))}" style="padding: 10px; color: #FFD700; font-weight: bold; vertical-align: top; border-right: 1px solid #333;">
-                        @{pseudo}{joker_badge}
-                    </td>
-                    <td style="padding: 8px; color: #ccc;">{equipes}</td>
-                    <td style="padding: 8px; color: #fff; text-align: center; font-weight: bold;">{prono}</td>
-                    <td style="padding: 8px; color: #FFD700; text-align: center;">{mise} pts</td>
-                </tr>
-                '''
-            else:
-                rows_html += f'''
-                <tr style="border-bottom: 1px solid #222;">
-                    <td style="padding: 8px; color: #ccc;">{equipes}</td>
-                    <td style="padding: 8px; color: #fff; text-align: center; font-weight: bold;">{prono}</td>
-                    <td style="padding: 8px; color: #FFD700; text-align: center;">{mise} pts</td>
-                </tr>
-                '''
-
     content = f'''
     <h2>Synthese des Paris - Semaine {semaine_id}</h2>
-    <p>Les pronostics sont clos ! Voici le recapitulatif complet des paris de la semaine.</p>
+    <p>Les pronostics sont clos ! Voici le recapitulatif de la semaine.</p>
+
+    {commentaire_html}
 
     {jokers_html}
 
     {stats_html}
-
-    <div style="background: #0a0a1a; border-radius: 10px; padding: 15px; margin: 20px 0; overflow-x: auto;">
-        <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">📋 Tableau des Mises</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <thead>
-                <tr style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);">
-                    <th style="padding: 12px; color: #0a0a1a; text-align: left;">Joueur</th>
-                    <th style="padding: 12px; color: #0a0a1a; text-align: left;">Match</th>
-                    <th style="padding: 12px; color: #0a0a1a; text-align: center;">Prono</th>
-                    <th style="padding: 12px; color: #0a0a1a; text-align: center;">Mise</th>
-                </tr>
-            </thead>
-            <tbody>
-                {rows_html}
-            </tbody>
-        </table>
-    </div>
 
     <div class="highlight-box">
         <p style="color: #FFD700; margin: 0;">Que le meilleur gagne !</p>
@@ -771,33 +731,57 @@ def email_synthese_paris(semaine_id, data_paris, jokers_actifs=None, stats_match
     return get_base_template(content, "Synthese des Paris")
 
 
-def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_speciales=None):
+def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot=""):
     """
-    Email de resultats avec commentaires ironiques
-    classement: liste de dicts {pseudo, points, rang, evolution, grand_chelem, scores_exacts, joker_vol_utilise, joker_vol_reussi, lanterne_rouge}
-    commentaires: dict {pseudo: commentaire_ironique} (surcharge manuelle)
-    donnees_speciales: dict optionnel avec infos supplementaires par pseudo
+    Email de resultats avec debrief ironique du bot
+    classement: liste de dicts {pseudo, points, rang, bons_pronos, scores_exacts, grand_chelem}
+    matchs_resultats: liste de dicts {equipe_home, equipe_away, score_final_home, score_final_away}
+    commentaire_bot: debrief ironique genere par Kingo
     """
-    if donnees_speciales is None:
-        donnees_speciales = {}
-
     total_joueurs = len(classement)
 
-    # Construire le classement HTML
+    # === COMMENTAIRE DU BOT ===
+    commentaire_html = ""
+    if commentaire_bot:
+        commentaire_html = f'''
+        <div style="background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+            <div style="display: flex; align-items: flex-start;">
+                <div style="font-size: 32px; margin-right: 15px;">🤖</div>
+                <div>
+                    <div style="color: #9b59b6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Debrief</div>
+                    <p style="color: #cccccc; margin: 0; line-height: 1.8; font-style: italic;">{commentaire_bot}</p>
+                </div>
+            </div>
+        </div>
+        '''
+
+    # === RESULTATS DES MATCHS ===
+    matchs_html = ""
+    if matchs_resultats:
+        matchs_items = ""
+        for m in matchs_resultats:
+            matchs_items += f'''
+            <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: #1a1a2e; border-radius: 8px;">
+                <div style="flex: 1; text-align: right; color: #ccc; font-size: 13px;">{m['equipe_home']}</div>
+                <div style="margin: 0 15px; padding: 5px 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 5px; color: #0a0a1a; font-weight: bold; font-size: 16px;">{m['score_final_home']} - {m['score_final_away']}</div>
+                <div style="flex: 1; text-align: left; color: #ccc; font-size: 13px;">{m['equipe_away']}</div>
+            </div>
+            '''
+        matchs_html = f'''
+        <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">⚽ Resultats des Matchs</h3>
+            {matchs_items}
+        </div>
+        '''
+
+    # === CLASSEMENT ===
     classement_html = ""
     for joueur in classement:
         rang = joueur.get('rang', '?')
         pseudo = joueur.get('pseudo', 'Inconnu')
         points = joueur.get('points', 0)
-        evolution = joueur.get('evolution', 0)
-
-        # Emoji d'evolution
-        if evolution > 0:
-            evo_emoji = f"<span style='color: #00FF00;'>↑ +{evolution}</span>"
-        elif evolution < 0:
-            evo_emoji = f"<span style='color: #FF4444;'>↓ {evolution}</span>"
-        else:
-            evo_emoji = "<span style='color: #AAAAAA;'>→ 0</span>"
+        bons = joueur.get('bons_pronos', 0)
+        se = joueur.get('scores_exacts', 0)
 
         # Couleur selon le rang
         if rang == 1:
@@ -809,56 +793,27 @@ def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_spec
         else:
             rang_style = "background: #333; color: #fff;"
 
-        # Generer commentaire ironique intelligent
-        if pseudo in commentaires:
-            commentaire = commentaires[pseudo]
-        else:
-            # Preparer les donnees du joueur pour le generateur
-            joueur_data = {
-                'rang': rang,
-                'total_joueurs': total_joueurs,
-                'evolution': evolution,
-                'grand_chelem': joueur.get('grand_chelem', False),
-                'scores_exacts': joueur.get('scores_exacts', 0),
-                'joker_vol_utilise': joueur.get('joker_vol_utilise', False),
-                'joker_vol_reussi': joueur.get('joker_vol_reussi', False),
-                'lanterne_rouge': joueur.get('lanterne_rouge', False),
-            }
-            # Fusionner avec donnees speciales si disponibles
-            if pseudo in donnees_speciales:
-                joueur_data.update(donnees_speciales[pseudo])
+        # Badges
+        badges = ""
+        if joueur.get('grand_chelem'):
+            badges += ' <span style="background: #FFD700; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 10px;">GRAND CHELEM</span>'
+        if se > 0:
+            badges += f' <span style="background: #27ae60; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 10px;">{se} SE</span>'
 
-            commentaire = generer_commentaire_joueur(joueur_data)
+        # Stats sous le pseudo
+        stats_line = f"{bons}/4 corrects"
+        if se > 0:
+            stats_line += f" dont {se} score(s) exact(s)"
 
         classement_html += f'''
-        <div style="
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            margin: 10px 0;
-            background: #1a1a2e;
-            border-radius: 10px;
-            border: 1px solid #333;
-        ">
-            <div style="
-                {rang_style}
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                font-size: 18px;
-                margin-right: 15px;
-            ">{rang}</div>
+        <div style="display: flex; align-items: center; padding: 15px; margin: 10px 0; background: #1a1a2e; border-radius: 10px; border: 1px solid #333;">
+            <div style="{rang_style} width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 15px; flex-shrink: 0;">{rang}</div>
             <div style="flex: 1;">
-                <div style="color: #FFD700; font-weight: bold;">@{pseudo}</div>
-                <div style="color: #666; font-size: 12px; font-style: italic;">{commentaire}</div>
+                <div style="color: #FFD700; font-weight: bold;">@{pseudo}{badges}</div>
+                <div style="color: #888; font-size: 12px; margin-top: 4px;">{stats_line}</div>
             </div>
-            <div style="text-align: right;">
+            <div style="text-align: right; flex-shrink: 0;">
                 <div style="color: #fff; font-size: 18px; font-weight: bold;">{points} pts</div>
-                <div style="font-size: 12px;">{evo_emoji}</div>
             </div>
         </div>
         '''
@@ -867,19 +822,17 @@ def email_resultats_ironiques(semaine_id, classement, commentaires, donnees_spec
     <h2>Resultats Semaine {semaine_id}</h2>
     <p>Les matchs sont termines ! Voici qui a brille... et qui s'est plante.</p>
 
+    {commentaire_html}
+
+    {matchs_html}
+
     <div style="margin: 25px 0;">
+        <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">🏆 Classement de la Semaine</h3>
         {classement_html}
     </div>
 
-    <div class="highlight-box" style="border-color: #9b59b6; background: rgba(155, 89, 182, 0.1);">
-        <p style="color: #9b59b6; margin: 0; font-size: 14px;">
-            "Le football, c'est simple : 22 joueurs courent apres un ballon,
-            et a la fin... c'est toujours quelqu'un d'autre qui gagne !"
-        </p>
-    </div>
-
     <p style="text-align: center;">
-        <a href="#" class="button">Voir le classement complet</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Voir le classement complet</a>
     </p>
 
     <p style="color: #AAAAAA; font-size: 12px; text-align: center;">
@@ -952,6 +905,68 @@ def envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
 ## (utilisaient SQLite, non appeles depuis l'admin)
 
 
+def _generer_commentaire_email(stats):
+    """
+    Genere un commentaire ironique du bot pour l'email de synthese.
+    Avant deadline (matchs_termines == 0): evasif, pas de noms.
+    Apres deadline: peut reveler des infos.
+    """
+    commentaires = []
+    deadline_passee = stats.get('matchs_termines', 0) > 0
+    nb = stats.get('nb_joueurs', 0)
+
+    if nb == 0:
+        return "Personne n'a encore joue cette semaine. Vous attendez quoi ? Que les matchs se jouent sans vous ?"
+    elif nb == 1:
+        commentaires.append("Un seul brave a ose jouer pour l'instant. Les autres ont peur ou quoi ?")
+    elif nb < 5:
+        commentaires.append(f"Seulement {nb} joueurs ont fait leurs pronos. Les absents ont toujours tort !")
+    else:
+        commentaires.append(f"{nb} pronostiqueurs en lice cette semaine. Que le spectacle commence !")
+
+    # Grosses mises
+    if stats.get('grosses_mises'):
+        if deadline_passee:
+            gros = stats['grosses_mises'][0]
+            commentaires.append(f"{gros['pseudo']} a mise gros ({gros['mise']} pts) sur {gros['match']}. Confiance ou folie ?")
+        else:
+            phrases = [
+                "Quelqu'un a sorti l'artillerie lourde cette semaine... Mais qui ?",
+                "Une grosse mise a ete placee. Le suspense reste entier !",
+                "Des paris audacieux ont ete enregistres. Je ne dirai rien de plus !",
+            ]
+            commentaires.append(random.choice(phrases))
+
+    # Jokers
+    if stats.get('jokers'):
+        nb_jokers = len(stats['jokers'])
+        if deadline_passee:
+            joker = stats['jokers'][0]
+            if joker['type'] == 'DOUBLE':
+                commentaires.append(f"{joker['pseudo']} a joue son joker Points Doubles. Ca passe ou ca casse !")
+            else:
+                commentaires.append(f"{joker['pseudo']} a utilise le vol de pronostics. Strategie ou desespoir ?")
+        else:
+            if nb_jokers == 1:
+                commentaires.append("Un joker a ete active... Lequel et par qui ? Mystere !")
+            else:
+                commentaires.append(f"{nb_jokers} jokers actives cette semaine ! Ca va chauffer...")
+
+    # Tendances unanimes
+    for m in stats.get('matchs', []):
+        if m['pct_home'] >= 70:
+            commentaires.append(f"{m['pct_home']}% voient {m['home']} gagner. Unanimite ou piege ?")
+            break
+        elif m['pct_away'] >= 70:
+            commentaires.append(f"{m['pct_away']}% misent sur {m['away']}. Et si c'etait trop beau ?")
+            break
+        elif m['pct_nul'] >= 50:
+            commentaires.append(f"{m['pct_nul']}% predisent un nul pour {m['home']} vs {m['away']}. Le foot est impredictible !")
+            break
+
+    return " ".join(commentaires)
+
+
 def envoyer_synthese_paris(semaine_id):
     """
     Envoie la synthese des paris a tous les joueurs
@@ -962,7 +977,7 @@ def envoyer_synthese_paris(semaine_id):
     supabase = get_supabase()
 
     # Recuperer les matchs de la semaine
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away') or []
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,score_final_home') or []
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
@@ -976,49 +991,32 @@ def envoyer_synthese_paris(semaine_id):
     users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
     user_map = {u['id']: u['pseudo'] for u in users}
 
-    # Construire les rows (pseudo, user_id, home, away, prono_h, prono_a, mise)
-    rows = []
-    for p in predictions:
-        match = match_map.get(p['match_id'])
-        pseudo = user_map.get(p['user_id'], 'Inconnu')
-        if match:
-            rows.append((pseudo, p['user_id'], match['equipe_home'], match['equipe_away'],
-                        p['score_prono_home'], p['score_prono_away'], p['mise_points']))
-
-    # Trier par pseudo puis match_id
-    rows.sort(key=lambda x: (x[0], x[2]))
-
     # === RECUPERER LES JOKERS ACTIFS ===
-    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker,cible_vol_id') or []
+    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker') or []
 
     jokers_actifs = []
     for jrow in jokers_data:
         pseudo = user_map.get(jrow['utilisateur_id'], 'Inconnu')
-        cible_pseudo = user_map.get(jrow.get('cible_vol_id'), '') if jrow.get('cible_vol_id') else ''
         jokers_actifs.append({
             'pseudo': pseudo,
-            'type_joker': jrow['type_joker'],
-            'cible_pseudo': cible_pseudo
+            'type_joker': jrow['type_joker'].lower(),
+            'cible_pseudo': ''
         })
 
-    # Organiser par joueur
-    data_paris = {}
-    stats_brut = {}  # Pour calculer les tendances
+    # Calculer les tendances 1/N/2
+    stats_brut = {}
+    grosses_mises = []
 
-    for row in rows:
-        pseudo, user_id, home, away, prono_h, prono_a, mise = row
-        match_key = f"{home} vs {away}"
+    for p in predictions:
+        match = match_map.get(p['match_id'])
+        if not match:
+            continue
+        pseudo = user_map.get(p['user_id'], 'Inconnu')
+        match_key = f"{match['equipe_home']} vs {match['equipe_away']}"
+        prono_h = p['score_prono_home']
+        prono_a = p['score_prono_away']
+        mise = p.get('mise_points', 0) or 0
 
-        if pseudo not in data_paris:
-            data_paris[pseudo] = {'pseudo': pseudo, 'matchs': []}
-        data_paris[pseudo]['matchs'].append({
-            'equipes': match_key,
-            'home': prono_h,
-            'away': prono_a,
-            'mise': mise
-        })
-
-        # Calculer les tendances 1/N/2
         if match_key not in stats_brut:
             stats_brut[match_key] = {'dom': 0, 'nul': 0, 'ext': 0, 'total': 0}
 
@@ -1030,26 +1028,57 @@ def envoyer_synthese_paris(semaine_id):
         else:
             stats_brut[match_key]['ext'] += 1
 
+        # Tracker les grosses mises pour le commentaire
+        if mise >= 40:
+            grosses_mises.append({'pseudo': pseudo, 'mise': mise, 'match': match_key})
+
     # Convertir en pourcentages
     stats_matchs = {}
+    stats_for_comment = []  # Pour generer le commentaire du bot
     for match_key, counts in stats_brut.items():
         total = counts['total']
         if total > 0:
-            stats_matchs[match_key] = {
-                'dom': round(counts['dom'] * 100 / total),
-                'nul': round(counts['nul'] * 100 / total),
-                'ext': round(counts['ext'] * 100 / total)
-            }
-            # Ajuster pour que la somme fasse 100%
-            diff = 100 - (stats_matchs[match_key]['dom'] + stats_matchs[match_key]['nul'] + stats_matchs[match_key]['ext'])
-            if diff != 0:
-                stats_matchs[match_key]['nul'] += diff
+            pct_dom = round(counts['dom'] * 100 / total)
+            pct_nul = round(counts['nul'] * 100 / total)
+            pct_ext = round(counts['ext'] * 100 / total)
+            diff = 100 - (pct_dom + pct_nul + pct_ext)
+            if diff:
+                pct_nul += diff
+            stats_matchs[match_key] = {'dom': pct_dom, 'nul': pct_nul, 'ext': pct_ext}
+
+            # Extraire les equipes pour le commentaire
+            parts = match_key.split(' vs ')
+            stats_for_comment.append({
+                'home': parts[0] if len(parts) > 0 else '?',
+                'away': parts[1] if len(parts) > 1 else '?',
+                'pct_home': pct_dom,
+                'pct_away': pct_ext,
+                'pct_nul': pct_nul
+            })
+
+    # Generer le commentaire ironique du bot
+    nb_joueurs = len(set(p['user_id'] for p in predictions))
+    matchs_termines = sum(1 for m in matchs if m.get('score_final_home') is not None)
+
+    grosses_mises.sort(key=lambda x: x['mise'], reverse=True)
+
+    stats_comment = {
+        'nb_joueurs': nb_joueurs,
+        'nb_pronostics': len(predictions),
+        'matchs_termines': matchs_termines,
+        'total_matchs': len(matchs),
+        'matchs': stats_for_comment,
+        'jokers': [{'pseudo': j['pseudo'], 'type': j['type_joker'].upper()} for j in jokers_actifs],
+        'grosses_mises': grosses_mises[:3]
+    }
+
+    commentaire_bot = _generer_commentaire_email(stats_comment)
 
     # Envoyer a tous les utilisateurs
     utilisateurs = get_utilisateurs_emails()
     resultats = []
 
-    html = email_synthese_paris(semaine_id, list(data_paris.values()), jokers_actifs, stats_matchs)
+    html = email_synthese_paris(semaine_id, jokers_actifs, stats_matchs, commentaire_bot)
 
     for user in utilisateurs:
         success, msg = send_email(
@@ -1062,53 +1091,188 @@ def envoyer_synthese_paris(semaine_id):
     return resultats
 
 
+def _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs):
+    """
+    Genere le debrief ironique de Kingo pour l'email des resultats.
+    Parle de la meilleure perf, des bons scores (3+), moque gentiment le dernier.
+    """
+    if not classement:
+        return ""
+
+    lignes = []
+    total = len(classement)
+    premier = classement[0]
+    dernier = classement[-1] if total > 1 else None
+    nb_matchs = len(matchs_resultats)
+
+    # --- Le champion de la semaine ---
+    phrases_premier = [
+        f"Chapeau bas a <strong>@{premier['pseudo']}</strong> qui ecrase tout le monde avec <strong>{premier['points']} pts</strong> cette semaine !",
+        f"<strong>@{premier['pseudo']}</strong> survole les debats avec <strong>{premier['points']} pts</strong>. On applaudit... ou on verifie ses sources.",
+        f"<strong>@{premier['pseudo']}</strong> en mode extraterrestre : <strong>{premier['points']} pts</strong> ! Les autres peuvent ranger leurs boules de cristal.",
+        f"Standing ovation pour <strong>@{premier['pseudo']}</strong> et ses <strong>{premier['points']} pts</strong>. Le talent... ou un pacte avec le diable ?",
+    ]
+    lignes.append(random.choice(phrases_premier))
+
+    # --- Grand Chelem ---
+    gc_joueurs = [j for j in classement if j.get('grand_chelem')]
+    if gc_joueurs:
+        noms = ", ".join(f"@{j['pseudo']}" for j in gc_joueurs)
+        phrases_gc = [
+            f"<br><br>🏆 <strong>GRAND CHELEM</strong> pour <strong>{noms}</strong> ! 4/4 corrects, c'est limite suspect... On verifie les cameras !",
+            f"<br><br>🏆 <strong>{noms}</strong> signe un <strong>GRAND CHELEM</strong> ! Meme Nostradamus serait jaloux.",
+            f"<br><br>🏆 <strong>GRAND CHELEM</strong> pour <strong>{noms}</strong> ! Le sans-faute... profitez, ca n'arrivera plus de sitot.",
+        ]
+        lignes.append(random.choice(phrases_gc))
+
+    # --- Joueurs avec 3+ bons pronos ---
+    bons_joueurs = [j for j in classement if j.get('bons_pronos', 0) >= 3 and not j.get('grand_chelem')]
+    if bons_joueurs:
+        noms = ", ".join(f"@{j['pseudo']}" for j in bons_joueurs)
+        nb = len(bons_joueurs)
+        if nb == 1:
+            phrases_bons = [
+                f"<br><br>Belle perf aussi pour <strong>{noms}</strong> avec 3 bons pronos sur {nb_matchs}. Tu commences a comprendre le football !",
+                f"<br><br><strong>{noms}</strong> s'en sort bien avec 3 bons resultats. Un jour tu auras le Grand Chelem... un jour.",
+            ]
+        else:
+            phrases_bons = [
+                f"<br><br>Mention bien pour <strong>{noms}</strong> avec 3 bons pronos chacun. Pas mal, mais on attend mieux la prochaine fois !",
+                f"<br><br><strong>{noms}</strong> s'en sortent avec les honneurs (3/{nb_matchs}). C'est presque bien !",
+            ]
+        lignes.append(random.choice(phrases_bons))
+
+    # --- Scores exacts ---
+    se_joueurs = [j for j in classement if j.get('scores_exacts', 0) > 0]
+    if se_joueurs:
+        for j in se_joueurs:
+            phrases_se = [
+                f"<br><br>🎯 <strong>@{j['pseudo']}</strong> a tape un score exact ! Precision chirurgicale ou coup de bol monumental ?",
+                f"<br><br>🎯 Score exact pour <strong>@{j['pseudo']}</strong> ! Tu devrais jouer au loto tant que t'es chaud.",
+                f"<br><br>🎯 <strong>@{j['pseudo']}</strong> avec le score exact ! Meme le bookmaker est impressionne.",
+            ]
+            lignes.append(random.choice(phrases_se))
+            break  # Un seul commentaire SE suffit
+
+    # --- Jokers ---
+    for j in jokers_actifs:
+        if j['type_joker'] == 'double':
+            # Verifier si ca a paye
+            joueur_data = next((c for c in classement if c['pseudo'] == j['pseudo']), None)
+            if joueur_data and joueur_data.get('rang', 99) <= 2:
+                lignes.append(f"<br><br>🃏 <strong>@{j['pseudo']}</strong> avait active le x2 et ca a paye ! Stratege de genie... ou chanceux fini ?")
+            else:
+                lignes.append(f"<br><br>🃏 <strong>@{j['pseudo']}</strong> avait mis le x2... Dommage, doubler un petit score ca reste petit.")
+        elif j['type_joker'] == 'vol':
+            lignes.append(f"<br><br>🃏 <strong>@{j['pseudo']}</strong> avait vole des pronos. Le crime a-t-il paye ? A vous de juger.")
+
+    # --- Le dernier (reconfort + moquerie) ---
+    if dernier and total > 1:
+        phrases_dernier = [
+            f"<br><br>Quant a <strong>@{dernier['pseudo']}</strong>... {dernier['points']} pts. Allez, c'est pas grave, on a tous des mauvaises semaines. Enfin, toi plus que les autres.",
+            f"<br><br>Et pour finir, un mot pour <strong>@{dernier['pseudo']}</strong> ({dernier['points']} pts) : le foot c'est pas une science exacte, et toi t'en es la preuve vivante. Courage !",
+            f"<br><br>Un petit calin virtuel pour <strong>@{dernier['pseudo']}</strong> qui ferme la marche avec {dernier['points']} pts. T'inquiete, meme les grands sont tombes... mais rarement aussi bas.",
+            f"<br><br><strong>@{dernier['pseudo']}</strong>, {dernier['points']} pts... Le fond du classement te connait bien maintenant. Mais bon, quelqu'un doit bien fermer la marche. Merci pour ton sacrifice !",
+        ]
+        lignes.append(random.choice(phrases_dernier))
+
+    # --- Phrase de cloture ---
+    phrases_fin = [
+        "<br><br>Rendez-vous la semaine prochaine, et n'oubliez pas : meme un singe avec des flechettes pourrait vous battre. Prouvez-moi le contraire !",
+        "<br><br>A la semaine prochaine ! D'ici la, essayez de regarder du football au lieu de deviner au hasard.",
+        "<br><br>C'est tout pour cette semaine. Pleurez un bon coup si necessaire, puis revenez plus forts. Ou pas.",
+        "<br><br>Fin du debrief ! Si vous n'etes pas contents de vos resultats, c'est peut-etre le moment de changer de sport.",
+    ]
+    lignes.append(random.choice(phrases_fin))
+
+    return "".join(lignes)
+
+
 def envoyer_resultats_ironiques(semaine_id):
     """
-    Envoie le recapitulatif des resultats avec commentaires ironiques
+    Envoie le recapitulatif des resultats avec debrief ironique de Kingo
     A appeler apres le calcul des points
     Version Supabase
     """
     from modules.supabase_db import get_supabase
     supabase = get_supabase()
 
-    # Recuperer les matchs de la semaine
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id') or []
+    # Recuperer les matchs de la semaine avec scores
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home,score_final_away') or []
     match_ids = [m['id'] for m in matchs]
+    match_map = {m['id']: m for m in matchs}
+
+    if not match_ids:
+        return []
 
     # Recuperer les utilisateurs actifs
     users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
     user_map = {u['id']: u['pseudo'] for u in users}
 
-    # Calculer les points par utilisateur pour cette semaine
-    points_par_user = {u['id']: 0 for u in users}
+    # Recuperer les predictions avec details
+    predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes') or []
 
-    if match_ids:
-        predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,points_gagnes') or []
-        for p in predictions:
-            if p['user_id'] in points_par_user and p.get('points_gagnes') is not None:
-                points_par_user[p['user_id']] += p['points_gagnes']
+    # Recuperer les jokers
+    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker') or []
+    jokers_actifs = [{'pseudo': user_map.get(j['utilisateur_id'], 'Inconnu'), 'type_joker': j['type_joker'].lower()} for j in jokers_data]
 
-    # Trier par points decroissants
-    sorted_users = sorted(points_par_user.items(), key=lambda x: x[1], reverse=True)
+    # Calculer les stats par joueur
+    stats_joueur = {}
+    for p in predictions:
+        uid = p['user_id']
+        match = match_map.get(p['match_id'])
+        if not match or match.get('score_final_home') is None:
+            continue
+
+        if uid not in stats_joueur:
+            stats_joueur[uid] = {'points': 0, 'bons_pronos': 0, 'scores_exacts': 0}
+
+        stats_joueur[uid]['points'] += (p.get('points_gagnes') or 0)
+
+        # Verifier 1N2 correct
+        prono_res = '1' if p['score_prono_home'] > p['score_prono_away'] else ('2' if p['score_prono_home'] < p['score_prono_away'] else 'N')
+        real_res = '1' if match['score_final_home'] > match['score_final_away'] else ('2' if match['score_final_home'] < match['score_final_away'] else 'N')
+        if prono_res == real_res:
+            stats_joueur[uid]['bons_pronos'] += 1
+
+        # Verifier score exact
+        if (p['score_prono_home'] == match['score_final_home'] and
+            p['score_prono_away'] == match['score_final_away']):
+            stats_joueur[uid]['scores_exacts'] += 1
+
+    # Ajouter les joueurs sans predictions (0 pts)
+    for u in users:
+        if u['id'] not in stats_joueur:
+            stats_joueur[u['id']] = {'points': 0, 'bons_pronos': 0, 'scores_exacts': 0}
+
+    # Trier par points
+    sorted_users = sorted(stats_joueur.items(), key=lambda x: x[1]['points'], reverse=True)
+    nb_matchs = sum(1 for m in matchs if m.get('score_final_home') is not None)
 
     # Construire le classement
     classement = []
-    for i, (user_id, points) in enumerate(sorted_users, 1):
+    for i, (uid, stats) in enumerate(sorted_users, 1):
+        grand_chelem = stats['bons_pronos'] == nb_matchs and nb_matchs >= 4
         classement.append({
             'rang': i,
-            'pseudo': user_map.get(user_id, 'Inconnu'),
-            'points': points,
-            'evolution': 0  # TODO: calculer par rapport a la semaine precedente
+            'pseudo': user_map.get(uid, 'Inconnu'),
+            'points': stats['points'],
+            'bons_pronos': stats['bons_pronos'],
+            'scores_exacts': stats['scores_exacts'],
+            'grand_chelem': grand_chelem
         })
 
-    # Generer des commentaires ironiques personnalises
-    commentaires = {}  # On laisse le systeme generer aleatoirement
+    # Matchs avec resultats pour affichage
+    matchs_resultats = [m for m in matchs if m.get('score_final_home') is not None]
+
+    # Generer le debrief ironique
+    commentaire_bot = _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs)
 
     # Envoyer a tous les utilisateurs
     utilisateurs = get_utilisateurs_emails()
     resultats = []
 
-    html = email_resultats_ironiques(semaine_id, classement, commentaires)
+    html = email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot)
 
     for user in utilisateurs:
         success, msg = send_email(
