@@ -853,7 +853,7 @@ else:
 
                 # Toutes les predictions de tous les joueurs
                 all_preds = _sb._request('GET',
-                    f'predictions?match_id=in.({match_ids_recap_str})&select=user_id,match_id,score_prono_home,score_prono_away'
+                    f'predictions?match_id=in.({match_ids_recap_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
                 ) or []
 
                 # Tous les joueurs actifs
@@ -879,7 +879,8 @@ else:
                         continue
                     if uid not in pronos_recap:
                         pronos_recap[uid] = {}
-                    pronos_recap[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']}"
+                    mise = p.get('mise_points', 0) or 0
+                    pronos_recap[uid][p['match_id']] = {'score': f"{p['score_prono_home']}-{p['score_prono_away']}", 'mise': mise}
 
                 # Trier les joueurs par rang
                 joueurs_recap = sorted(
@@ -920,8 +921,11 @@ else:
 
                     cells_html = ""
                     for m in matchs_journee:
-                        prono = pronos_recap.get(uid, {}).get(m['id'], '-')
-                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; color:#4488FF; font-size:0.7em; font-weight:bold;">{prono}</td>'
+                        prono_data = pronos_recap.get(uid, {}).get(m['id'])
+                        if prono_data:
+                            cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;"><span style="color:#4488FF; font-weight:bold;">{prono_data["score"]}</span><br><span style="color:#FFD700; font-size:0.85em;">{prono_data["mise"]}pts</span></td>'
+                        else:
+                            cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; color:#444; font-size:0.7em;">-</td>'
 
                     if rang == 1:
                         rang_display = "🥇"

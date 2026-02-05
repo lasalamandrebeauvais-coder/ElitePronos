@@ -1407,7 +1407,7 @@ def email_tableau_pronos_admin(semaine_id, matchs, joueurs_tries, pronos_par_uid
     Email admin avec tableau identique a celui de l'accueil.
     matchs: liste de dicts {id, equipe_home, equipe_away, cote_home, cote_draw, cote_away}
     joueurs_tries: liste de tuples (uid, pseudo, rang) tries par rang
-    pronos_par_uid: dict {uid: {match_id: "score_h-score_a"}}
+    pronos_par_uid: dict {uid: {match_id: {score, mise}}}
     jokers_par_uid: dict {uid: type_joker}
     """
 
@@ -1453,12 +1453,20 @@ def email_tableau_pronos_admin(semaine_id, matchs, joueurs_tries, pronos_par_uid
         # Cellules par match
         match_cells = ""
         for m in matchs:
-            prono = pronos_par_uid.get(uid, {}).get(m['id'], '-')
-            match_cells += f'''
-            <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
-                <span style="color:#4488FF; font-weight:bold; font-size:12px;">{prono}</span>
-            </td>
-            '''
+            prono_data = pronos_par_uid.get(uid, {}).get(m['id'])
+            if prono_data:
+                match_cells += f'''
+                <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
+                    <span style="color:#4488FF; font-weight:bold; font-size:12px;">{prono_data['score']}</span>
+                    <br><span style="color:#FFD700; font-size:10px;">{prono_data['mise']}pts</span>
+                </td>
+                '''
+            else:
+                match_cells += f'''
+                <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
+                    <span style="color:#666; font-size:11px;">-</span>
+                </td>
+                '''
 
         joueur_rows += f'''
         <tr>
@@ -1516,7 +1524,7 @@ def envoyer_tableau_pronos_admin(semaine_id):
 
     # Recuperer toutes les predictions
     predictions = supabase._request('GET',
-        f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away'
+        f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
     ) or []
 
     # Recuperer les utilisateurs actifs
@@ -1537,7 +1545,8 @@ def envoyer_tableau_pronos_admin(semaine_id):
             continue
         if uid not in pronos_par_uid:
             pronos_par_uid[uid] = {}
-        pronos_par_uid[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']}"
+        mise = p.get('mise_points', 0) or 0
+        pronos_par_uid[uid][p['match_id']] = {'score': f"{p['score_prono_home']}-{p['score_prono_away']}", 'mise': mise}
 
     # Classement general pour le rang
     classement = get_classement_general_complet()
