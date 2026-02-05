@@ -1,6 +1,6 @@
 """
 Module Classement Streamlit pour Elite Pronos
-Classements avec 3 onglets : General, Ma Semaine, Records
+Classements avec 5 onglets : General, Scores Exacts, Pronostics, Ma Semaine, Records
 """
 import streamlit as st
 import os
@@ -212,8 +212,8 @@ def afficher_classement(user):
 
     current_user_id = user['id']
 
-    # Onglets (3 onglets - sans Assiduite)
-    tab1, tab2, tab3 = st.tabs(["🥇 General", "📅 Ma Semaine", "🔥 Records"])
+    # Onglets (5 onglets)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🥇 General", "🎯 Scores Exacts", "✅ Pronostics", "📅 Ma Semaine", "🔥 Records"])
 
     # === ONGLET GENERAL ===
     with tab1:
@@ -276,8 +276,108 @@ def afficher_classement(user):
         else:
             st.info("Aucun joueur dans le classement.")
 
-    # === ONGLET MA SEMAINE ===
+    # === ONGLET SCORES EXACTS ===
     with tab2:
+        st.markdown("### Classement Scores Exacts")
+        st.caption("Nombre total de scores parfaitement predits")
+
+        classement_se = get_classement_general_complet()
+
+        if classement_se:
+            # Trier par scores exacts decroissant
+            classement_se = sorted(classement_se, key=lambda x: x['scores_exacts'], reverse=True)
+
+            # Header du tableau
+            st.markdown("""
+            <div style="display:flex; background:#D4AF37; padding:8px 10px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.75em; color:#001529;">
+                <span style="width:45px; text-align:center;">#</span>
+                <span style="flex:1;">Pseudo</span>
+                <span style="width:80px; text-align:center;">Scores Exacts</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for idx, joueur in enumerate(classement_se):
+                rang = idx + 1
+                is_current = (joueur['user_id'] == current_user_id)
+                bg = "#002855" if is_current else "#001529"
+                border = "border-left:4px solid #FFD700;" if is_current else ""
+
+                if rang == 1:
+                    icon = "🥇"
+                elif rang == 2:
+                    icon = "🥈"
+                elif rang == 3:
+                    icon = "🥉"
+                else:
+                    icon = f"<span style='color:#888;'>{rang}</span>"
+
+                st.markdown(f"""
+                <div style="display:flex; align-items:center; background:{bg}; padding:6px 10px; margin:0; border-bottom:1px solid #222; font-size:0.75em; {border}">
+                    <span style="width:45px; text-align:center;">{icon}</span>
+                    <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
+                    <span style="width:80px; text-align:center; color:#FFD700; font-weight:bold;">{joueur['scores_exacts']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Fermeture tableau
+            st.markdown("""
+            <div style="height:6px; background:#0a1628; border-radius:0 0 8px 8px;"></div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("Aucun joueur dans le classement.")
+
+    # === ONGLET PRONOSTICS ===
+    with tab3:
+        st.markdown("### Classement Pronostics")
+        st.caption("Nombre total de resultats 1N2 corrects")
+
+        classement_bp = get_classement_general_complet()
+
+        if classement_bp:
+            # Trier par bons pronostics decroissant
+            classement_bp = sorted(classement_bp, key=lambda x: x['bons_pronos'], reverse=True)
+
+            # Header du tableau
+            st.markdown("""
+            <div style="display:flex; background:#D4AF37; padding:8px 10px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.75em; color:#001529;">
+                <span style="width:45px; text-align:center;">#</span>
+                <span style="flex:1;">Pseudo</span>
+                <span style="width:80px; text-align:center;">Bons Pronos</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for idx, joueur in enumerate(classement_bp):
+                rang = idx + 1
+                is_current = (joueur['user_id'] == current_user_id)
+                bg = "#002855" if is_current else "#001529"
+                border = "border-left:4px solid #FFD700;" if is_current else ""
+
+                if rang == 1:
+                    icon = "🥇"
+                elif rang == 2:
+                    icon = "🥈"
+                elif rang == 3:
+                    icon = "🥉"
+                else:
+                    icon = f"<span style='color:#888;'>{rang}</span>"
+
+                st.markdown(f"""
+                <div style="display:flex; align-items:center; background:{bg}; padding:6px 10px; margin:0; border-bottom:1px solid #222; font-size:0.75em; {border}">
+                    <span style="width:45px; text-align:center;">{icon}</span>
+                    <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
+                    <span style="width:80px; text-align:center; color:#4488FF; font-weight:bold;">{joueur['bons_pronos']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Fermeture tableau
+            st.markdown("""
+            <div style="height:6px; background:#0a1628; border-radius:0 0 8px 8px;"></div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("Aucun joueur dans le classement.")
+
+    # === ONGLET MA SEMAINE ===
+    with tab4:
         st.markdown("### Mon Historique")
         st.caption("Historique de mes pronostics par journee")
 
@@ -335,7 +435,7 @@ def afficher_classement(user):
             st.info("Aucun historique disponible.")
 
     # === ONGLET RECORDS ===
-    with tab3:
+    with tab5:
         st.markdown("### Mes Records")
         st.caption("Mes performances personnelles")
 
