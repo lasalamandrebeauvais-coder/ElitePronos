@@ -923,7 +923,7 @@ else:
                     for m in matchs_journee:
                         prono_data = pronos_recap.get(uid, {}).get(m['id'])
                         if prono_data:
-                            cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;"><span style="color:#4488FF; font-weight:bold;">{prono_data["score"]}</span><br><span style="color:#FFD700; font-size:0.85em;">{prono_data["mise"]}pts</span></td>'
+                            cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;"><span style="color:#4488FF; font-weight:bold;">{prono_data["score"]}</span> <span style="color:#FFD700; font-size:0.85em;">{prono_data["mise"]}</span></td>'
                         else:
                             cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; color:#444; font-size:0.7em;">-</td>'
 

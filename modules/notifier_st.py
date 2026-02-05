@@ -1458,7 +1458,7 @@ def email_tableau_pronos_admin(semaine_id, matchs, joueurs_tries, pronos_par_uid
                 match_cells += f'''
                 <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
                     <span style="color:#4488FF; font-weight:bold; font-size:12px;">{prono_data['score']}</span>
-                    <br><span style="color:#FFD700; font-size:10px;">{prono_data['mise']}pts</span>
+                    <span style="color:#FFD700; font-size:10px;">{prono_data['mise']}</span>
                 </td>
                 '''
             else:
