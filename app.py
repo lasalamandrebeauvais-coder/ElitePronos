@@ -908,9 +908,9 @@ else:
                     rang = rang_map.get(uid, '-')
                     joker_type = jokers_map_recap.get(uid, '')
                     if joker_type == 'double':
-                        joker_cell = '<span style="color:#FFD700; font-weight:bold;">x2</span>'
+                        joker_cell = '<span style="color:#FFD700; font-weight:bold;">⚡</span>'
                     elif joker_type == 'vol':
-                        joker_cell = '<span style="color:#9b59b6;">🎭</span>'
+                        joker_cell = '<span style="color:#9b59b6; font-weight:bold;">🎯</span>'
                     else:
                         joker_cell = '<span style="color:#444;">-</span>'
 

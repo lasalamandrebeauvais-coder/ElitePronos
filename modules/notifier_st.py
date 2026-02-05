@@ -1402,120 +1402,86 @@ def envoyer_resultats_ironiques(semaine_id):
 # EMAIL ADMIN : TABLEAU COMPLET DES PRONOS
 # ============================================
 
-def email_tableau_pronos_admin(semaine_id, matchs, pronos_par_joueur, jokers_par_pseudo):
+def email_tableau_pronos_admin(semaine_id, matchs, joueurs_tries, pronos_par_uid, jokers_par_uid):
     """
-    Email admin avec tableau complet des pronostics de tous les joueurs.
+    Email admin avec tableau identique a celui de l'accueil.
     matchs: liste de dicts {id, equipe_home, equipe_away, cote_home, cote_draw, cote_away}
-    pronos_par_joueur: dict {pseudo: {match_id: {home, away, mise}}}
-    jokers_par_pseudo: dict {pseudo: type_joker}
+    joueurs_tries: liste de tuples (uid, pseudo, rang) tries par rang
+    pronos_par_uid: dict {uid: {match_id: "score_h-score_a"}}
+    jokers_par_uid: dict {uid: type_joker}
     """
 
-    # === SECTION COTES DES MATCHS ===
-    cotes_html = ""
+    # Header avec les matchs + cotes integrees
+    match_headers = ""
     for m in matchs:
-        home_short = m['equipe_home'][:12]
-        away_short = m['equipe_away'][:12]
+        home_s = m['equipe_home'][:8]
+        away_s = m['equipe_away'][:8]
         c1 = m.get('cote_home') or '-'
         cn = m.get('cote_draw') or '-'
         c2 = m.get('cote_away') or '-'
-
-        cotes_html += f'''
-        <tr>
-            <td style="padding:6px 8px; border-bottom:1px solid #333; color:#fff; font-size:12px;">
-                {home_short} - {away_short}
-            </td>
-            <td style="padding:6px 8px; border-bottom:1px solid #333; color:#27ae60; text-align:center; font-weight:bold; font-size:12px;">{c1}</td>
-            <td style="padding:6px 8px; border-bottom:1px solid #333; color:#95a5a6; text-align:center; font-weight:bold; font-size:12px;">{cn}</td>
-            <td style="padding:6px 8px; border-bottom:1px solid #333; color:#e74c3c; text-align:center; font-weight:bold; font-size:12px;">{c2}</td>
-        </tr>
-        '''
-
-    # === SECTION TABLEAU DES PRONOS ===
-    # Header avec les matchs en colonnes
-    match_headers = ""
-    for m in matchs:
-        home_short = m['equipe_home'][:8]
-        away_short = m['equipe_away'][:8]
         match_headers += f'''
-        <th style="padding:6px 4px; background:#D4AF37; color:#001529; font-size:10px; text-align:center; min-width:60px;">
-            {home_short}<br>vs<br>{away_short}
+        <th style="padding:6px 4px; background:#D4AF37; color:#001529; font-size:10px; text-align:center; min-width:65px;">
+            {home_s}<br>vs<br>{away_s}
+            <div style="font-size:9px; color:#333; margin-top:2px;">{c1} | {cn} | {c2}</div>
         </th>
         '''
 
-    # Lignes par joueur
+    # Lignes par joueur (tries par rang)
     joueur_rows = ""
-    # Trier les pseudos alphabetiquement
-    pseudos_tries = sorted(pronos_par_joueur.keys())
+    for uid, pseudo, rang in joueurs_tries:
+        bg = "#001529" if rang % 2 != 0 else "#0d1b2a"
 
-    for idx, pseudo in enumerate(pseudos_tries):
-        pronos = pronos_par_joueur[pseudo]
-        bg = "#001529" if idx % 2 == 0 else "#0d1b2a"
-
-        # Joker actif ?
-        joker = jokers_par_pseudo.get(pseudo, '')
-        if joker == 'double':
-            joker_badge = ' <span style="color:#FFD700; font-size:10px;">x2</span>'
-        elif joker == 'vol':
-            joker_badge = ' <span style="color:#9b59b6; font-size:10px;">🎭</span>'
+        # Rang avec medailles
+        if rang == 1:
+            rang_display = "&#129351;"
+        elif rang == 2:
+            rang_display = "&#129352;"
+        elif rang == 3:
+            rang_display = "&#129353;"
         else:
-            joker_badge = ''
+            rang_display = f'<span style="color:#888;">{rang}</span>'
+
+        # Joker
+        joker_type = jokers_par_uid.get(uid, '')
+        if joker_type == 'double':
+            joker_cell = '<span style="color:#FFD700; font-weight:bold;">&#9889;</span>'
+        elif joker_type == 'vol':
+            joker_cell = '<span style="color:#9b59b6; font-weight:bold;">&#127919;</span>'
+        else:
+            joker_cell = '<span style="color:#444;">-</span>'
 
         # Cellules par match
         match_cells = ""
-        total_mise = 0
         for m in matchs:
-            prono = pronos.get(m['id'])
-            if prono:
-                score = f"{prono['home']}-{prono['away']}"
-                mise = prono.get('mise', 0)
-                total_mise += mise
-                match_cells += f'''
-                <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
-                    <span style="color:#4488FF; font-weight:bold; font-size:12px;">{score}</span>
-                    <br><span style="color:#FFD700; font-size:10px;">{mise}pts</span>
-                </td>
-                '''
-            else:
-                match_cells += f'''
-                <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
-                    <span style="color:#666; font-size:11px;">-</span>
-                </td>
-                '''
+            prono = pronos_par_uid.get(uid, {}).get(m['id'], '-')
+            match_cells += f'''
+            <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
+                <span style="color:#4488FF; font-weight:bold; font-size:12px;">{prono}</span>
+            </td>
+            '''
 
         joueur_rows += f'''
         <tr>
-            <td style="padding:6px 8px; border-bottom:1px solid #222; background:{bg}; white-space:nowrap;">
-                <span style="color:#fff; font-weight:bold; font-size:12px;">@{pseudo}</span>{joker_badge}
+            <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:12px;">{rang_display}</td>
+            <td style="padding:6px 6px; border-bottom:1px solid #222; background:{bg}; white-space:nowrap;">
+                <span style="color:#fff; font-weight:bold; font-size:12px;">{pseudo}</span>
             </td>
+            <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">{joker_cell}</td>
             {match_cells}
-            <td style="padding:6px 4px; border-bottom:1px solid #222; text-align:center; background:{bg};">
-                <span style="color:#FFD700; font-weight:bold; font-size:12px;">{total_mise}</span>
-            </td>
         </tr>
         '''
 
     content = f'''
-    <h2>Tableau des Pronostics - Semaine {semaine_id}</h2>
-    <p style="color: #AAAAAA;">Email reserve a l'administration. Tous les pronostics des joueurs apres la deadline.</p>
+    <h2>Recap des Pronostics - Semaine {semaine_id}</h2>
+    <p style="color: #AAAAAA;">Tous les pronostics des joueurs apres la deadline.</p>
 
-    <h3 style="color: #FFD700; font-size: 16px;">📊 Cotes des matchs</h3>
-    <table style="width:100%; border-collapse:collapse; margin:10px 0 20px 0;">
-        <tr>
-            <th style="padding:6px 8px; background:#D4AF37; color:#001529; font-size:12px; text-align:left;">Match</th>
-            <th style="padding:6px 8px; background:#D4AF37; color:#001529; font-size:12px; text-align:center;">1</th>
-            <th style="padding:6px 8px; background:#D4AF37; color:#001529; font-size:12px; text-align:center;">N</th>
-            <th style="padding:6px 8px; background:#D4AF37; color:#001529; font-size:12px; text-align:center;">2</th>
-        </tr>
-        {cotes_html}
-    </table>
-
-    <h3 style="color: #FFD700; font-size: 16px;">🎯 Pronostics de tous les joueurs</h3>
     <div style="overflow-x: auto;">
         <table style="width:100%; border-collapse:collapse; margin:10px 0;">
             <tr>
-                <th style="padding:6px 8px; background:#D4AF37; color:#001529; font-size:11px; text-align:left;">Joueur</th>
+                <th style="padding:6px 4px; background:#D4AF37; color:#001529; font-size:10px; text-align:center; width:30px;">#</th>
+                <th style="padding:6px 6px; background:#D4AF37; color:#001529; font-size:11px; text-align:left;">Pseudo</th>
+                <th style="padding:6px 4px; background:#D4AF37; color:#001529; font-size:10px; text-align:center; width:30px;">&#127183;</th>
                 {match_headers}
-                <th style="padding:6px 4px; background:#D4AF37; color:#001529; font-size:10px; text-align:center; min-width:40px;">Total<br>Mise</th>
             </tr>
             {joueur_rows}
         </table>
@@ -1523,21 +1489,20 @@ def email_tableau_pronos_admin(semaine_id, matchs, pronos_par_joueur, jokers_par
 
     <div class="highlight-box">
         <p style="color: #FFD700; margin: 0;">Que le meilleur gagne !</p>
-        <p style="color: #AAAAAA; font-size: 12px; margin: 5px 0 0 0;">
-            Cet email est reserve aux administrateurs.
-        </p>
     </div>
     '''
 
-    return get_base_template(content, "Tableau des Pronos (Admin)")
+    return get_base_template(content, "Recap des Pronos")
 
 
 def envoyer_tableau_pronos_admin(semaine_id):
     """
     Envoie le tableau complet des pronostics uniquement aux admins.
+    Meme format que le tableau affiche sur l'accueil.
     A appeler apres la deadline.
     """
     from modules.supabase_db import get_supabase
+    from modules.classement_st import get_classement_general_complet
     supabase = get_supabase()
 
     # Recuperer les matchs avec cotes
@@ -1551,7 +1516,7 @@ def envoyer_tableau_pronos_admin(semaine_id):
 
     # Recuperer toutes les predictions
     predictions = supabase._request('GET',
-        f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
+        f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away'
     ) or []
 
     # Recuperer les utilisateurs actifs
@@ -1562,29 +1527,30 @@ def envoyer_tableau_pronos_admin(semaine_id):
     jokers_data = supabase._request('GET',
         f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker'
     ) or []
+    jokers_par_uid = {j['utilisateur_id']: j['type_joker'].lower() for j in jokers_data}
 
-    # Organiser les pronos par joueur
-    pronos_par_joueur = {}
+    # Organiser les pronos par uid
+    pronos_par_uid = {}
     for p in predictions:
-        pseudo = user_map.get(p['user_id'])
-        if not pseudo:
+        uid = p['user_id']
+        if uid not in user_map:
             continue
-        if pseudo not in pronos_par_joueur:
-            pronos_par_joueur[pseudo] = {}
-        pronos_par_joueur[pseudo][p['match_id']] = {
-            'home': p['score_prono_home'],
-            'away': p['score_prono_away'],
-            'mise': p.get('mise_points', 0) or 0
-        }
+        if uid not in pronos_par_uid:
+            pronos_par_uid[uid] = {}
+        pronos_par_uid[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']}"
 
-    # Jokers par pseudo
-    jokers_par_pseudo = {}
-    for j in jokers_data:
-        pseudo = user_map.get(j['utilisateur_id'], 'Inconnu')
-        jokers_par_pseudo[pseudo] = j['type_joker'].lower()
+    # Classement general pour le rang
+    classement = get_classement_general_complet()
+    rang_map = {j['user_id']: j['place'] for j in classement}
+
+    # Trier les joueurs par rang
+    joueurs_tries = sorted(
+        [(uid, pseudo, rang_map.get(uid, 999)) for uid, pseudo in user_map.items()],
+        key=lambda x: x[2]
+    )
 
     # Generer le HTML
-    html = email_tableau_pronos_admin(semaine_id, matchs, pronos_par_joueur, jokers_par_pseudo)
+    html = email_tableau_pronos_admin(semaine_id, matchs, joueurs_tries, pronos_par_uid, jokers_par_uid)
 
     # Envoyer uniquement aux admins
     admins = supabase._request('GET', 'utilisateurs?is_admin=eq.true&select=id,pseudo,email') or []
@@ -1595,7 +1561,7 @@ def envoyer_tableau_pronos_admin(semaine_id):
             continue
         success, msg = send_email(
             admin['email'],
-            f"Elite Pronos - Tableau des Pronos Semaine {semaine_id} (Admin)",
+            f"Elite Pronos - Recap Pronos Semaine {semaine_id}",
             html
         )
         resultats.append({'user': admin['pseudo'], 'success': success, 'message': msg})
