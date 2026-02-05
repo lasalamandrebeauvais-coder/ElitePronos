@@ -834,6 +834,130 @@ else:
         except Exception as e:
             st.error(f"Erreur de lecture Supabase: {e}")
 
+        # === TABLEAU RECAP DES PRONOSTICS (visible apres la deadline) ===
+        try:
+            if not pronostics_ouverts and nb_matchs_journee > 0:
+                st.markdown("---")
+                st.markdown(f"""
+                <div style="color: #D4AF37; font-size: 1em; font-weight: bold; text-align: center; margin: 10px 0;">
+                    📋 RECAP DES PRONOSTICS - J{journee_courante}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Recuperer donnees pour le tableau
+                from modules.supabase_db import get_supabase as _get_sb
+                _sb = _get_sb()
+
+                match_ids_recap = [m['id'] for m in matchs_journee]
+                match_ids_recap_str = ','.join(map(str, match_ids_recap))
+
+                # Toutes les predictions de tous les joueurs
+                all_preds = _sb._request('GET',
+                    f'predictions?match_id=in.({match_ids_recap_str})&select=user_id,match_id,score_prono_home,score_prono_away'
+                ) or []
+
+                # Tous les joueurs actifs
+                all_users = _sb._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+                user_map_recap = {u['id']: u['pseudo'] for u in all_users}
+
+                # Jokers de la journee
+                jokers_recap = _sb._request('GET',
+                    f'jokers_historique?semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+                ) or []
+                jokers_map_recap = {j['utilisateur_id']: j['type_joker'].lower() for j in jokers_recap}
+
+                # Classement general pour le rang
+                from modules.classement_st import get_classement_general_complet
+                classement_recap = get_classement_general_complet()
+                rang_map = {j['user_id']: j['place'] for j in classement_recap}
+
+                # Organiser pronos par joueur
+                pronos_recap = {}
+                for p in all_preds:
+                    uid = p['user_id']
+                    if uid not in user_map_recap:
+                        continue
+                    if uid not in pronos_recap:
+                        pronos_recap[uid] = {}
+                    pronos_recap[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']}"
+
+                # Trier les joueurs par rang
+                joueurs_recap = sorted(
+                    [(uid, pseudo) for uid, pseudo in user_map_recap.items()],
+                    key=lambda x: rang_map.get(x[0], 999)
+                )
+
+                # Construire le header avec les matchs + cotes
+                match_headers_html = ""
+                for m in matchs_journee:
+                    home_s = m['equipe_home'][:6]
+                    away_s = m['equipe_away'][:6]
+                    c1 = m.get('cote_home') or '-'
+                    cn = m.get('cote_draw') or '-'
+                    c2 = m.get('cote_away') or '-'
+                    match_headers_html += f'''
+                    <th style="padding:4px 2px; background:#D4AF37; color:#001529; font-size:0.55em; text-align:center; min-width:55px;">
+                        {home_s}<br>vs<br>{away_s}
+                        <div style="font-size:0.85em; color:#333; margin-top:2px;">{c1} | {cn} | {c2}</div>
+                    </th>
+                    '''
+
+                # Construire les lignes
+                rows_html = ""
+                for uid, pseudo in joueurs_recap:
+                    rang = rang_map.get(uid, '-')
+                    joker_type = jokers_map_recap.get(uid, '')
+                    if joker_type == 'double':
+                        joker_cell = '<span style="color:#FFD700; font-weight:bold;">x2</span>'
+                    elif joker_type == 'vol':
+                        joker_cell = '<span style="color:#9b59b6;">🎭</span>'
+                    else:
+                        joker_cell = '<span style="color:#444;">-</span>'
+
+                    is_me = uid == user_id
+                    bg = "#002855" if is_me else "#001529"
+                    border = "border-left:3px solid #FFD700;" if is_me else ""
+
+                    cells_html = ""
+                    for m in matchs_journee:
+                        prono = pronos_recap.get(uid, {}).get(m['id'], '-')
+                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; color:#4488FF; font-size:0.7em; font-weight:bold;">{prono}</td>'
+
+                    if rang == 1:
+                        rang_display = "🥇"
+                    elif rang == 2:
+                        rang_display = "🥈"
+                    elif rang == 3:
+                        rang_display = "🥉"
+                    else:
+                        rang_display = f'<span style="color:#888;">{rang}</span>'
+
+                    rows_html += f'''
+                    <tr>
+                        <td style="padding:4px 3px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em; {border}">{rang_display}</td>
+                        <td style="padding:4px 3px; border-bottom:1px solid #222; background:{bg}; color:#fff; font-size:0.7em; white-space:nowrap; {border}">{pseudo}</td>
+                        <td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;">{joker_cell}</td>
+                        {cells_html}
+                    </tr>
+                    '''
+
+                st.markdown(f"""
+                <div style="overflow-x: auto; margin: 5px 0;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <th style="padding:4px 3px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:center; width:30px;">#</th>
+                            <th style="padding:4px 3px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:left;">Pseudo</th>
+                            <th style="padding:4px 2px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:center; width:25px;">🃏</th>
+                            {match_headers_html}
+                        </tr>
+                        {rows_html}
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+
+        except Exception as e:
+            pass  # Ne pas bloquer l'accueil si le tableau echoue
+
         # Bouton Tableau de bord en bas
         st.markdown("---")
         if st.button("📊 TABLEAU DE BORD", type="primary", use_container_width=True):
