@@ -24,7 +24,8 @@ from modules.notifier_st import (
     envoyer_synthese_paris,
     envoyer_resultats_ironiques,
     envoyer_email_bienvenue,
-    envoyer_email_prospection
+    envoyer_email_prospection,
+    envoyer_tableau_pronos_admin
 )
 
 
@@ -459,6 +460,7 @@ def afficher_panel_admin():
         | Email | Destinataires | Contenu | Quand l'envoyer |
         |-------|--------------|---------|-----------------|
         | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
+        | **Tableau Pronos** | Admin uniquement | Tableau complet des pronos + cotes + mises + jokers | Apres la deadline |
         | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
         | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a la validation admin |
         | **Alerte Inscription** | Admin (Baggio) | Notification nouveau joueur inscrit | Automatique a l'inscription |
@@ -466,7 +468,7 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
-        col_email1, col_email2 = st.columns(2)
+        col_email1, col_email2, col_email3 = st.columns(3)
 
         with col_email1:
             st.markdown("**Synthese des Paris**")
@@ -488,6 +490,24 @@ def afficher_panel_admin():
                         st.error(f"❌ Erreur: {str(e)}")
 
         with col_email2:
+            st.markdown("**Tableau Pronos**")
+            st.caption("Tous les pronos (admin)")
+            if st.button("ENVOYER TABLEAU PRONOS", type="secondary", use_container_width=True):
+                with st.spinner("Envoi du tableau des pronos..."):
+                    try:
+                        resultats = envoyer_tableau_pronos_admin(semaine_selectionnee)
+                        nb_envoyes = sum(1 for r in resultats if r['success'])
+                        st.success(f"✅ {nb_envoyes} email(s) envoye(s) aux admins")
+
+                        for r in resultats:
+                            if r['success']:
+                                st.write(f"✓ {r['user']}: {r['message']}")
+                            else:
+                                st.write(f"✗ {r['user']}: {r['message']}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        with col_email3:
             st.markdown("**Debrief Ironique**")
             st.caption("Classement + commentaires")
             if st.button("ENVOYER DEBRIEF IRONIQUE", type="secondary", use_container_width=True):
