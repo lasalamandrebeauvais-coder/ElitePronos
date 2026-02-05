@@ -417,6 +417,120 @@ def email_lancement_saison(utilisateur):
     return get_base_template(content, "Nouvelle Saison")
 
 
+def email_prospection(lien_inscription="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"):
+    """Email de prospection/lancement pour inviter de nouveaux joueurs"""
+
+    content = f'''
+    <h2 style="color: #FFD700; text-align: center;">L'heritage de Gillou continue :<br>Elite Pronos passe au niveau superieur !</h2>
+
+    <p>Bonjour a tous les passionnes,</p>
+
+    <p>Pendant plus de <strong style="color: #FFD700;">10 ans</strong>, Gillou, notre maitre du jeu,
+    a fait vibrer cette communaute. Entre les sacres des grands champions, la complicite des duos
+    de pronostiqueurs et les batailles acharnees pour grimper sur le podium, nous avons vecu des
+    moments inoubliables.</p>
+
+    <p>Aujourd'hui, pour honorer cet heritage et faire perdurer l'esprit de competition qu'il a
+    instaure, j'ai le plaisir de vous annoncer la naissance de la nouvelle version :
+    <strong style="color: #FFD700;">Elite Pronos</strong>.</p>
+
+    <div class="highlight-box">
+        <div class="big-text">Le jeu que vous avez aime, modernise</div>
+        <p style="margin: 10px 0 0 0; color: #cccccc;">
+            Nous avons garde l'essence meme de ce qui faisait le succes de nos tournois,
+            mais avec une nouveaute majeure : <strong style="color: #FFD700;">une application dediee</strong>.
+        </p>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #333; width: 40px; text-align: center;">
+                <span style="font-size: 1.5em;">⚡</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #333; color: #cccccc;">
+                <strong style="color: #FFD700;">Fini la gestion manuelle</strong><br>
+                Tout est automatise pour une gestion simplifiee.
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #333; width: 40px; text-align: center;">
+                <span style="font-size: 1.5em;">🔥</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #333; color: #cccccc;">
+                <strong style="color: #FFD700;">L'adrenaline intacte</strong><br>
+                Retrouvez les classements en direct et les defis qui ont fait notre reputation.
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 12px; border-bottom: 1px solid #333; width: 40px; text-align: center;">
+                <span style="font-size: 1.5em;">🤝</span>
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #333; color: #cccccc;">
+                <strong style="color: #FFD700;">L'esprit de groupe</strong><br>
+                Que vous soyez un loup solitaire du prono ou que vous aimiez jouer en duo,
+                le podium vous attend !
+            </td>
+        </tr>
+    </table>
+
+    <div class="highlight-box">
+        <div style="font-size: 1.2em; color: #FFD700; font-weight: bold;">
+            Reprenez votre place dans l'arene !
+        </div>
+        <p style="margin: 10px 0 0 0; color: #cccccc;">
+            Le jeu a ete revisite pour etre plus moderne et prenant que jamais.
+            Il ne manque plus que les anciens champions et de nouveaux visages
+            pour relancer la machine.
+        </p>
+    </div>
+
+    <p style="text-align: center;">
+        <a href="{lien_inscription}" class="button">Decouvrir l'application et s'inscrire</a>
+    </p>
+
+    <p style="color: #cccccc;">
+        N'hesitez pas a inviter vos amis ou vos anciens partenaires de duo.
+        Plus la communaute sera grande, plus la victoire sera belle.
+    </p>
+
+    <p style="text-align: center; font-size: 1.1em; margin-top: 25px;">
+        <strong style="color: #FFD700;">Pour Gillou, pour le jeu, et pour la gagne !</strong>
+    </p>
+
+    <p style="color: #cccccc;">A tres vite sur l'appli,<br>
+    <strong style="color: #FFD700;">L'equipe Elite Pronos</strong></p>
+    '''
+
+    return get_base_template(content, "Elite Pronos")
+
+
+def envoyer_email_prospection(destinataires_emails):
+    """
+    Envoie l'email de prospection a une liste d'adresses email.
+    destinataires_emails: liste de strings (adresses email)
+    Retourne (nb_envoyes, nb_erreurs, details)
+    """
+    html = email_prospection()
+    sujet = "L'heritage de Gillou continue : Elite Pronos passe au niveau superieur !"
+
+    nb_ok = 0
+    nb_err = 0
+    details = []
+
+    for email_addr in destinataires_emails:
+        email_addr = email_addr.strip()
+        if not email_addr:
+            continue
+        success, msg = send_email(email_addr, sujet, html)
+        if success:
+            nb_ok += 1
+        else:
+            nb_err += 1
+        details.append((email_addr, success, msg))
+
+    return nb_ok, nb_err, details
+
+
 def email_bienvenue(utilisateur):
     """
     Email de bienvenue complet pour un nouvel inscrit

@@ -23,7 +23,8 @@ from modules.database_manager import (
 from modules.notifier_st import (
     envoyer_synthese_paris,
     envoyer_resultats_ironiques,
-    envoyer_email_bienvenue
+    envoyer_email_bienvenue,
+    envoyer_email_prospection
 )
 
 
@@ -155,7 +156,7 @@ def afficher_panel_admin():
     st.markdown("---")
 
     # Onglets
-    tab1, tab2, tab3 = st.tabs(["Inscriptions en attente", "Tous les utilisateurs", "Gestion Journee"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Inscriptions en attente", "Tous les utilisateurs", "Gestion Journee", "Prospection"])
 
     # === ONGLET 1 : INSCRIPTIONS EN ATTENTE ===
     with tab1:
@@ -812,6 +813,88 @@ def afficher_panel_admin():
 
             except Exception as e:
                 st.error(f"❌ Erreur: {str(e)}")
+
+    # === ONGLET 4 : PROSPECTION ===
+    with tab4:
+        st.markdown("### Email de Prospection")
+        st.caption("Envoyez l'email de lancement pour inviter de nouveaux joueurs.")
+
+        st.markdown("""
+        **Contenu de l'email :**
+        - L'heritage de Gillou et la communaute
+        - Presentation de la nouvelle application Elite Pronos
+        - Les nouveautes (automatisation, classements en direct, esprit de groupe)
+        - Lien d'inscription vers l'application
+        """)
+
+        st.markdown("---")
+
+        # Zone de saisie des emails
+        st.markdown("#### Destinataires")
+        emails_text = st.text_area(
+            "Saisissez les adresses email (une par ligne)",
+            height=150,
+            placeholder="ami1@gmail.com\nami2@gmail.com\nami3@gmail.com",
+            key="prospection_emails"
+        )
+
+        # Option: envoyer aussi a tous les inscrits actifs
+        envoyer_aux_actifs = st.checkbox(
+            "Envoyer egalement a tous les joueurs actifs",
+            value=False,
+            key="prospection_actifs"
+        )
+
+        st.markdown("---")
+
+        # Apercu
+        with st.expander("Apercu de l'email"):
+            from modules.notifier_st import email_prospection
+            st.components.v1.html(email_prospection(), height=800, scrolling=True)
+
+        # Bouton envoi
+        col_send, col_test = st.columns(2)
+
+        with col_test:
+            if st.button("TEST (admin seul)", use_container_width=True):
+                with st.spinner("Envoi test..."):
+                    nb_ok, nb_err, details = envoyer_email_prospection(["elite.pronos.2@gmail.com"])
+                    if nb_ok > 0:
+                        st.success(f"Email test envoye a l'admin!")
+                    else:
+                        st.error(f"Echec: {details[0][2] if details else 'erreur inconnue'}")
+
+        with col_send:
+            if st.button("ENVOYER LA CAMPAGNE", type="primary", use_container_width=True):
+                # Collecter les emails
+                liste_emails = []
+
+                # Emails saisis manuellement
+                if emails_text:
+                    liste_emails.extend([e.strip() for e in emails_text.strip().split('\n') if e.strip()])
+
+                # Emails des joueurs actifs si coche
+                if envoyer_aux_actifs:
+                    from modules.database_manager import get_utilisateurs_emails
+                    actifs = get_utilisateurs_emails()
+                    for u in actifs:
+                        if u.get('email') and u['email'] not in liste_emails:
+                            liste_emails.append(u['email'])
+
+                if not liste_emails:
+                    st.warning("Aucun destinataire. Saisissez des emails ou cochez 'joueurs actifs'.")
+                else:
+                    with st.spinner(f"Envoi a {len(liste_emails)} destinataire(s)..."):
+                        nb_ok, nb_err, details = envoyer_email_prospection(liste_emails)
+
+                    st.success(f"Campagne terminee: {nb_ok} envoye(s), {nb_err} erreur(s)")
+
+                    with st.expander("Details des envois"):
+                        for email_addr, success, msg in details:
+                            if success:
+                                st.write(f"✓ {email_addr}: {msg}")
+                            else:
+                                st.write(f"✗ {email_addr}: {msg}")
 
     # Stats rapides
     st.sidebar.markdown("---")
