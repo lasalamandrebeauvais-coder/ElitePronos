@@ -920,9 +920,9 @@ else:
                                 cn = m.get('cote_draw') or '-'
                                 c2 = m.get('cote_away') or '-'
                                 match_headers_html += f'''
-                                <th style="padding:4px 2px; background:#D4AF37; color:#001529; font-size:0.55em; text-align:center; min-width:55px;">
-                                    {home_s}<br>vs<br>{away_s}
-                                    <div style="font-size:0.85em; color:#333; margin-top:2px;">{c1} | {cn} | {c2}</div>
+                                <th style="padding:4px 2px; background:#D4AF37 !important; color:#001529 !important; font-size:0.55em; text-align:center; min-width:55px;">
+                                    <span style="color:#001529 !important;">{home_s}<br>vs<br>{away_s}</span>
+                                    <div style="font-size:0.85em; color:#333 !important; margin-top:2px;">{c1} | {cn} | {c2}</div>
                                 </th>
                                 '''
 
@@ -931,11 +931,11 @@ else:
                                 rang = rang_map.get(uid, '-')
                                 joker_type = jokers_map_recap.get(uid, '')
                                 if joker_type == 'double':
-                                    joker_cell = '<span style="color:#FFD700; font-weight:bold;">⚡</span>'
+                                    joker_cell = '<span style="color:#FFD700 !important; font-weight:bold;">⚡</span>'
                                 elif joker_type == 'vol':
-                                    joker_cell = '<span style="color:#9b59b6; font-weight:bold;">🎯</span>'
+                                    joker_cell = '<span style="color:#9b59b6 !important; font-weight:bold;">🎯</span>'
                                 else:
-                                    joker_cell = '<span style="color:#444;">-</span>'
+                                    joker_cell = '<span style="color:#666 !important;">-</span>'
 
                                 is_me = uid == user_id
                                 bg = "#002855" if is_me else "#001529"
@@ -945,9 +945,9 @@ else:
                                 for m in matchs_journee:
                                     prono_data = pronos_recap.get(uid, {}).get(m['id'])
                                     if prono_data:
-                                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;"><span style="color:#4488FF; font-weight:bold;">{prono_data["score"]}</span> <span style="color:#FFD700; font-size:0.85em;">{prono_data["mise"]}</span></td>'
+                                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg} !important; font-size:0.7em;"><span style="color:#4488FF !important; font-weight:bold;">{prono_data["score"]}</span> <span style="color:#FFD700 !important; font-size:0.85em;">{prono_data["mise"]}</span></td>'
                                     else:
-                                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; color:#444; font-size:0.7em;">-</td>'
+                                        cells_html += f'<td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg} !important; color:#666 !important; font-size:0.7em;">-</td>'
 
                                 if rang == 1:
                                     rang_display = "🥇"
@@ -956,24 +956,24 @@ else:
                                 elif rang == 3:
                                     rang_display = "🥉"
                                 else:
-                                    rang_display = f'<span style="color:#888;">{rang}</span>'
+                                    rang_display = f'<span style="color:#888 !important;">{rang}</span>'
 
                                 rows_html += f'''
                                 <tr>
-                                    <td style="padding:4px 3px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em; {border}">{rang_display}</td>
-                                    <td style="padding:4px 3px; border-bottom:1px solid #222; background:{bg}; color:#fff; font-size:0.7em; white-space:nowrap; {border}">{pseudo}</td>
-                                    <td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg}; font-size:0.7em;">{joker_cell}</td>
+                                    <td style="padding:4px 3px; border-bottom:1px solid #222; text-align:center; background:{bg} !important; font-size:0.7em; {border}">{rang_display}</td>
+                                    <td style="padding:4px 3px; border-bottom:1px solid #222; background:{bg} !important; color:#fff !important; font-size:0.7em; white-space:nowrap; {border}">{pseudo}</td>
+                                    <td style="padding:4px 2px; border-bottom:1px solid #222; text-align:center; background:{bg} !important; font-size:0.7em;">{joker_cell}</td>
                                     {cells_html}
                                 </tr>
                                 '''
 
                             st.markdown(f"""
-                            <div style="overflow-x: auto; margin: 5px 0;">
-                                <table style="width:100%; border-collapse:collapse;">
+                            <div style="overflow-x: auto; margin: 5px 0; background: #001529; border-radius: 8px; padding: 5px;">
+                                <table style="width:100%; border-collapse:collapse; background: #001529;">
                                     <tr>
-                                        <th style="padding:4px 3px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:center; width:30px;">#</th>
-                                        <th style="padding:4px 3px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:left;">Pseudo</th>
-                                        <th style="padding:4px 2px; background:#D4AF37; color:#001529; font-size:0.6em; text-align:center; width:25px;">🃏</th>
+                                        <th style="padding:4px 3px; background:#D4AF37 !important; color:#001529 !important; font-size:0.6em; text-align:center; width:30px;">#</th>
+                                        <th style="padding:4px 3px; background:#D4AF37 !important; color:#001529 !important; font-size:0.6em; text-align:left;">Pseudo</th>
+                                        <th style="padding:4px 2px; background:#D4AF37 !important; color:#001529 !important; font-size:0.6em; text-align:center; width:25px;">🃏</th>
                                         {match_headers_html}
                                     </tr>
                                     {rows_html}
