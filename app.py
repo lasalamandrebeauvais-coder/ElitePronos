@@ -943,10 +943,13 @@ else:
 
                             # Construire les colonnes pour le DataFrame
                             columns = ['#', 'Pseudo', '🃏']
+                            match_col_names = []
                             for m in matchs_journee:
-                                home_s = m['equipe_home'][:5]
-                                away_s = m['equipe_away'][:5]
-                                columns.append(f"{home_s}-{away_s}")
+                                home_s = m['equipe_home'][:3].upper()
+                                away_s = m['equipe_away'][:3].upper()
+                                col_name = f"{home_s}-{away_s}"
+                                columns.append(col_name)
+                                match_col_names.append(col_name)
 
                             # Construire les lignes
                             rows_data = []
@@ -979,12 +982,23 @@ else:
                             # Creer le DataFrame
                             df_recap = pd.DataFrame(rows_data, columns=columns)
 
+                            # Configurer les colonnes
+                            column_config = {
+                                '#': st.column_config.TextColumn('#', width='small'),
+                                'Pseudo': st.column_config.TextColumn('Pseudo', width='small'),
+                                '🃏': st.column_config.TextColumn('🃏', width='small'),
+                            }
+                            # Ajouter config pour les colonnes de matchs (plus larges)
+                            for col_name in match_col_names:
+                                column_config[col_name] = st.column_config.TextColumn(col_name, width='medium')
+
                             # Afficher avec st.dataframe
                             st.dataframe(
                                 df_recap,
                                 use_container_width=True,
                                 hide_index=True,
-                                height=min(400, 35 * len(rows_data) + 40)
+                                height=min(400, 35 * len(rows_data) + 40),
+                                column_config=column_config
                             )
 
                         except Exception as e:
