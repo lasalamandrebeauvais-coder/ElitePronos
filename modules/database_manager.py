@@ -659,68 +659,167 @@ def get_utilisateurs_sans_pronostics(semaine_id):
     return oublieurs
 
 
-def trouver_cible_vol_auto(semaine_id, exclu_ids=None):
+def get_kingo_user_id():
+    """Retourne l'ID de Kingo (le bot)"""
+    from modules.supabase_db import get_supabase
+    supabase = get_supabase()
+    result = supabase._request('GET', 'utilisateurs?pseudo=eq.Kingo&select=id')
+    if result and len(result) > 0:
+        return result[0]['id']
+    return None
+
+
+def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
     """
-    Trouve une cible éligible pour le vol automatique.
-    Commence par le dernier du classement, remonte si nécessaire.
+    Pour tous les joueurs qui ont oublie leurs pronos:
+    - Consomme 1 joker VOL
+    - Copie les pronos de Kingo
+
+    A appeler juste apres la deadline (avant le 1er match).
+    Retourne la liste des joueurs traites.
     """
-    if exclu_ids is None:
-        exclu_ids = set()
+    from modules.supabase_db import get_supabase
 
-    classement = get_classement_general()
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
 
-    # Parcourir du dernier au premier
-    for user_id, pseudo, total in reversed(classement):
-        if user_id in exclu_ids:
-            continue
+    supabase = get_supabase()
+    traites = []
 
-        # Vérifier si cette personne a des pronostics
-        conn = get_connection()
-        cursor = conn.cursor()
+    try:
+        # Recuperer l'ID de Kingo
+        kingo_id = get_kingo_user_id()
+        if not kingo_id:
+            return [], "Kingo introuvable"
 
-        cursor.execute('''
-            SELECT COUNT(*)
-            FROM predictions p
-            JOIN matches m ON p.match_id = m.id
-            WHERE p.user_id = ? AND m.semaine_id = ?
-        ''', (user_id, semaine_id))
+        # Recuperer les matchs actifs de la semaine
+        matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id'
+        ) or []
+        match_ids = [m['id'] for m in matchs]
 
-        nb_pronos = cursor.fetchone()[0]
-        conn.close()
+        if not match_ids:
+            return [], "Pas de matchs actifs"
 
-        if nb_pronos > 0:
-            return user_id, pseudo
+        match_ids_str = ','.join(map(str, match_ids))
 
-    return None, None
+        # Recuperer les pronos de Kingo
+        kingo_pronos = supabase._request('GET',
+            f'predictions?user_id=eq.{kingo_id}&match_id=in.({match_ids_str})&select=match_id,score_prono_home,score_prono_away,mise_points'
+        ) or []
 
+        if not kingo_pronos:
+            return [], "Kingo n'a pas de pronos"
 
-def activer_vol_automatique(utilisateur_id, semaine_id):
-    """
-    Active automatiquement le joker Points Volés pour un utilisateur qui a oublié.
-    """
-    # Trouver une cible valide
-    oublieurs = get_utilisateurs_sans_pronostics(semaine_id)
-    oublieur_ids = {u[0] for u in oublieurs}
-    oublieur_ids.add(utilisateur_id)  # S'exclure soi-même
+        kingo_pronos_map = {p['match_id']: p for p in kingo_pronos}
 
-    cible_id, cible_pseudo = trouver_cible_vol_auto(semaine_id, oublieur_ids)
+        # Recuperer tous les utilisateurs actifs (sauf Kingo)
+        users = supabase._request('GET',
+            f'utilisateurs?statut=eq.Actif&id=neq.{kingo_id}&select=id,pseudo'
+        ) or []
 
-    if cible_id is None:
-        return False, "Aucune cible valide trouvée"
+        # Recuperer toutes les predictions existantes pour cette semaine
+        existing_preds = supabase._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&select=user_id,match_id'
+        ) or []
 
-    conn = get_connection()
-    cursor = conn.cursor()
+        # Compter les pronos par user
+        pronos_par_user = {}
+        for p in existing_preds:
+            uid = p['user_id']
+            pronos_par_user[uid] = pronos_par_user.get(uid, 0) + 1
 
-    # Enregistrer le vol automatique (sans décrémenter le stock - c'est une pénalité)
-    cursor.execute('''
-        INSERT INTO jokers_historique (utilisateur_id, semaine_id, type_joker, cible_vol_id)
-        VALUES (?, ?, 'VOL_AUTO', ?)
-    ''', (utilisateur_id, semaine_id, cible_id))
+        nb_matchs = len(match_ids)
 
-    conn.commit()
-    conn.close()
+        # Trouver les joueurs qui n'ont pas fait TOUS leurs pronos
+        for user in users:
+            user_id = user['id']
+            pseudo = user['pseudo']
+            nb_pronos = pronos_par_user.get(user_id, 0)
 
-    return True, f"Vol automatique activé: pronostics copiés de {cible_pseudo}"
+            if nb_pronos < nb_matchs:
+                # Ce joueur a oublie (tout ou partie)
+
+                # Verifier s'il a encore des jokers VOL
+                stock = supabase._request('GET',
+                    f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}&select=joker_vol'
+                ) or []
+
+                jokers_vol_dispo = stock[0].get('joker_vol', 0) if stock else 0
+
+                if jokers_vol_dispo > 0:
+                    # Consommer 1 joker VOL
+                    supabase._request('PATCH',
+                        f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
+                        {'joker_vol': jokers_vol_dispo - 1}
+                    )
+
+                    # Enregistrer le VOL automatique sur Kingo
+                    supabase._request('POST', 'jokers_historique', {
+                        'utilisateur_id': user_id,
+                        'semaine_id': semaine_id,
+                        'saison_id': saison_id,
+                        'type_joker': 'VOL',
+                        'cible_vol_id': kingo_id
+                    })
+
+                    # Copier les pronos manquants de Kingo
+                    for match_id in match_ids:
+                        # Verifier si le joueur a deja un prono pour ce match
+                        existing = supabase._request('GET',
+                            f'predictions?user_id=eq.{user_id}&match_id=eq.{match_id}&select=id'
+                        ) or []
+
+                        if not existing:
+                            # Copier le prono de Kingo
+                            kingo_p = kingo_pronos_map.get(match_id)
+                            if kingo_p:
+                                supabase._request('POST', 'predictions', {
+                                    'user_id': user_id,
+                                    'match_id': match_id,
+                                    'saison_id': saison_id,
+                                    'score_prono_home': kingo_p['score_prono_home'],
+                                    'score_prono_away': kingo_p['score_prono_away'],
+                                    'mise_points': kingo_p['mise_points']
+                                })
+
+                    traites.append({
+                        'user_id': user_id,
+                        'pseudo': pseudo,
+                        'pronos_manquants': nb_matchs - nb_pronos,
+                        'jokers_restants': jokers_vol_dispo - 1
+                    })
+                else:
+                    # Plus de joker VOL - copier quand meme les pronos de Kingo (penalite)
+                    for match_id in match_ids:
+                        existing = supabase._request('GET',
+                            f'predictions?user_id=eq.{user_id}&match_id=eq.{match_id}&select=id'
+                        ) or []
+
+                        if not existing:
+                            kingo_p = kingo_pronos_map.get(match_id)
+                            if kingo_p:
+                                supabase._request('POST', 'predictions', {
+                                    'user_id': user_id,
+                                    'match_id': match_id,
+                                    'saison_id': saison_id,
+                                    'score_prono_home': kingo_p['score_prono_home'],
+                                    'score_prono_away': kingo_p['score_prono_away'],
+                                    'mise_points': kingo_p['mise_points']
+                                })
+
+                    traites.append({
+                        'user_id': user_id,
+                        'pseudo': pseudo,
+                        'pronos_manquants': nb_matchs - nb_pronos,
+                        'jokers_restants': 0,
+                        'sans_joker': True
+                    })
+
+        return traites, f"{len(traites)} joueur(s) traite(s)"
+
+    except Exception as e:
+        return [], str(e)
 
 
 # ============================================
@@ -1233,6 +1332,41 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
         return set()
 
 
+def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, bonus_exact=10):
+    """
+    Calcule les points pour un match donne.
+    Retourne (points, is_exact)
+    """
+    # Determiner la cote applicable selon le prono
+    if prono_h > prono_a:
+        cote = cote_home
+    elif prono_h < prono_a:
+        cote = cote_away
+    else:
+        cote = cote_draw
+
+    points = 0
+    is_exact = False
+
+    # Verifier si bon resultat (1N2)
+    bon_resultat = (
+        (prono_h > prono_a and score_h > score_a) or
+        (prono_h < prono_a and score_h < score_a) or
+        (prono_h == prono_a and score_h == score_a)
+    )
+
+    if bon_resultat:
+        points = round(mise * cote, 1)
+        # Bonus score exact
+        if prono_h == score_h and prono_a == score_a:
+            points += bonus_exact
+            is_exact = True
+    else:
+        points = -mise  # Perte de la mise
+
+    return points, is_exact
+
+
 def calculer_gains_supabase(semaine_id, saison_id=None):
     """
     Calcule les gains avec les COTES pour chaque match termine.
@@ -1240,7 +1374,7 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
     JOKERS:
     - DOUBLE: ×2 sur tous les gains (pertes incluses)
-    - VOL: pronostics deja copies lors de la validation
+    - VOL: le joueur prend les points de la cible (pas ses propres pronos)
 
     BONUS:
     - Grand Chelem: +40 pts si 4/4 1N2 corrects la semaine precedente
@@ -1262,6 +1396,13 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
         ) or []
         users_avec_double = {j['utilisateur_id'] for j in jokers_double}
 
+        # Recuperer les jokers VOL actifs avec leur cible
+        jokers_vol = supabase._request('GET',
+            f'jokers_historique?semaine_id=eq.{semaine_id}&type_joker=eq.VOL&select=utilisateur_id,cible_vol_id'
+        ) or []
+        # Dict: voleur_id -> cible_id
+        vol_cibles = {j['utilisateur_id']: j['cible_vol_id'] for j in jokers_vol if j.get('cible_vol_id')}
+
         # Recuperer les users avec Grand Chelem la semaine precedente
         users_grand_chelem = get_users_grand_chelem_semaine_precedente(semaine_id, saison_id)
         bonus_grand_chelem_applique = set()  # Pour eviter de l'appliquer 2 fois
@@ -1274,67 +1415,115 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
         if not matchs:
             return False, "Aucun match termine"
 
+        match_ids = [m['id'] for m in matchs]
+        match_ids_str = ','.join(map(str, match_ids))
+        match_map = {m['id']: m for m in matchs}
+
+        # Recuperer TOUTES les predictions de la semaine (pour le VOL)
+        all_predictions = supabase._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes'
+        ) or []
+
+        # Organiser les predictions par user et par match
+        preds_by_user = {}
+        for p in all_predictions:
+            uid = p['user_id']
+            mid = p['match_id']
+            if uid not in preds_by_user:
+                preds_by_user[uid] = {}
+            preds_by_user[uid][mid] = p
+
         total_updates = 0
-        for match in matchs:
-            match_id = match['id']
-            score_h = match['score_final_home']
-            score_a = match['score_final_away']
-            cote_home = match.get('cote_home', 2.0)
-            cote_draw = match.get('cote_draw', 3.0)
-            cote_away = match.get('cote_away', 2.0)
+        comparaisons_vol = []  # Pour stocker les comparaisons VOL
 
-            # Recuperer les predictions NON ENCORE CALCULEES
-            predictions = supabase._request('GET',
-                f'predictions?match_id=eq.{match_id}&points_gagnes=is.null&select=id,user_id,score_prono_home,score_prono_away,mise_points'
-            ) or []
+        # Traiter chaque utilisateur
+        users_traites = set(preds_by_user.keys())
+        for user_id in users_traites:
+            user_preds = preds_by_user.get(user_id, {})
 
-            for pred in predictions:
-                user_id = pred['user_id']
+            # Verifier si cet utilisateur a un joker VOL
+            cible_id = vol_cibles.get(user_id)
+            cible_preds = preds_by_user.get(cible_id, {}) if cible_id else {}
+
+            points_propres_total = 0  # Points avec ses propres pronos
+            points_voles_total = 0    # Points avec les pronos de la cible
+
+            for match_id, pred in user_preds.items():
+                # Si deja calcule, skip
+                if pred.get('points_gagnes') is not None:
+                    continue
+
+                match = match_map.get(match_id)
+                if not match:
+                    continue
+
+                score_h = match['score_final_home']
+                score_a = match['score_final_away']
+                cote_home = match.get('cote_home', 2.0) or 2.0
+                cote_draw = match.get('cote_draw', 3.0) or 3.0
+                cote_away = match.get('cote_away', 2.0) or 2.0
+
+                # Calculer les points avec ses PROPRES pronos
                 prono_h = pred['score_prono_home']
                 prono_a = pred['score_prono_away']
-                mise = pred['mise_points']
+                mise = pred['mise_points'] or 25
 
-                # Determiner la cote applicable selon le prono
-                if prono_h > prono_a:
-                    cote = cote_home
-                elif prono_h < prono_a:
-                    cote = cote_away
-                else:
-                    cote = cote_draw
-
-                points = 0
-                is_exact = False
-
-                # Verifier si bon resultat (1N2)
-                bon_resultat = (
-                    (prono_h > prono_a and score_h > score_a) or
-                    (prono_h < prono_a and score_h < score_a) or
-                    (prono_h == prono_a and score_h == score_a)
+                points_propres, is_exact_propres = _calculer_points_match(
+                    prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, BONUS_EXACT
                 )
+                points_propres_total += points_propres
 
-                if bon_resultat:
-                    points = round(mise * cote, 1)
-                    # Bonus score exact
-                    if prono_h == score_h and prono_a == score_a:
-                        points += BONUS_EXACT
-                        is_exact = True
+                # Si joker VOL actif, utiliser les pronos de la cible
+                if cible_id and cible_id in preds_by_user:
+                    cible_pred = cible_preds.get(match_id)
+                    if cible_pred:
+                        cible_prono_h = cible_pred['score_prono_home']
+                        cible_prono_a = cible_pred['score_prono_away']
+                        cible_mise = cible_pred['mise_points'] or 25
+
+                        points_voles, is_exact_voles = _calculer_points_match(
+                            cible_prono_h, cible_prono_a, score_h, score_a, cible_mise, cote_home, cote_draw, cote_away, BONUS_EXACT
+                        )
+                        points_voles_total += points_voles
+
+                        # Le joueur prend les points de la cible
+                        points_final = points_voles
+                        is_exact_final = is_exact_voles
+                    else:
+                        # Pas de prono de la cible pour ce match, garder les siens
+                        points_final = points_propres
+                        is_exact_final = is_exact_propres
                 else:
-                    points = -mise  # Perte de la mise
+                    # Pas de VOL, utiliser ses propres points
+                    points_final = points_propres
+                    is_exact_final = is_exact_propres
 
                 # JOKER DOUBLE: x2 sur les gains ET les pertes
                 if user_id in users_avec_double:
-                    points = points * 2
+                    points_final = points_final * 2
 
                 # BONUS GRAND CHELEM: +40 pts (une seule fois par user)
                 if user_id in users_grand_chelem and user_id not in bonus_grand_chelem_applique:
-                    points += BONUS_GRAND_CHELEM
+                    points_final += BONUS_GRAND_CHELEM
                     bonus_grand_chelem_applique.add(user_id)
 
                 supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
-                    'points_gagnes': points,
-                    'is_score_exact': is_exact
+                    'points_gagnes': points_final,
+                    'is_score_exact': is_exact_final
                 })
                 total_updates += 1
+
+            # Stocker la comparaison VOL si applicable
+            if cible_id and cible_id in preds_by_user:
+                diff = points_voles_total - points_propres_total
+                comparaisons_vol.append({
+                    'user_id': user_id,
+                    'cible_id': cible_id,
+                    'points_propres': points_propres_total,
+                    'points_voles': points_voles_total,
+                    'diff': diff,
+                    'rentable': diff > 0
+                })
 
         # Invalider le cache Streamlit
         try:
@@ -1343,11 +1532,20 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
         except:
             pass
 
+        # Construire le message de retour
         info_parts = []
         if users_avec_double:
             info_parts.append(f"{len(users_avec_double)} jokers DOUBLE")
+        if vol_cibles:
+            info_parts.append(f"{len(vol_cibles)} jokers VOL")
         if bonus_grand_chelem_applique:
             info_parts.append(f"{len(bonus_grand_chelem_applique)} Grand Chelem")
+
+        # Ajouter les comparaisons VOL au message
+        for comp in comparaisons_vol:
+            signe = '+' if comp['diff'] > 0 else ''
+            info_parts.append(f"VOL user {comp['user_id']}: {comp['points_voles']}pts (vs {comp['points_propres']}pts, {signe}{comp['diff']})")
+
         extra_info = f" ({', '.join(info_parts)})" if info_parts else ""
 
         return True, f"Gains calcules pour {total_updates} predictions{extra_info}"
