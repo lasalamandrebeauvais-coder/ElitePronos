@@ -247,6 +247,7 @@ st.markdown("""
 
     .stTabs [data-baseweb="tab"] {
         color: #FFFFFF !important;
+        background-color: transparent !important;
     }
 
     .stTabs [aria-selected="true"] {
@@ -254,10 +255,39 @@ st.markdown("""
         border-bottom-color: #FFD700 !important;
     }
 
-    /* Tab panels (contenu des tabs) */
-    .stTabs [data-baseweb="tab-panel"],
-    .stTabs > div > div > div {
+    /* Tab panels - FORCER fond sombre sur TOUS les conteneurs */
+    .stTabs [data-baseweb="tab-panel"] {
         background-color: #001529 !important;
+    }
+
+    .stTabs [data-baseweb="tab-panel"] > div,
+    .stTabs [data-baseweb="tab-panel"] > div > div,
+    .stTabs [data-baseweb="tab-panel"] > div > div > div,
+    .stTabs [data-baseweb="tab-panel"] iframe,
+    .stTabs [data-baseweb="tab-panel"] .element-container,
+    .stTabs [data-baseweb="tab-panel"] .stMarkdown,
+    .stTabs [data-baseweb="tab-panel"] [data-testid="stMarkdownContainer"] {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+
+    /* Forcer les tableaux dans les tabs */
+    .stTabs table {
+        background-color: #001529 !important;
+    }
+
+    .stTabs table th {
+        background-color: #D4AF37 !important;
+        color: #001529 !important;
+    }
+
+    .stTabs table td {
+        background-color: #001529 !important;
+        color: #FFFFFF !important;
+    }
+
+    .stTabs table td span {
+        color: inherit !important;
     }
 
     /* ===== EXPANDERS ===== */
