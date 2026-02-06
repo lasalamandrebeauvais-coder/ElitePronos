@@ -254,6 +254,12 @@ st.markdown("""
         border-bottom-color: #FFD700 !important;
     }
 
+    /* Tab panels (contenu des tabs) */
+    .stTabs [data-baseweb="tab-panel"],
+    .stTabs > div > div > div {
+        background-color: #001529 !important;
+    }
+
     /* ===== EXPANDERS ===== */
     .streamlit-expanderHeader {
         background-color: #002040 !important;
