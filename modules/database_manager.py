@@ -787,33 +787,17 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
                         'user_id': user_id,
                         'pseudo': pseudo,
                         'pronos_manquants': nb_matchs - nb_pronos,
-                        'jokers_restants': jokers_vol_dispo - 1
+                        'jokers_restants': jokers_vol_dispo - 1,
+                        'action': 'VOL_AUTO_KINGO'
                     })
                 else:
-                    # Plus de joker VOL - copier quand meme les pronos de Kingo (penalite)
-                    for match_id in match_ids:
-                        existing = supabase._request('GET',
-                            f'predictions?user_id=eq.{user_id}&match_id=eq.{match_id}&select=id'
-                        ) or []
-
-                        if not existing:
-                            kingo_p = kingo_pronos_map.get(match_id)
-                            if kingo_p:
-                                supabase._request('POST', 'predictions', {
-                                    'user_id': user_id,
-                                    'match_id': match_id,
-                                    'saison_id': saison_id,
-                                    'score_prono_home': kingo_p['score_prono_home'],
-                                    'score_prono_away': kingo_p['score_prono_away'],
-                                    'mise_points': kingo_p['mise_points']
-                                })
-
+                    # Plus de joker VOL = 0 points (pas de copie, pas de predictions)
                     traites.append({
                         'user_id': user_id,
                         'pseudo': pseudo,
                         'pronos_manquants': nb_matchs - nb_pronos,
                         'jokers_restants': 0,
-                        'sans_joker': True
+                        'action': 'ZERO_POINTS'
                     })
 
         return traites, f"{len(traites)} joueur(s) traite(s)"
@@ -1378,6 +1362,10 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
     BONUS:
     - Grand Chelem: +40 pts si 4/4 1N2 corrects la semaine precedente
+
+    AUTO-VOL:
+    - Si un joueur a oublie ses pronos et a un joker VOL, il vole Kingo automatiquement
+    - Si pas de joker VOL, il a 0 points
     """
     from modules.supabase_db import get_supabase
 
@@ -1389,6 +1377,14 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
     try:
         supabase = get_supabase()
+
+        # === AUTO-VOL: Traiter les joueurs qui ont oublie leurs pronos ===
+        try:
+            oublis_traites, msg_oublis = appliquer_vol_auto_oublis(semaine_id, saison_id)
+            if oublis_traites:
+                print(f"Auto-VOL: {msg_oublis}")
+        except Exception as e:
+            print(f"Erreur Auto-VOL: {e}")
 
         # Recuperer les jokers DOUBLE actifs pour cette semaine
         jokers_double = supabase._request('GET',
