@@ -896,19 +896,12 @@ else:
                 # === TAB RECAP ===
                 with tab_recap:
                     if pronostics_ouverts:
-                        st.markdown("""
-                        <div style="background: #002040; border: 1px solid #666; border-radius: 10px; padding: 20px; text-align: center; color: #888;">
-                            <div style="font-size: 2em; margin-bottom: 10px;">🔒</div>
-                            <div>Le tableau recap sera visible apres la fermeture des pronostics</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.info("🔒 Le tableau recap sera visible après la fermeture des pronostics")
                     else:
                         try:
-                            st.markdown(f"""
-                            <div style="color: #D4AF37; font-size: 1em; font-weight: bold; text-align: center; margin: 10px 0;">
-                                📋 RECAP DES PRONOSTICS - J{journee_courante}
-                            </div>
-                            """, unsafe_allow_html=True)
+                            import pandas as pd
+
+                            st.subheader(f"📋 Recap J{journee_courante}")
 
                             # Recuperer donnees pour le tableau
                             from modules.supabase_db import get_supabase as _get_sb
@@ -941,49 +934,24 @@ else:
                                 if uid not in pronos_recap:
                                     pronos_recap[uid] = {}
                                 mise = p.get('mise_points', 0) or 0
-                                pronos_recap[uid][p['match_id']] = {'score': f"{p['score_prono_home']}-{p['score_prono_away']}", 'mise': mise}
+                                pronos_recap[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']} ({mise})"
 
                             joueurs_recap = sorted(
                                 [(uid, pseudo) for uid, pseudo in user_map_recap.items()],
                                 key=lambda x: rang_map.get(x[0], 999)
                             )
 
-                            match_headers_html = ""
+                            # Construire les colonnes pour le DataFrame
+                            columns = ['#', 'Pseudo', '🃏']
                             for m in matchs_journee:
-                                home_s = m['equipe_home'][:6]
-                                away_s = m['equipe_away'][:6]
-                                c1 = m.get('cote_home') or '-'
-                                cn = m.get('cote_draw') or '-'
-                                c2 = m.get('cote_away') or '-'
-                                match_headers_html += f'''
-                                <th style="min-width:55px; font-size:0.55em;">
-                                    {home_s}<br>vs<br>{away_s}
-                                    <div style="font-size:0.85em; color:#333; margin-top:2px;">{c1} | {cn} | {c2}</div>
-                                </th>
-                                '''
+                                home_s = m['equipe_home'][:5]
+                                away_s = m['equipe_away'][:5]
+                                columns.append(f"{home_s}-{away_s}")
 
-                            rows_html = ""
+                            # Construire les lignes
+                            rows_data = []
                             for uid, pseudo in joueurs_recap:
                                 rang = rang_map.get(uid, '-')
-                                joker_type = jokers_map_recap.get(uid, '')
-                                if joker_type == 'double':
-                                    joker_cell = '<span class="joker-double">⚡</span>'
-                                elif joker_type == 'vol':
-                                    joker_cell = '<span class="joker-vol">🎯</span>'
-                                else:
-                                    joker_cell = '-'
-
-                                is_me = uid == user_id
-                                row_class = "me-row" if is_me else ""
-
-                                cells_html = ""
-                                for m in matchs_journee:
-                                    prono_data = pronos_recap.get(uid, {}).get(m['id'])
-                                    if prono_data:
-                                        cells_html += f'<td><span class="score-cell">{prono_data["score"]}</span> <span class="mise-cell">{prono_data["mise"]}</span></td>'
-                                    else:
-                                        cells_html += '<td>-</td>'
-
                                 if rang == 1:
                                     rang_display = "🥇"
                                 elif rang == 2:
@@ -993,77 +961,31 @@ else:
                                 else:
                                     rang_display = str(rang)
 
-                                rows_html += f'''
-                                <tr class="{row_class}">
-                                    <td style="text-align:center;">{rang_display}</td>
-                                    <td style="white-space:nowrap;">{pseudo}</td>
-                                    <td style="text-align:center;">{joker_cell}</td>
-                                    {cells_html}
-                                </tr>
-                                '''
+                                joker_type = jokers_map_recap.get(uid, '')
+                                if joker_type == 'double':
+                                    joker_display = "⚡"
+                                elif joker_type == 'vol':
+                                    joker_display = "🎯"
+                                else:
+                                    joker_display = "-"
 
-                            # Utiliser un conteneur Streamlit avec style inline
-                            st.markdown("""
-                            <style>
-                            .recap-table-wrapper {
-                                background-color: #001529 !important;
-                                border-radius: 8px;
-                                padding: 10px;
-                                margin: 5px 0;
-                                overflow-x: auto;
-                            }
-                            .recap-table-wrapper table {
-                                width: 100%;
-                                border-collapse: collapse;
-                                background-color: #001529;
-                            }
-                            .recap-table-wrapper th {
-                                background-color: #D4AF37 !important;
-                                color: #001529 !important;
-                                padding: 4px 2px;
-                                font-size: 0.6em;
-                                text-align: center;
-                            }
-                            .recap-table-wrapper td {
-                                background-color: #001529 !important;
-                                color: #FFFFFF !important;
-                                padding: 4px 2px;
-                                font-size: 0.7em;
-                                border-bottom: 1px solid #222;
-                            }
-                            .recap-table-wrapper .me-row td {
-                                background-color: #002855 !important;
-                                border-left: 3px solid #FFD700;
-                            }
-                            .recap-table-wrapper .score-cell {
-                                color: #4488FF !important;
-                                font-weight: bold;
-                            }
-                            .recap-table-wrapper .mise-cell {
-                                color: #FFD700 !important;
-                            }
-                            .recap-table-wrapper .joker-double {
-                                color: #FFD700 !important;
-                            }
-                            .recap-table-wrapper .joker-vol {
-                                color: #9b59b6 !important;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
+                                row = [rang_display, pseudo, joker_display]
+                                for m in matchs_journee:
+                                    prono = pronos_recap.get(uid, {}).get(m['id'], '-')
+                                    row.append(prono)
 
-                            st.markdown(f"""
-                            <div class="recap-table-wrapper">
-                                <table>
-                                    <tr>
-                                        <th style="width:30px;">#</th>
-                                        <th style="text-align:left;">Pseudo</th>
-                                        <th style="width:25px;">🃏</th>
-                                        {match_headers_html}
-                                    </tr>
-                                    {rows_html}
-                                </table>
-                            </div>
-                            """, unsafe_allow_html=True)
+                                rows_data.append(row)
+
+                            # Creer le DataFrame
+                            df_recap = pd.DataFrame(rows_data, columns=columns)
+
+                            # Afficher avec st.dataframe
+                            st.dataframe(
+                                df_recap,
+                                use_container_width=True,
+                                hide_index=True,
+                                height=min(400, 35 * len(rows_data) + 40)
+                            )
 
                         except Exception as e:
                             st.warning(f"Erreur chargement recap: {e}")
