@@ -93,7 +93,7 @@ def get_evolution_classement():
             'predictions?select=user_id,points_gagnes,matches(semaine_id)'
         ) or []
 
-        # Points actuels (toutes journees) et points avant journee en cours
+        # Points actuels (toutes journees) et points avant la journee en cours
         current_pts = {}
         old_pts = {}
         for p in all_preds:
