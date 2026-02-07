@@ -836,7 +836,6 @@ else:
                             html_me += f'<span style="color:#00BFFF;font-weight:bold;">👤 MOI</span>'
                             html_me += f'<span style="color:{my_color};font-weight:bold;">{"+" if my_total > 0 else ""}{my_total} pts</span></div>'
 
-                            first_me = True
                             for p in my_pronos:
                                 if not p.get('matches'):
                                     continue
@@ -916,7 +915,6 @@ else:
                                     </div>
                                 """, unsafe_allow_html=True)
 
-                                first_row = True
                                 for home, away, ph, pa, mise, pts_gagnes, score_h, score_a, c_h, c_n, c_a in pronos_joueur:
                                     if score_h is not None:
                                         icon = "🎯" if (ph == score_h and pa == score_a) else "✅" if ((ph > pa and score_h > score_a) or (ph < pa and score_h < score_a) or (ph == pa and score_h == score_a)) else "❌"
