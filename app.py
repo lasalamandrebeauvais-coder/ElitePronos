@@ -816,6 +816,52 @@ else:
                                 joueurs_dict[uid]['total'] += p.get('points_gagnes') or 0
                             joueurs_journee = [(uid, data['pseudo'], data['total']) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
 
+                            # Bloc MES PRONOSTICS
+                            my_pronos = supabase._request('GET',
+                                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away)'
+                            ) or []
+                            my_joker = supabase._request('GET',
+                                f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
+                            ) or []
+                            my_joker_icon = ""
+                            if my_joker:
+                                jt = my_joker[0].get('type_joker', '')
+                                my_joker_icon = "⚡" if jt == "DOUBLE" else "🎯" if jt == "VOL" else ""
+
+                            my_total = sum(p.get('points_gagnes') or 0 for p in my_pronos)
+                            my_color = "#00FF00" if my_total >= 0 else "#FF4444"
+
+                            html_me = f'<div style="background:linear-gradient(135deg,#001529 0%,#002040 100%);border:2px solid #00BFFF;border-radius:10px;padding:12px;margin:10px 0;">'
+                            html_me += f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #00BFFF;">'
+                            html_me += f'<span style="color:#00BFFF;font-weight:bold;">👤 MOI</span>'
+                            html_me += f'<span style="color:{my_color};font-weight:bold;">{"+" if my_total > 0 else ""}{my_total} pts</span></div>'
+
+                            first_me = True
+                            for p in my_pronos:
+                                if not p.get('matches'):
+                                    continue
+                                m_p = p['matches']
+                                ph, pa, mise = p['score_prono_home'], p['score_prono_away'], p['mise_points']
+                                pts = p.get('points_gagnes') or 0
+                                sh, sa = m_p.get('score_final_home'), m_p.get('score_final_away')
+                                if sh is not None:
+                                    icon_me = "🎯" if (ph == sh and pa == sa) else "✅" if ((ph > pa and sh > sa) or (ph < pa and sh < sa) or (ph == pa and sh == sa)) else "❌"
+                                    score_d = f"{sh}-{sa}"
+                                else:
+                                    icon_me, score_d = "⏳", "-"
+                                pts_c = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
+                                jd = my_joker_icon if first_me else ""
+                                first_me = False
+                                html_me += f'<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">'
+                                html_me += f'<span style="color:#FFFFFF;flex:3;text-align:left;">{m_p["equipe_home"][:12]} - {m_p["equipe_away"][:12]}</span>'
+                                html_me += f'<span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>'
+                                html_me += f'<span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>'
+                                html_me += f'<span style="color:#FF00FF;flex:0.5;text-align:center;">{jd}</span>'
+                                html_me += f'<span style="color:#00FF00;flex:1.5;text-align:center;">{score_d} {icon_me}</span>'
+                                html_me += f'<span style="color:{pts_c};flex:1;text-align:right;">{"+" if pts > 0 else ""}{pts}</span></div>'
+                            html_me += '</div>'
+                            st.markdown(html_me, unsafe_allow_html=True)
+
                             # Bloc Kingo Rivaux
                             from modules.synthese_st import get_debrief_rivaux
                             debrief_rivaux = get_debrief_rivaux(user_id, saison_id, journee_courante)
