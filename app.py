@@ -887,13 +887,13 @@ else:
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                     joker_display = joker_icon if first_row else ""
                                     first_row = False
-                                    st.markdown(f"""<div style="display: flex; justify-content: space-between; padding: 4px 0; border-top: 1px solid #333; font-size: 0.8em;">
-                                        <span style="color: #FFFFFF;">{home[:12]} - {away[:12]}</span>
-                                        <span style="color: #4488FF;">{ph}-{pa}</span>
-                                        <span style="color: #FFD700;">{mise}</span>
-                                        <span style="color: #FF00FF;">{joker_display}</span>
-                                        <span style="color: #00FF00;">{score_display} {icon}</span>
-                                        <span style="color: {pts_color};">{'+' if pts > 0 else ''}{pts}</span>
+                                    st.markdown(f"""<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">
+                                        <span style="color:#FFFFFF;flex:3;text-align:left;">{home[:12]} - {away[:12]}</span>
+                                        <span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>
+                                        <span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>
+                                        <span style="color:#FF00FF;flex:0.5;text-align:center;">{joker_display}</span>
+                                        <span style="color:#00FF00;flex:1.5;text-align:center;">{score_display} {icon}</span>
+                                        <span style="color:{pts_color};flex:1;text-align:right;">{'+' if pts > 0 else ''}{pts}</span>
                                     </div>""", unsafe_allow_html=True)
 
                                 st.markdown("</div>", unsafe_allow_html=True)
