@@ -81,20 +81,19 @@ def get_classement_general_complet():
 
 @st.cache_data(ttl=30)
 def get_evolution_classement():
-    """Compare le classement actuel vs classement il y a 5 journees"""
+    """Compare le classement actuel (temps reel) vs classement avant la journee en cours"""
     try:
         client = get_supabase()
         from modules.database_manager import get_saison_actuelle, get_journee_courante
         saison_id = get_saison_actuelle()
         journee_courante = get_journee_courante(saison_id)
-        seuil = journee_courante - 5
 
         # Toutes les predictions avec semaine_id
         all_preds = client._request('GET',
             'predictions?select=user_id,points_gagnes,matches(semaine_id)'
         ) or []
 
-        # Points actuels (toutes journees) et points anciens (jusqu'a J-5)
+        # Points actuels (toutes journees) et points avant journee en cours
         current_pts = {}
         old_pts = {}
         for p in all_preds:
@@ -102,7 +101,7 @@ def get_evolution_classement():
             pts = p.get('points_gagnes') or 0
             current_pts[uid] = current_pts.get(uid, 0) + pts
             semaine = (p.get('matches') or {}).get('semaine_id')
-            if semaine is not None and semaine <= seuil:
+            if semaine is not None and semaine < journee_courante:
                 old_pts[uid] = old_pts.get(uid, 0) + pts
 
         # Classement actuel
