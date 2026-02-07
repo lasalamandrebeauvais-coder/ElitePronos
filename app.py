@@ -818,7 +818,7 @@ else:
 
                             # Bloc MES PRONOSTICS
                             my_pronos = supabase._request('GET',
-                                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away)'
+                                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away)'
                             ) or []
                             my_joker = supabase._request('GET',
                                 f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
@@ -854,7 +854,9 @@ else:
                                 first_me = False
                                 html_me += f'<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">'
                                 html_me += f'<span style="color:#FFFFFF;flex:3;text-align:left;">{m_p["equipe_home"][:12]} - {m_p["equipe_away"][:12]}</span>'
+                                cote_me = m_p.get('cote_home', 2.0) if ph > pa else m_p.get('cote_away', 2.0) if ph < pa else m_p.get('cote_draw', 3.0)
                                 html_me += f'<span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>'
+                                html_me += f'<span style="color:#FFA500;flex:0.8;text-align:center;">{cote_me}</span>'
                                 html_me += f'<span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>'
                                 html_me += f'<span style="color:#FF00FF;flex:0.5;text-align:center;">{jd}</span>'
                                 html_me += f'<span style="color:#00FF00;flex:1.5;text-align:center;">{score_d} {icon_me}</span>'
@@ -892,14 +894,14 @@ else:
                             all_jokers = supabase._request('GET', f'jokers_historique?utilisateur_id=in.({all_rivaux_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker') or []
                             jokers_map = {j['utilisateur_id']: j['type_joker'] for j in all_jokers}
 
-                            all_pronos = supabase._request('GET', f'predictions?user_id=in.({all_rivaux_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match)') or []
+                            all_pronos = supabase._request('GET', f'predictions?user_id=in.({all_rivaux_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away)') or []
                             pronos_par_joueur = {}
                             for p in all_pronos:
                                 uid = p['user_id']
                                 if uid not in pronos_par_joueur:
                                     pronos_par_joueur[uid] = []
                                 if p.get('matches'):
-                                    pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away')))
+                                    pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away'), p['matches'].get('cote_home', 2.0), p['matches'].get('cote_draw', 3.0), p['matches'].get('cote_away', 2.0)))
 
                             for joueur_id, pseudo, total_pts in joueurs_journee:
                                 joker_type = jokers_map.get(joueur_id)
@@ -916,12 +918,13 @@ else:
                                 """, unsafe_allow_html=True)
 
                                 first_row = True
-                                for home, away, ph, pa, mise, pts_gagnes, score_h, score_a in pronos_joueur:
+                                for home, away, ph, pa, mise, pts_gagnes, score_h, score_a, c_h, c_n, c_a in pronos_joueur:
                                     if score_h is not None:
                                         icon = "🎯" if (ph == score_h and pa == score_a) else "✅" if ((ph > pa and score_h > score_a) or (ph < pa and score_h < score_a) or (ph == pa and score_h == score_a)) else "❌"
                                         score_display = f"{score_h}-{score_a}"
                                     else:
                                         icon, score_display = "⏳", "-"
+                                    cote_r = c_h if ph > pa else c_a if ph < pa else c_n
                                     pts = pts_gagnes if pts_gagnes else 0
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                     joker_display = joker_icon if first_row else ""
@@ -929,6 +932,7 @@ else:
                                     st.markdown(f"""<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">
                                         <span style="color:#FFFFFF;flex:3;text-align:left;">{home[:12]} - {away[:12]}</span>
                                         <span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>
+                                        <span style="color:#FFA500;flex:0.8;text-align:center;">{cote_r}</span>
                                         <span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>
                                         <span style="color:#FF00FF;flex:0.5;text-align:center;">{joker_display}</span>
                                         <span style="color:#00FF00;flex:1.5;text-align:center;">{score_display} {icon}</span>
