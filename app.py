@@ -124,6 +124,17 @@ st.markdown("""
         background-color: transparent !important;
     }
 
+    /* Conteneurs internes Streamlit */
+    [data-testid="stElementContainer"],
+    [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stImageContainer"],
+    .element-container,
+    [data-testid="stColumn"] > div,
+    [data-testid="stColumn"] > div > div {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+
     /* ===== SIDEBAR ===== */
     [data-testid="stSidebar"],
     [data-testid="stSidebar"] > div:first-child {
