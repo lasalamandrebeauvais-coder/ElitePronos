@@ -850,8 +850,7 @@ else:
                                 else:
                                     icon_me, score_d = "⏳", "-"
                                 pts_c = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
-                                jd = my_joker_icon if first_me else ""
-                                first_me = False
+                                jd = my_joker_icon
                                 html_me += f'<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">'
                                 html_me += f'<span style="color:#FFFFFF;flex:3;text-align:left;">{m_p["equipe_home"][:12]} - {m_p["equipe_away"][:12]}</span>'
                                 cote_me = m_p.get('cote_home', 2.0) if ph > pa else m_p.get('cote_away', 2.0) if ph < pa else m_p.get('cote_draw', 3.0)
@@ -927,8 +926,7 @@ else:
                                     cote_r = c_h if ph > pa else c_a if ph < pa else c_n
                                     pts = pts_gagnes if pts_gagnes else 0
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
-                                    joker_display = joker_icon if first_row else ""
-                                    first_row = False
+                                    joker_display = joker_icon
                                     st.markdown(f"""<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">
                                         <span style="color:#FFFFFF;flex:3;text-align:left;">{home[:12]} - {away[:12]}</span>
                                         <span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>
