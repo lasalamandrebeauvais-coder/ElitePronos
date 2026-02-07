@@ -91,9 +91,12 @@ def afficher_profil(user):
     with col_avatar:
         avatar_path = os.path.join(AVATARS_PATH, f"{profil['pseudo']}.png")
         if os.path.exists(avatar_path):
-            avatar_img = Image.open(avatar_path)
-            st.image(avatar_img, width=120)
-        else:
+            try:
+                avatar_img = Image.open(avatar_path)
+                st.image(avatar_img, width=120)
+            except Exception:
+                avatar_path = None
+        if not avatar_path:
             st.markdown(f"""
             <div style="
                 width: 120px;

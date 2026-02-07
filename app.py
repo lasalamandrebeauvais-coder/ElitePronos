@@ -494,9 +494,12 @@ else:
             with kingo_col2:
                 kingo_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
                 if os.path.exists(kingo_path):
-                    from PIL import Image
-                    kingo_img = Image.open(kingo_path)
-                    st.image(kingo_img, width=120)
+                    try:
+                        from PIL import Image
+                        kingo_img = Image.open(kingo_path)
+                        st.image(kingo_img, width=120)
+                    except Exception:
+                        pass
 
             # === BLOC COMPTE À REBOURS / PRONOSTICS FERMÉS ===
             if countdown and not countdown.get('expired', False):

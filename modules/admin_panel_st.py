@@ -151,9 +151,12 @@ def afficher_panel_admin():
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo administration.png")
         if os.path.exists(mascot_path):
-            from PIL import Image
-            mascot_img = Image.open(mascot_path)
-            st.image(mascot_img, width=80)
+            try:
+                from PIL import Image
+                mascot_img = Image.open(mascot_path)
+                st.image(mascot_img, width=80)
+            except Exception:
+                pass
     st.markdown("---")
 
     # Onglets

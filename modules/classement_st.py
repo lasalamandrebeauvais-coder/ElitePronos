@@ -204,9 +204,12 @@ def afficher_classement(user):
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo classements.png")
         if os.path.exists(mascot_path):
-            from PIL import Image
-            mascot_img = Image.open(mascot_path)
-            st.image(mascot_img, width=70)
+            try:
+                from PIL import Image
+                mascot_img = Image.open(mascot_path)
+                st.image(mascot_img, width=70)
+            except Exception:
+                pass
 
     st.markdown("---")
 

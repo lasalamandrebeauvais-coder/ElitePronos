@@ -212,9 +212,12 @@ def afficher_dashboard(user):
     with header_col1:
         avatar_path = get_avatar_path(user['pseudo'])
         if avatar_path:
-            avatar_img = Image.open(avatar_path)
-            st.image(avatar_img, width=80)
-        else:
+            try:
+                avatar_img = Image.open(avatar_path)
+                st.image(avatar_img, width=80)
+            except Exception:
+                avatar_path = None
+        if not avatar_path:
             st.markdown(f"""
             <div style="
                 width: 80px;
