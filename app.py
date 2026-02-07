@@ -771,21 +771,14 @@ else:
                                     jokers_html += f'<span style="color: #00BFFF; font-size: 0.8em;">{icon} {j["pseudo"]} </span>'
                                 jokers_html += '</div>'
 
-                            st.markdown(f"""
-                            <div style="
-                                background: linear-gradient(135deg, #002040 0%, #001529 100%);
-                                border: 1px solid #D4AF37;
-                                border-radius: 10px;
-                                padding: 12px;
-                                margin: 10px 0;
-                            ">
-                                <div style="color: #D4AF37; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">
-                                    📊 TENDANCES ({synthese['nb_joueurs']} joueur{'s' if synthese['nb_joueurs'] > 1 else ''})
-                                </div>
-                                {synthese['stats_html']}
-                                {jokers_html}
-                            </div>
-                            """, unsafe_allow_html=True)
+                            nb_j = synthese['nb_joueurs']
+                            s = 's' if nb_j > 1 else ''
+                            tendances_html = f'<div style="background:linear-gradient(135deg,#002040 0%,#001529 100%);border:1px solid #D4AF37;border-radius:10px;padding:12px;margin:10px 0;">'
+                            tendances_html += f'<div style="color:#D4AF37;font-size:0.85em;margin-bottom:8px;text-align:center;font-weight:bold;">📊 TENDANCES ({nb_j} joueur{s})</div>'
+                            tendances_html += synthese['stats_html']
+                            tendances_html += jokers_html
+                            tendances_html += '</div>'
+                            st.markdown(tendances_html, unsafe_allow_html=True)
                         else:
                             st.info("Aucune tendance disponible pour cette journee.")
 

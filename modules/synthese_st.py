@@ -320,32 +320,23 @@ def generer_synthese_html(stats, saison_id, semaine_id):
         # Afficher le score si termine
         score_display = ""
         if m.get('termine'):
-            score_display = f"""
-            <div style="text-align: center; margin-top: 5px; color: #00FF00; font-weight: bold;">
-                Score: {m['score_home']} - {m['score_away']}
-            </div>
-            """
+            score_display = f'<div style="text-align:center;margin-top:5px;color:#00FF00;font-weight:bold;">Score: {m["score_home"]} - {m["score_away"]}</div>'
 
-        html += f"""
-        <div style="
-            background: #002040;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 8px 0;
-        ">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="color: #FFFFFF; font-size: 0.9em;">{m['home']}</span>
-                <span style="color: #D4AF37; font-weight: bold;">vs</span>
-                <span style="color: #FFFFFF; font-size: 0.9em;">{m['away']}</span>
-            </div>
-            <div style="display: flex; justify-content: space-around; font-size: 0.85em;">
-                <span style="color: {'#00FF00' if favori == '1' else '#AAAAAA'};">1: {m['pct_home']}%</span>
-                <span style="color: {'#00FF00' if favori == 'N' else '#AAAAAA'};">N: {m['pct_nul']}%</span>
-                <span style="color: {'#00FF00' if favori == '2' else '#AAAAAA'};">2: {m['pct_away']}%</span>
-            </div>
-            {score_display}
-        </div>
-        """
+        color_1 = '#00FF00' if favori == '1' else '#AAAAAA'
+        color_n = '#00FF00' if favori == 'N' else '#AAAAAA'
+        color_2 = '#00FF00' if favori == '2' else '#AAAAAA'
+
+        html += f'<div style="background:#002040;border-radius:8px;padding:10px;margin:8px 0;">'
+        html += f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+        html += f'<span style="color:#FFFFFF;font-size:0.9em;">{m["home"]}</span>'
+        html += f'<span style="color:#D4AF37;font-weight:bold;">vs</span>'
+        html += f'<span style="color:#FFFFFF;font-size:0.9em;">{m["away"]}</span></div>'
+        html += f'<div style="display:flex;justify-content:space-around;font-size:0.85em;">'
+        html += f'<span style="color:{color_1};">1: {m["pct_home"]}%</span>'
+        html += f'<span style="color:{color_n};">N: {m["pct_nul"]}%</span>'
+        html += f'<span style="color:{color_2};">2: {m["pct_away"]}%</span></div>'
+        html += score_display
+        html += '</div>'
 
     return html
 
