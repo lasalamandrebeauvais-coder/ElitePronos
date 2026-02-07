@@ -426,17 +426,40 @@ def run_auto_update():
 
     print(f"Journee: {semaine_id}")
 
-    # Recuperer les matchs
+    # Recuperer les matchs en base
     matchs_db = get_matchs_supabase(semaine_id, saison_id)
-    matchs_api = get_matchs_api(semaine_id, saison_id)
 
     if not matchs_db:
         print("Aucun match en base")
         return
 
+    # Recuperer matchs API : Ligue 1 + championnats etrangers
+    matchs_api = get_matchs_api(semaine_id, saison_id)
     if not matchs_api:
-        print("Impossible de recuperer les matchs API")
-        return
+        matchs_api = []
+
+    # Ajouter les matchs etrangers (PL, La Liga, Serie A, Bundesliga)
+    # Chercher la plage de dates des matchs en base
+    dates_db = [m.get('date_match', '') for m in matchs_db if m.get('date_match')]
+    if dates_db:
+        dates_str = [str(d)[:10] for d in dates_db if d]
+        if dates_str:
+            from datetime import timedelta
+            dt_min = datetime.strptime(min(dates_str), '%Y-%m-%d') - timedelta(days=1)
+            dt_max = datetime.strptime(max(dates_str), '%Y-%m-%d') + timedelta(days=1)
+            date_from = dt_min.strftime('%Y-%m-%d')
+            date_to = dt_max.strftime('%Y-%m-%d')
+
+            for code in ['PL', 'PD', 'SA', 'BL1']:
+                try:
+                    url = f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}'
+                    resp = requests.get(url, headers=FOOTBALL_HEADERS)
+                    if resp.status_code == 200:
+                        matchs_api.extend(resp.json().get('matches', []))
+                except Exception as e:
+                    print(f"Erreur API {code}: {e}")
+
+    print(f"Matchs API total: {len(matchs_api)}")
 
     # Recuperer les jokers DOUBLE
     users_double = get_jokers_double(semaine_id)
@@ -463,9 +486,13 @@ def run_auto_update():
 
                 # === MATCH EN DIRECT (IN_PLAY, PAUSED, HT, LIVE) ===
                 if status in ('IN_PLAY', 'PAUSED', 'HT', 'LIVE'):
-                    # Utiliser halfTime score si dispo, sinon fullTime en cours
-                    live_h = score_half.get('home')
-                    live_a = score_half.get('away')
+                    # fullTime contient le score en cours pendant le match
+                    live_h = score_full.get('home')
+                    live_a = score_full.get('away')
+                    # Fallback sur halfTime si fullTime pas dispo
+                    if live_h is None:
+                        live_h = score_half.get('home')
+                        live_a = score_half.get('away')
                     if live_h is not None:
                         update_live_supabase(m_db['id'], live_h, live_a, status)
                         print(f"LIVE: {m_db['equipe_home']} vs {m_db['equipe_away']} -> {live_h}-{live_a} ({status})")
