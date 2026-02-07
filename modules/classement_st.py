@@ -80,6 +80,53 @@ def get_classement_general_complet():
 
 
 @st.cache_data(ttl=30)
+def get_evolution_classement():
+    """Compare le classement actuel vs classement il y a 5 journees"""
+    try:
+        client = get_supabase()
+        from modules.database_manager import get_saison_actuelle, get_journee_courante
+        saison_id = get_saison_actuelle()
+        journee_courante = get_journee_courante(saison_id)
+        seuil = journee_courante - 5
+
+        # Toutes les predictions avec semaine_id
+        all_preds = client._request('GET',
+            'predictions?select=user_id,points_gagnes,matches(semaine_id)'
+        ) or []
+
+        # Points actuels (toutes journees) et points anciens (jusqu'a J-5)
+        current_pts = {}
+        old_pts = {}
+        for p in all_preds:
+            uid = p['user_id']
+            pts = p.get('points_gagnes') or 0
+            current_pts[uid] = current_pts.get(uid, 0) + pts
+            semaine = (p.get('matches') or {}).get('semaine_id')
+            if semaine is not None and semaine <= seuil:
+                old_pts[uid] = old_pts.get(uid, 0) + pts
+
+        # Classement actuel
+        current_rank = sorted(current_pts.items(), key=lambda x: x[1], reverse=True)
+        current_pos = {uid: i+1 for i, (uid, _) in enumerate(current_rank)}
+
+        # Classement ancien
+        old_rank = sorted(old_pts.items(), key=lambda x: x[1], reverse=True)
+        old_pos = {uid: i+1 for i, (uid, _) in enumerate(old_rank)}
+
+        # Evolution = ancienne_pos - actuelle_pos (positif = monte)
+        evolution = {}
+        for uid in current_pos:
+            if uid in old_pos:
+                evolution[uid] = old_pos[uid] - current_pos[uid]
+            else:
+                evolution[uid] = 0
+        return evolution
+    except Exception as e:
+        print(f"Erreur evolution: {e}")
+        return {}
+
+
+@st.cache_data(ttl=30)
 def get_historique_joueur(user_id):
     """Recupere l'historique des pronostics par journee pour un joueur (cache 30s)"""
     try:
@@ -226,11 +273,15 @@ def afficher_classement(user):
         classement = get_classement_general_complet()
 
         if classement:
+            # Recuperer l'evolution du classement
+            evolution = get_evolution_classement()
+
             # Header du tableau
             st.markdown("""
             <div style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.7em; color:#001529;">
                 <span style="width:40px; text-align:center;">#</span>
                 <span style="flex:1;">Pseudo</span>
+                <span style="width:35px; text-align:center;">Evol</span>
                 <span style="width:55px; text-align:center;">Pts</span>
                 <span style="width:40px; text-align:center;">Bons</span>
                 <span style="width:40px; text-align:center;">Exacts</span>
@@ -256,10 +307,19 @@ def afficher_classement(user):
                 else:
                     icon = f"<span style='color:#888;'>{joueur['place']}</span>"
 
+                evol = evolution.get(joueur['user_id'], 0)
+                if evol > 0:
+                    evol_html = f'<span style="color:#00FF00;">▲</span>'
+                elif evol < 0:
+                    evol_html = f'<span style="color:#FF4444;">▼</span>'
+                else:
+                    evol_html = f'<span style="color:#888;">-</span>'
+
                 st.markdown(f"""
                 <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.7em; {border}">
                     <span style="width:40px; text-align:center;">{icon}</span>
                     <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
+                    <span style="width:35px; text-align:center;">{evol_html}</span>
                     <span style="width:55px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
                     <span style="width:40px; text-align:center; color:#4488FF;">{joueur['bons_pronos']}</span>
                     <span style="width:40px; text-align:center; color:#FFD700;">{joueur['scores_exacts']}</span>
