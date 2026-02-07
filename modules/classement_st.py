@@ -57,7 +57,7 @@ def get_classement_general_complet():
             classement.append({
                 'user_id': uid,
                 'pseudo': user['pseudo'],
-                'points': stats['points'],
+                'points': round(stats['points']),
                 'bons_pronos': stats['bons'],
                 'scores_exacts': stats['exacts'],
                 'grand_chelem': 0,
