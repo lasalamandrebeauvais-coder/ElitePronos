@@ -322,11 +322,11 @@ def afficher_classement(user):
 
                 evol = evolution.get(joueur['user_id'], 0)
                 if evol > 0:
-                    evol_html = '<span style="color:#00FF00 !important;">▲</span>'
+                    evol_html = '<span class="evol-up">▲</span>'
                 elif evol < 0:
-                    evol_html = '<span style="color:#FF4444 !important;">▼</span>'
+                    evol_html = '<span class="evol-down">▼</span>'
                 else:
-                    evol_html = '<span style="color:#888 !important;">-</span>'
+                    evol_html = '<span class="evol-same">-</span>'
 
                 st.markdown(f"""
                 <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.7em; {border}">

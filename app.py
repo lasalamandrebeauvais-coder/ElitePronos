@@ -79,6 +79,25 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
+    /* ===== FLECHES EVOLUTION CLASSEMENT ===== */
+    [data-testid="stMarkdownContainer"] span.evol-up,
+    .stMarkdown span.evol-up,
+    span.evol-up {
+        color: #00FF00 !important;
+        font-weight: bold !important;
+    }
+    [data-testid="stMarkdownContainer"] span.evol-down,
+    .stMarkdown span.evol-down,
+    span.evol-down {
+        color: #FF4444 !important;
+        font-weight: bold !important;
+    }
+    [data-testid="stMarkdownContainer"] span.evol-same,
+    .stMarkdown span.evol-same,
+    span.evol-same {
+        color: #888888 !important;
+    }
+
     /* ===== CAPTIONS EN OR (pas gris) ===== */
     .stCaption, [data-testid="stCaptionContainer"],
     .stCaption p, small, .caption,
