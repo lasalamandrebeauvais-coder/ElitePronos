@@ -112,6 +112,18 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
+    /* ===== COLONNES & CONTENEURS TRANSPARENTS ===== */
+    [data-testid="stColumn"],
+    [data-testid="stVerticalBlock"],
+    [data-testid="stHorizontalBlock"],
+    .stColumn, .block-container {
+        background-color: transparent !important;
+    }
+
+    [data-testid="stImage"] {
+        background-color: transparent !important;
+    }
+
     /* ===== SIDEBAR ===== */
     [data-testid="stSidebar"],
     [data-testid="stSidebar"] > div:first-child {
