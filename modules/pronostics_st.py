@@ -215,6 +215,8 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, 
                 f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
                 {'joker_double': stock['joker_double'] - 1}
             )
+            # Supprimer tout doublon eventuel avant insertion
+            supabase._request('DELETE', f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}')
             supabase._request('POST', 'jokers_historique', {
                 'utilisateur_id': user_id,
                 'semaine_id': journee_courante,
@@ -226,6 +228,8 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, 
                 f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}',
                 {'joker_vol': stock['joker_vol'] - 1}
             )
+            # Supprimer tout doublon eventuel avant insertion
+            supabase._request('DELETE', f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}')
             supabase._request('POST', 'jokers_historique', {
                 'utilisateur_id': user_id,
                 'semaine_id': journee_courante,

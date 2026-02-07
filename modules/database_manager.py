@@ -754,6 +754,8 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
                         {'joker_vol': jokers_vol_dispo - 1}
                     )
 
+                    # Supprimer tout doublon eventuel avant insertion
+                    supabase._request('DELETE', f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{semaine_id}')
                     # Enregistrer le VOL automatique sur Kingo
                     supabase._request('POST', 'jokers_historique', {
                         'utilisateur_id': user_id,
