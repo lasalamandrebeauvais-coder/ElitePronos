@@ -329,11 +329,18 @@ st.markdown("""
     .stDataFrame th, .stTable th {
         background-color: #D4AF37 !important;
         color: #001529 !important;
+        font-size: 0.65rem !important;
     }
 
     .stDataFrame td, .stTable td {
         background-color: #002040 !important;
         color: #FFFFFF !important;
+        font-size: 0.65rem !important;
+    }
+
+    /* Cellules compactes dans les dataframes */
+    .stDataFrame [data-testid="glideDataEditor"] {
+        font-size: 0.65rem !important;
     }
 
     /* ===== SCROLLBAR CUSTOM ===== */
@@ -934,72 +941,105 @@ else:
                                 if uid not in pronos_recap:
                                     pronos_recap[uid] = {}
                                 mise = p.get('mise_points', 0) or 0
-                                pronos_recap[uid][p['match_id']] = f"{p['score_prono_home']}-{p['score_prono_away']} ({mise})"
+                                pronos_recap[uid][p['match_id']] = f"{p['score_prono_home']} - {p['score_prono_away']} - {mise}"
 
                             joueurs_recap = sorted(
                                 [(uid, pseudo) for uid, pseudo in user_map_recap.items()],
                                 key=lambda x: rang_map.get(x[0], 999)
                             )
 
-                            # Construire les colonnes pour le DataFrame
-                            columns = ['#', 'Pseudo', '🃏']
-                            match_col_names = []
-                            for m in matchs_journee:
-                                home_s = m['equipe_home'][:3].upper()
-                                away_s = m['equipe_away'][:3].upper()
-                                col_name = f"{home_s}-{away_s}"
-                                columns.append(col_name)
-                                match_col_names.append(col_name)
+                            # Abreviations personnalisees des equipes
+                            TEAM_ABBR = {
+                                # Ligue 1
+                                'paris saint-germain fc': 'PSG', 'paris saint-germain': 'PSG', 'paris sg': 'PSG', 'paris': 'PSG',
+                                'olympique de marseille': 'OM', 'marseille': 'OM',
+                                'olympique lyonnais': 'OL', 'lyon': 'OL',
+                                'rc lens': 'LENS', 'lens': 'LENS',
+                                'fc nantes': 'FCN', 'nantes': 'FCN',
+                                'losc lille': 'LILLE', 'losc': 'LILLE', 'lille': 'LILLE', 'fc lille': 'LILLE',
+                                'rc strasbourg alsace': 'STRAS', 'rc strasbourg': 'STRAS', 'strasbourg': 'STRAS',
+                                'as monaco fc': 'ASM', 'as monaco': 'ASM', 'monaco': 'ASM',
+                                'aj auxerre': 'AUX', 'auxerre': 'AUX',
+                                'stade rennais fc 1901': 'RENNE', 'stade rennais fc': 'RENNE', 'stade rennais': 'RENNE', 'rennes': 'RENNE',
+                                'stade brestois 29': 'BREST', 'brest': 'BREST',
+                                'toulouse fc': 'TFC', 'toulouse': 'TFC',
+                                'ogc nice': 'NICE', 'nice': 'NICE',
+                                'montpellier hsc': 'MHSC', 'montpellier': 'MHSC',
+                                'angers sco': 'SCO', 'angers': 'SCO',
+                                'as saint-etienne': 'ASSE', 'saint-etienne': 'ASSE', 'st etienne': 'ASSE',
+                                'le havre ac': 'HAC', 'le havre': 'HAC',
+                                'fc nantes': 'FCN', 'nantes': 'FCN',
+                                'stade de reims': 'REIMS', 'reims': 'REIMS',
+                                # Etranger
+                                'manchester united fc': 'MU', 'manchester united': 'MU', 'man united': 'MU',
+                                'manchester city fc': 'MC', 'manchester city': 'MC', 'man city': 'MC',
+                                'fc barcelona': 'BARCA', 'barcelona': 'BARCA',
+                                'real madrid cf': 'REAL', 'real madrid': 'REAL',
+                                'fc bayern münchen': 'BAYER', 'bayern munich': 'BAYER', 'bayern münchen': 'BAYER',
+                                'arsenal fc': 'ARSNL', 'arsenal': 'ARSNL',
+                                'liverpool fc': 'LIVER', 'liverpool': 'LIVER',
+                                'chelsea fc': 'CHELS', 'chelsea': 'CHELS',
+                                'tottenham hotspur fc': 'TOTTE', 'tottenham': 'TOTTE',
+                                'juventus fc': 'JUVE', 'juventus': 'JUVE',
+                                'ac milan': 'MILAN', 'milan': 'MILAN',
+                                'inter milan': 'INTER', 'fc internazionale milano': 'INTER',
+                                'ssc napoli': 'NAPOL', 'napoli': 'NAPOL',
+                                'borussia dortmund': 'BVB', 'dortmund': 'BVB',
+                                'atlético de madrid': 'ATM', 'atletico madrid': 'ATM',
+                            }
 
-                            # Construire les lignes
-                            rows_data = []
-                            for uid, pseudo in joueurs_recap:
+                            # Construire les en-tetes de matchs
+                            match_headers = []
+                            for m in matchs_journee:
+                                h = TEAM_ABBR.get(m['equipe_home'].lower(), m['equipe_home'][:5].upper())
+                                a = TEAM_ABBR.get(m['equipe_away'].lower(), m['equipe_away'][:5].upper())
+                                match_headers.append((m['id'], f"{h}-{a}"))
+
+                            # Construire le tableau HTML
+                            html = '<table style="width:100%;border-collapse:collapse;font-size:0.7rem;text-align:center;background:#001529;">'
+                            # En-tete doree
+                            html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
+                            html += '<th style="padding:6px 4px;border:1px solid #003060;">#</th>'
+                            html += '<th style="padding:6px 4px;text-align:left;border:1px solid #003060;">Pseudo</th>'
+                            html += '<th style="padding:6px 4px;border:1px solid #003060;">🃏</th>'
+                            for _, header in match_headers:
+                                html += f'<th style="padding:6px 4px;border:1px solid #003060;">{header}</th>'
+                            html += '</tr></thead>'
+
+                            # Lignes joueurs avec alternance de couleurs
+                            html += '<tbody>'
+                            for idx, (uid, pseudo) in enumerate(joueurs_recap):
                                 rang = rang_map.get(uid, '-')
                                 if rang == 1:
-                                    rang_display = "🥇"
+                                    r = '🥇'
                                 elif rang == 2:
-                                    rang_display = "🥈"
+                                    r = '🥈'
                                 elif rang == 3:
-                                    rang_display = "🥉"
+                                    r = '🥉'
                                 else:
-                                    rang_display = str(rang)
+                                    r = str(rang).rjust(3)
 
-                                joker_type = jokers_map_recap.get(uid, '')
-                                if joker_type == 'double':
-                                    joker_display = "⚡"
-                                elif joker_type == 'vol':
-                                    joker_display = "🎯"
-                                else:
-                                    joker_display = "-"
+                                jt = jokers_map_recap.get(uid, '')
+                                j = '⚡' if jt == 'double' else '🎯' if jt == 'vol' else '-'
 
-                                row = [rang_display, pseudo, joker_display]
-                                for m in matchs_journee:
-                                    prono = pronos_recap.get(uid, {}).get(m['id'], '-')
-                                    row.append(prono)
+                                bg = '#002040' if idx % 2 == 0 else '#001a35'
+                                html += f'<tr style="background:{bg};color:#FFF;">'
+                                html += f'<td style="padding:5px 4px;border:1px solid #003060;">{r}</td>'
+                                html += f'<td style="padding:5px 4px;text-align:left;border:1px solid #003060;">{pseudo[:10]}</td>'
+                                html += f'<td style="padding:5px 4px;border:1px solid #003060;">{j}</td>'
+                                for mid, _ in match_headers:
+                                    raw = pronos_recap.get(uid, {}).get(mid, None)
+                                    if raw:
+                                        parts = raw.split(' - ')
+                                        score = f"{parts[0]}-{parts[1]}"
+                                        mise = parts[2] if len(parts) > 2 else '0'
+                                        html += f'<td style="padding:5px 4px;border:1px solid #003060;">{score} <span style="color:#FF4444;">({mise})</span></td>'
+                                    else:
+                                        html += '<td style="padding:5px 4px;border:1px solid #003060;color:#555;">-</td>'
+                                html += '</tr>'
+                            html += '</tbody></table>'
 
-                                rows_data.append(row)
-
-                            # Creer le DataFrame
-                            df_recap = pd.DataFrame(rows_data, columns=columns)
-
-                            # Configurer les colonnes
-                            column_config = {
-                                '#': st.column_config.TextColumn('#', width='small'),
-                                'Pseudo': st.column_config.TextColumn('Pseudo', width='small'),
-                                '🃏': st.column_config.TextColumn('🃏', width='small'),
-                            }
-                            # Ajouter config pour les colonnes de matchs (plus larges)
-                            for col_name in match_col_names:
-                                column_config[col_name] = st.column_config.TextColumn(col_name, width='medium')
-
-                            # Afficher avec st.dataframe
-                            st.dataframe(
-                                df_recap,
-                                use_container_width=True,
-                                hide_index=True,
-                                height=min(400, 35 * len(rows_data) + 40),
-                                column_config=column_config
-                            )
+                            st.markdown(html, unsafe_allow_html=True)
 
                         except Exception as e:
                             st.warning(f"Erreur chargement recap: {e}")
