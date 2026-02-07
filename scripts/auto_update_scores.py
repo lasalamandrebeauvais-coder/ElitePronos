@@ -10,12 +10,14 @@ import requests
 import os
 from datetime import datetime
 
-# Configuration Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qyyfxbwyvshpuuqwrxsl.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_secret_v_cT_G2XV1znRhrS0cx_qw_6vZmzMKW")
+# Configuration Supabase (fallback si secret GitHub vide)
+_DEFAULT_URL = "https://qyyfxbwyvshpuuqwrxsl.supabase.co"
+_DEFAULT_KEY = "sb_secret_v_cT_G2XV1znRhrS0cx_qw_6vZmzMKW"
+_DEFAULT_TOKEN = "bf58da6a49824f2a8742957b89ca52ee"
 
-# Configuration API Football-Data
-FOOTBALL_API_TOKEN = os.getenv("FOOTBALL_API_TOKEN", "bf58da6a49824f2a8742957b89ca52ee")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or _DEFAULT_URL
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or _DEFAULT_KEY
+FOOTBALL_API_TOKEN = os.getenv("FOOTBALL_API_TOKEN") or _DEFAULT_TOKEN
 
 # Headers
 SUPABASE_HEADERS = {
@@ -86,6 +88,20 @@ def update_score_supabase(match_id, score_home, score_away):
             'score_final_home': score_home,
             'score_final_away': score_away,
             'status': 'FINISHED'
+        }
+    )
+    return response.status_code < 400
+
+
+def update_live_supabase(match_id, score_home, score_away, status):
+    """Met a jour le score en direct et le status d'un match"""
+    response = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/matches?id=eq.{match_id}",
+        headers=SUPABASE_HEADERS,
+        json={
+            'score_mi_temps_home': score_home,
+            'score_mi_temps_away': score_away,
+            'status': status
         }
     )
     return response.status_code < 400
@@ -427,47 +443,59 @@ def run_auto_update():
     print(f"Jokers DOUBLE actifs: {len(users_double)}")
 
     scores_updated = 0
+    live_updated = 0
     points_calculated = 0
 
     for m_api in matchs_api:
         home_api = m_api.get('homeTeam', {}).get('name')
         away_api = m_api.get('awayTeam', {}).get('name')
-        score = m_api.get('score', {}).get('fullTime', {})
         status = m_api.get('status')
+        score_full = m_api.get('score', {}).get('fullTime', {})
+        score_half = m_api.get('score', {}).get('halfTime', {})
 
-        # Match pas encore termine
-        if score.get('home') is None:
+        # Match pas encore commence
+        if status in ('SCHEDULED', 'TIMED'):
             continue
 
         # Trouver le match correspondant en base
         for m_db in matchs_db:
             if match_equipes(home_api, m_db['equipe_home']) and match_equipes(away_api, m_db['equipe_away']):
-                old_home = m_db.get('score_final_home')
-                old_away = m_db.get('score_final_away')
-                new_home = score['home']
-                new_away = score['away']
 
-                # Score different ou nouveau
-                if old_home != new_home or old_away != new_away:
-                    print(f"Mise a jour: {m_db['equipe_home']} vs {m_db['equipe_away']} -> {new_home}-{new_away}")
+                # === MATCH EN DIRECT (IN_PLAY, PAUSED, HT, LIVE) ===
+                if status in ('IN_PLAY', 'PAUSED', 'HT', 'LIVE'):
+                    # Utiliser halfTime score si dispo, sinon fullTime en cours
+                    live_h = score_half.get('home')
+                    live_a = score_half.get('away')
+                    if live_h is not None:
+                        update_live_supabase(m_db['id'], live_h, live_a, status)
+                        print(f"LIVE: {m_db['equipe_home']} vs {m_db['equipe_away']} -> {live_h}-{live_a} ({status})")
+                        live_updated += 1
 
-                    # Mettre a jour le score
-                    update_score_supabase(m_db['id'], new_home, new_away)
-                    scores_updated += 1
+                # === MATCH TERMINE (FINISHED) ===
+                elif status == 'FINISHED' and score_full.get('home') is not None:
+                    new_home = score_full['home']
+                    new_away = score_full['away']
+                    old_home = m_db.get('score_final_home')
+                    old_away = m_db.get('score_final_away')
 
-                    # Reset et recalculer les points
-                    reset_predictions_points(m_db['id'])
-                    m_db['score_final_home'] = new_home
-                    m_db['score_final_away'] = new_away
+                    # Score different ou nouveau
+                    if old_home != new_home or old_away != new_away:
+                        print(f"FINAL: {m_db['equipe_home']} vs {m_db['equipe_away']} -> {new_home}-{new_away}")
+                        update_score_supabase(m_db['id'], new_home, new_away)
+                        scores_updated += 1
+                        reset_predictions_points(m_db['id'])
+                        m_db['score_final_home'] = new_home
+                        m_db['score_final_away'] = new_away
 
-                # Calculer les points si pas encore fait
-                if m_db.get('score_final_home') is not None:
-                    pts = calculer_points(m_db, users_double)
-                    points_calculated += pts
+                    # Calculer les points
+                    if m_db.get('score_final_home') is not None:
+                        pts = calculer_points(m_db, users_double)
+                        points_calculated += pts
 
                 break
 
-    print(f"Scores mis a jour: {scores_updated}")
+    print(f"Scores en direct: {live_updated}")
+    print(f"Scores finaux mis a jour: {scores_updated}")
     print(f"Points calcules: {points_calculated}")
 
     # Verifier si la journee est terminee (tous les matchs ont des scores)
