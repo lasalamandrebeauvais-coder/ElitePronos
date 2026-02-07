@@ -81,19 +81,33 @@ def get_classement_general_complet():
 
 @st.cache_data(ttl=30)
 def get_evolution_classement():
-    """Compare le classement actuel (temps reel) vs classement avant la journee en cours"""
+    """Compare classement actuel (temps reel) vs classement il y a 5 journees max"""
     try:
         client = get_supabase()
-        from modules.database_manager import get_saison_actuelle, get_journee_courante
-        saison_id = get_saison_actuelle()
-        journee_courante = get_journee_courante(saison_id)
 
         # Toutes les predictions avec semaine_id
         all_preds = client._request('GET',
             'predictions?select=user_id,points_gagnes,matches(semaine_id)'
         ) or []
 
-        # Points actuels (toutes journees) et points avant la journee en cours
+        # Trouver toutes les journees disponibles
+        all_semaines = sorted({
+            (p.get('matches') or {}).get('semaine_id')
+            for p in all_preds
+            if (p.get('matches') or {}).get('semaine_id') is not None
+        })
+
+        # Pas assez de journees pour comparer
+        if len(all_semaines) <= 1:
+            return {}
+
+        # Reference = 5 journees en arriere (ou la premiere dispo)
+        # Ex: [J19,J20,J21] → idx=max(0,3-6)=0 → ref=J19
+        # Ex: [J19..J25] → idx=max(0,7-6)=1 → ref=J20
+        ref_idx = max(0, len(all_semaines) - 6)
+        ref_semaine = all_semaines[ref_idx]
+
+        # Points actuels (toutes journees) et points a la journee de reference
         current_pts = {}
         old_pts = {}
         for p in all_preds:
@@ -101,14 +115,14 @@ def get_evolution_classement():
             pts = p.get('points_gagnes') or 0
             current_pts[uid] = current_pts.get(uid, 0) + pts
             semaine = (p.get('matches') or {}).get('semaine_id')
-            if semaine is not None and semaine < journee_courante:
+            if semaine is not None and semaine <= ref_semaine:
                 old_pts[uid] = old_pts.get(uid, 0) + pts
 
         # Classement actuel
         current_rank = sorted(current_pts.items(), key=lambda x: x[1], reverse=True)
         current_pos = {uid: i+1 for i, (uid, _) in enumerate(current_rank)}
 
-        # Classement ancien
+        # Classement a la reference
         old_rank = sorted(old_pts.items(), key=lambda x: x[1], reverse=True)
         old_pos = {uid: i+1 for i, (uid, _) in enumerate(old_rank)}
 
