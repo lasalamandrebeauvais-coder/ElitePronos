@@ -114,8 +114,11 @@ def get_stats_semaine(saison_id, semaine_id):
         f'jokers_historique?semaine_id=eq.{semaine_id}&select=*,utilisateurs(pseudo)'
     ) or []
 
+    seen = set()
     for j in jokers:
-        if j.get('utilisateurs'):
+        uid = j.get('utilisateur_id')
+        if j.get('utilisateurs') and uid not in seen:
+            seen.add(uid)
             stats['jokers'].append({
                 'pseudo': j['utilisateurs']['pseudo'],
                 'type': j.get('type_joker', 'DOUBLE')
