@@ -131,6 +131,77 @@ def get_jokers_double(semaine_id):
     return set()
 
 
+def get_jokers_vol(semaine_id):
+    """Recupere les jokers VOL actifs avec leur cible"""
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/jokers_historique?semaine_id=eq.{semaine_id}&type_joker=eq.VOL&select=utilisateur_id,cible_vol_id",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code == 200:
+        return {j['utilisateur_id']: j['cible_vol_id'] for j in response.json() if j.get('cible_vol_id')}
+    return {}
+
+
+def get_users_grand_chelem_precedente(semaine_id, saison_id):
+    """
+    Retourne les user_ids qui ont fait un Grand Chelem (4/4 1N2 corrects) la semaine precedente.
+    """
+    semaine_prec = semaine_id - 1
+    if semaine_prec < 1:
+        return set()
+
+    # Recuperer les matchs actifs termines de la semaine precedente
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,score_final_home,score_final_away",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        return set()
+
+    matchs_prec = response.json()
+    if len(matchs_prec) < 4:
+        return set()
+
+    match_ids = [m['id'] for m in matchs_prec]
+    matchs_dict = {m['id']: (m['score_final_home'], m['score_final_away']) for m in matchs_prec}
+
+    # Recuperer toutes les predictions de ces matchs
+    match_ids_str = ','.join(map(str, match_ids))
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        return set()
+
+    predictions = response.json()
+
+    # Compter les 1N2 corrects par user
+    user_corrects = {}
+    for pred in predictions:
+        user_id = pred['user_id']
+        match_id = pred['match_id']
+
+        if match_id not in matchs_dict:
+            continue
+
+        score_h, score_a = matchs_dict[match_id]
+        prono_h = pred['score_prono_home']
+        prono_a = pred['score_prono_away']
+
+        bon_resultat = (
+            (prono_h > prono_a and score_h > score_a) or
+            (prono_h < prono_a and score_h < score_a) or
+            (prono_h == prono_a and score_h == score_a)
+        )
+
+        if bon_resultat:
+            user_corrects[user_id] = user_corrects.get(user_id, 0) + 1
+
+    # Retourner les users avec 4/4 corrects
+    return {uid for uid, count in user_corrects.items() if count >= 4}
+
+
 def get_predictions_match(match_id):
     """Recupere les predictions pour un match"""
     response = requests.get(
@@ -209,6 +280,142 @@ def calculer_points(match, users_double):
         updates += 1
 
     return updates
+
+
+def recalculer_points_complet(semaine_id, saison_id):
+    """
+    Recalcule les points pour TOUTES les predictions de la semaine.
+    Gere: base, DOUBLE, VOL, Grand Chelem.
+    Remplace calculer_points() qui ne gerait que base + DOUBLE.
+    """
+    BONUS_EXACT = 10
+    BONUS_GRAND_CHELEM = 40
+
+    # Recuperer les jokers
+    users_double = get_jokers_double(semaine_id)
+    vol_cibles = get_jokers_vol(semaine_id)
+    users_grand_chelem = get_users_grand_chelem_precedente(semaine_id, saison_id)
+    bonus_grand_chelem_applique = set()
+
+    print(f"Jokers DOUBLE: {len(users_double)}, VOL: {len(vol_cibles)}, Grand Chelem: {len(users_grand_chelem)}")
+
+    # Recuperer les matchs termines avec cotes
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,score_final_home,score_final_away,cote_home,cote_draw,cote_away",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        print("Erreur recuperation matchs termines")
+        return 0
+
+    matchs = response.json()
+    if not matchs:
+        print("Aucun match termine")
+        return 0
+
+    match_ids = [m['id'] for m in matchs]
+    match_map = {m['id']: m for m in matchs}
+    match_ids_str = ','.join(map(str, match_ids))
+
+    # Recuperer TOUTES les predictions (pas seulement points_gagnes=null)
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        print("Erreur recuperation predictions")
+        return 0
+
+    all_predictions = response.json()
+
+    # Organiser par user et par match
+    preds_by_user = {}
+    for p in all_predictions:
+        uid = p['user_id']
+        mid = p['match_id']
+        if uid not in preds_by_user:
+            preds_by_user[uid] = {}
+        preds_by_user[uid][mid] = p
+
+    total_updates = 0
+
+    for user_id in preds_by_user:
+        user_preds = preds_by_user[user_id]
+
+        # Verifier si cet utilisateur a un joker VOL
+        cible_id = vol_cibles.get(user_id)
+        cible_preds = preds_by_user.get(cible_id, {}) if cible_id else {}
+
+        for match_id, pred in user_preds.items():
+            match = match_map.get(match_id)
+            if not match:
+                continue
+
+            score_h = match['score_final_home']
+            score_a = match['score_final_away']
+            cote_home = match.get('cote_home') or 2.0
+            cote_draw = match.get('cote_draw') or 3.0
+            cote_away = match.get('cote_away') or 2.0
+
+            # Si VOL actif et cible a un prono pour ce match, utiliser les pronos de la cible
+            if cible_id and match_id in cible_preds:
+                cible_pred = cible_preds[match_id]
+                prono_h = cible_pred['score_prono_home']
+                prono_a = cible_pred['score_prono_away']
+                mise = cible_pred['mise_points'] or 25
+            else:
+                prono_h = pred['score_prono_home']
+                prono_a = pred['score_prono_away']
+                mise = pred['mise_points'] or 25
+
+            # Determiner la cote selon le prono
+            if prono_h > prono_a:
+                cote = cote_home
+            elif prono_h < prono_a:
+                cote = cote_away
+            else:
+                cote = cote_draw
+
+            # Verifier si bon resultat (1N2)
+            bon_resultat = (
+                (prono_h > prono_a and score_h > score_a) or
+                (prono_h < prono_a and score_h < score_a) or
+                (prono_h == prono_a and score_h == score_a)
+            )
+
+            points = 0
+            is_exact = False
+
+            if bon_resultat:
+                points = round(mise * cote, 1)
+                if prono_h == score_h and prono_a == score_a:
+                    points += BONUS_EXACT
+                    is_exact = True
+            else:
+                points = -mise
+
+            # Joker DOUBLE: x2 sur gains ET pertes
+            if user_id in users_double:
+                points = points * 2
+
+            # Bonus Grand Chelem: +40 (une seule fois par user)
+            if user_id in users_grand_chelem and user_id not in bonus_grand_chelem_applique:
+                points += BONUS_GRAND_CHELEM
+                bonus_grand_chelem_applique.add(user_id)
+                print(f"  Grand Chelem +{BONUS_GRAND_CHELEM} pour user {user_id}")
+
+            # Mettre a jour seulement si le score a change
+            old_points = pred.get('points_gagnes')
+            if old_points != points:
+                update_prediction_points(pred['id'], points, is_exact)
+                total_updates += 1
+
+    if bonus_grand_chelem_applique:
+        print(f"Grand Chelem applique a {len(bonus_grand_chelem_applique)} joueur(s)")
+    if vol_cibles:
+        print(f"VOL applique a {len(vol_cibles)} joueur(s)")
+
+    return total_updates
 
 
 def check_journee_terminee(semaine_id, saison_id):
@@ -461,13 +668,8 @@ def run_auto_update():
 
     print(f"Matchs API total: {len(matchs_api)}")
 
-    # Recuperer les jokers DOUBLE
-    users_double = get_jokers_double(semaine_id)
-    print(f"Jokers DOUBLE actifs: {len(users_double)}")
-
     scores_updated = 0
     live_updated = 0
-    points_calculated = 0
 
     for m_api in matchs_api:
         home_api = m_api.get('homeTeam', {}).get('name')
@@ -514,16 +716,14 @@ def run_auto_update():
                         m_db['score_final_home'] = new_home
                         m_db['score_final_away'] = new_away
 
-                    # Calculer les points
-                    if m_db.get('score_final_home') is not None:
-                        pts = calculer_points(m_db, users_double)
-                        points_calculated += pts
-
                 break
 
     print(f"Scores en direct: {live_updated}")
     print(f"Scores finaux mis a jour: {scores_updated}")
-    print(f"Points calcules: {points_calculated}")
+
+    # Recalculer les points pour TOUTE la semaine (base + DOUBLE + VOL + Grand Chelem)
+    points_calculated = recalculer_points_complet(semaine_id, saison_id)
+    print(f"Points calcules/mis a jour: {points_calculated}")
 
     # Verifier si la journee est terminee (tous les matchs ont des scores)
     if check_journee_terminee(semaine_id, saison_id):
