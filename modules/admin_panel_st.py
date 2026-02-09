@@ -316,6 +316,27 @@ def afficher_panel_admin():
 
         st.info(f"**Saison:** {get_saison_label(saison)} | **Journee courante:** J{journee}")
 
+        # Selection de la journee EN PREMIER
+        col_sel, col_avancer = st.columns([2, 1])
+        with col_sel:
+            semaine_selectionnee = st.number_input(
+                "Journee a traiter",
+                min_value=1,
+                max_value=38,
+                value=journee,
+                step=1
+            )
+        with col_avancer:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("AVANCER JOURNEE →", type="primary", use_container_width=True):
+                nouvelle_j = journee + 1
+                supabase._request('PATCH', f'saisons?annee_debut=eq.{saison}', {'journee_courante': nouvelle_j})
+                st.cache_data.clear()
+                st.success(f"Journee courante avancee a J{nouvelle_j}")
+                st.rerun()
+
+        st.markdown("---")
+
         # === SECTION 0: IMPORT CALENDRIER ===
         st.markdown("#### 0. Import Calendrier Ligue 1")
         st.caption("Importe le calendrier complet de la saison depuis l'API Football-Data.")
@@ -337,10 +358,10 @@ def afficher_panel_admin():
 
         with col_import2:
             if st.button("IMPORTER TOUS LES MATCHS", use_container_width=True):
-                with st.spinner("Import des matchs depuis l'API..."):
+                with st.spinner(f"Import des matchs J{semaine_selectionnee} depuis l'API..."):
                     try:
                         from modules.database_manager import importer_matchs_journee_supabase
-                        success, message, nb = importer_matchs_journee_supabase(journee, saison)
+                        success, message, nb = importer_matchs_journee_supabase(semaine_selectionnee, saison)
                         if success:
                             st.success(f"✅ {message}")
                             st.info("👇 Activez les matchs souhaites dans 'Gestion des Matchs' ci-dessous")
@@ -348,17 +369,6 @@ def afficher_panel_admin():
                             st.error(f"❌ {message}")
                     except Exception as e:
                         st.error(f"❌ Erreur: {str(e)}")
-
-        st.markdown("---")
-
-        # Selection de la journee
-        semaine_selectionnee = st.number_input(
-            "Journee a traiter",
-            min_value=1,
-            max_value=38,
-            value=journee,
-            step=1
-        )
 
         st.markdown("---")
 
