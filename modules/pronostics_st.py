@@ -8,15 +8,41 @@ from datetime import datetime, timedelta
 
 # Import Supabase
 from modules.supabase_db import get_supabase
-from modules.database_manager import get_saison_actuelle
+from modules.database_manager import get_saison_actuelle, get_users_grand_chelem_semaine_precedente
 
 # Chemins
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 # Budget hebdomadaire
-BUDGET_TOTAL = 100
+BUDGET_BASE = 100
+BONUS_GRAND_CHELEM = 40
 MISE_MIN = 10
 MISE_MAX = 60
+
+
+def get_budget_joueur(user_id):
+    """
+    Retourne le budget du joueur pour cette semaine.
+    100 pts par defaut, +40 si Grand Chelem la semaine precedente.
+    """
+    try:
+        supabase = get_supabase()
+        saison_id = get_saison_actuelle()
+
+        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
+        if saisons and len(saisons) > 0:
+            journee_courante = saisons[0].get('journee_courante', 1)
+        else:
+            return BUDGET_BASE
+
+        users_gc = get_users_grand_chelem_semaine_precedente(journee_courante, saison_id)
+        if user_id in users_gc:
+            return BUDGET_BASE + BONUS_GRAND_CHELEM
+
+        return BUDGET_BASE
+    except Exception as e:
+        print(f"Erreur get_budget_joueur: {e}")
+        return BUDGET_BASE
 
 
 def get_matchs_semaine():
@@ -366,6 +392,22 @@ def afficher_pronostics(user):
         st.warning("Aucun match disponible pour cette journee.")
         return
 
+    # Budget dynamique (100 ou 140 si Grand Chelem)
+    budget_total = get_budget_joueur(user['id'])
+    if budget_total > BUDGET_BASE:
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 100%);
+            border: 2px solid #00FF00;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 5px 0;
+            text-align: center;
+        ">
+            <span style="color: #00FF00; font-size: 1.1em;">🏆 <b>GRAND CHELEM !</b> Budget: <b>{budget_total} pts</b> (+{budget_total - BUDGET_BASE})</span>
+        </div>
+        """, unsafe_allow_html=True)
+
     # SI PRONOS VALIDES
     if pronos_existants and not mode_edition:
         st.markdown("### Vos pronostics valides")
@@ -509,15 +551,15 @@ def afficher_pronostics(user):
 
     # BUDGET
     st.markdown("---")
-    budget_ok = total_mise == BUDGET_TOTAL
-    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < BUDGET_TOTAL else "#FF4444")
+    budget_ok = total_mise == budget_total
+    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < budget_total else "#FF4444")
 
     st.markdown(f"""
     <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
-        <div style="background: {budget_color}; width: {min(total_mise/BUDGET_TOTAL*100, 100)}%; height: 18px; border-radius: 6px;"></div>
+        <div style="background: {budget_color}; width: {min(total_mise/budget_total*100, 100)}%; height: 18px; border-radius: 6px;"></div>
     </div>
     <div style="text-align: center; color: {budget_color}; font-size: 0.9em;">
-        <b>{total_mise} / {BUDGET_TOTAL} pts</b> {' OK' if budget_ok else ''}
+        <b>{total_mise} / {budget_total} pts</b> {' OK' if budget_ok else ''}
     </div>
     """, unsafe_allow_html=True)
 

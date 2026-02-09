@@ -1362,8 +1362,7 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
     - DOUBLE: ×2 sur tous les gains (pertes incluses)
     - VOL: le joueur prend les points de la cible (pas ses propres pronos)
 
-    BONUS:
-    - Grand Chelem: +40 pts si 4/4 1N2 corrects la semaine precedente
+    GRAND CHELEM: gere cote pronostics (budget 140 au lieu de 100)
 
     AUTO-VOL:
     - Si un joueur a oublie ses pronos et a un joker VOL, il vole Kingo automatiquement
@@ -1375,7 +1374,6 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
         saison_id = get_saison_actuelle()
 
     BONUS_EXACT = 10  # Bonus pour score exact
-    BONUS_GRAND_CHELEM = 40  # Bonus Grand Chelem
 
     try:
         supabase = get_supabase()
@@ -1400,10 +1398,6 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
         ) or []
         # Dict: voleur_id -> cible_id
         vol_cibles = {j['utilisateur_id']: j['cible_vol_id'] for j in jokers_vol if j.get('cible_vol_id')}
-
-        # Recuperer les users avec Grand Chelem la semaine precedente
-        users_grand_chelem = get_users_grand_chelem_semaine_precedente(semaine_id, saison_id)
-        bonus_grand_chelem_applique = set()  # Pour eviter de l'appliquer 2 fois
 
         # Recuperer les matchs termines avec cotes
         matchs = supabase._request('GET',
@@ -1500,11 +1494,6 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
                 if user_id in users_avec_double:
                     points_final = points_final * 2
 
-                # BONUS GRAND CHELEM: +40 pts (une seule fois par user)
-                if user_id in users_grand_chelem and user_id not in bonus_grand_chelem_applique:
-                    points_final += BONUS_GRAND_CHELEM
-                    bonus_grand_chelem_applique.add(user_id)
-
                 supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
                     'points_gagnes': points_final,
                     'is_score_exact': is_exact_final
@@ -1536,8 +1525,6 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
             info_parts.append(f"{len(users_avec_double)} jokers DOUBLE")
         if vol_cibles:
             info_parts.append(f"{len(vol_cibles)} jokers VOL")
-        if bonus_grand_chelem_applique:
-            info_parts.append(f"{len(bonus_grand_chelem_applique)} Grand Chelem")
 
         # Ajouter les comparaisons VOL au message
         for comp in comparaisons_vol:

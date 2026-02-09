@@ -289,15 +289,12 @@ def recalculer_points_complet(semaine_id, saison_id):
     Remplace calculer_points() qui ne gerait que base + DOUBLE.
     """
     BONUS_EXACT = 10
-    BONUS_GRAND_CHELEM = 40
 
     # Recuperer les jokers
     users_double = get_jokers_double(semaine_id)
     vol_cibles = get_jokers_vol(semaine_id)
-    users_grand_chelem = get_users_grand_chelem_precedente(semaine_id, saison_id)
-    bonus_grand_chelem_applique = set()
 
-    print(f"Jokers DOUBLE: {len(users_double)}, VOL: {len(vol_cibles)}, Grand Chelem: {len(users_grand_chelem)}")
+    print(f"Jokers DOUBLE: {len(users_double)}, VOL: {len(vol_cibles)}")
 
     # Recuperer les matchs termines avec cotes
     response = requests.get(
@@ -398,20 +395,12 @@ def recalculer_points_complet(semaine_id, saison_id):
             if user_id in users_double:
                 points = points * 2
 
-            # Bonus Grand Chelem: +40 (une seule fois par user)
-            if user_id in users_grand_chelem and user_id not in bonus_grand_chelem_applique:
-                points += BONUS_GRAND_CHELEM
-                bonus_grand_chelem_applique.add(user_id)
-                print(f"  Grand Chelem +{BONUS_GRAND_CHELEM} pour user {user_id}")
-
             # Mettre a jour seulement si le score a change
             old_points = pred.get('points_gagnes')
             if old_points != points:
                 update_prediction_points(pred['id'], points, is_exact)
                 total_updates += 1
 
-    if bonus_grand_chelem_applique:
-        print(f"Grand Chelem applique a {len(bonus_grand_chelem_applique)} joueur(s)")
     if vol_cibles:
         print(f"VOL applique a {len(vol_cibles)} joueur(s)")
 
