@@ -571,9 +571,9 @@ def afficher_panel_admin():
             f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away,date_match&order=id'
         ) or []
 
-        # Recuperer tous les matchs de la journee (actifs et inactifs)
+        # Recuperer tous les matchs de la journee (actifs et inactifs) avec cotes
         tous_matchs = supabase._request('GET',
-            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active,date_match&order=date_match'
+            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&select=id,equipe_home,equipe_away,is_active,date_match,championnat,cote_home,cote_draw,cote_away&order=is_active.desc,date_match'
         ) or []
 
         nb_actifs = len(matchs_journee)
@@ -586,20 +586,34 @@ def afficher_panel_admin():
             st.markdown("**Cochez les matchs a activer:**")
 
             for m in tous_matchs:
-                col_m1, col_m2, col_m3 = st.columns([3, 1, 1])
+                is_actif = m.get('is_active', False)
+                border_color = "#00FF00" if is_actif else "#333"
+                bg = "#002040" if is_actif else "#001529"
+                champ = m.get('championnat', '')
+
+                # Date formatee
+                date_info = ""
+                if m.get('date_match'):
+                    try:
+                        dt = datetime.fromisoformat(m['date_match'].replace('Z', '+00:00'))
+                        jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+                        date_info = f"{jours[dt.weekday()]} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
+                    except:
+                        date_info = ""
+
+                # Cotes
+                c_h = m.get('cote_home') or 0
+                c_n = m.get('cote_draw') or 0
+                c_a = m.get('cote_away') or 0
+
+                col_m1, col_m2 = st.columns([4, 0.5])
                 with col_m1:
-                    st.write(f"{m['equipe_home']} vs {m['equipe_away']}")
+                    st.markdown(f"""<div style="background:{bg}; border-left:4px solid {border_color}; padding:8px 10px; margin:2px 0; border-radius:5px; font-size:0.8em;">
+<div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#FFF; font-weight:bold;">{m['equipe_home']} vs {m['equipe_away']}</span><span style="color:#888; font-size:0.8em;">{champ} | {date_info}</span></div>
+<div style="display:flex; gap:15px; margin-top:4px; font-size:0.85em;"><span style="color:#D4AF37;">1: {c_h:.2f}</span><span style="color:#D4AF37;">N: {c_n:.2f}</span><span style="color:#D4AF37;">2: {c_a:.2f}</span></div>
+</div>""", unsafe_allow_html=True)
                 with col_m2:
-                    if m.get('date_match'):
-                        from datetime import datetime
-                        try:
-                            dt = datetime.fromisoformat(m['date_match'].replace('Z', '+00:00'))
-                            st.caption(dt.strftime('%d/%m %H:%M'))
-                        except:
-                            st.caption("-")
-                with col_m3:
-                    is_actif = m.get('is_active', False)
-                    new_actif = st.checkbox("Actif", value=is_actif, key=f"match_actif_{m['id']}")
+                    new_actif = st.checkbox("✓", value=is_actif, key=f"match_actif_{m['id']}", label_visibility="collapsed")
                     if new_actif != is_actif:
                         supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
                         st.rerun()
