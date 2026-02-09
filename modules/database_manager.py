@@ -1840,9 +1840,14 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
         all_matchs_to_import.sort(key=lambda x: x['score_interet'], reverse=True)
 
         # === 4. IMPORTER DANS SUPABASE (seulement les nouveaux) ===
+        # Determiner les 4 meilleurs matchs (par score d'interet)
+        top_4_keys = set()
+        for m in all_matchs_to_import[:4]:
+            top_4_keys.add(f"{m['equipe_home']}_{m['equipe_away']}")
+
         count = 0
         skipped = 0
-        nb_existing_active = len(existing)  # Conserver le compte des matchs deja actifs
+        activated = 0
 
         for i, m in enumerate(all_matchs_to_import):
             # Verifier si le match existe deja
@@ -1856,9 +1861,10 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
             cote_n = round(random.uniform(3.0, 4.0), 2)
             cote_a = round(random.uniform(1.8, 4.0), 2)
 
-            # Activer seulement si moins de 4 matchs actifs au total
-            # (Les matchs existants sont probablement deja actifs)
-            is_active = False  # Nouveaux matchs inactifs par defaut
+            # Activer les 4 meilleurs matchs par score d'interet
+            is_active = (match_key in top_4_keys)
+            if is_active:
+                activated += 1
 
             supabase._request('POST', 'matches', {
                 'saison_id': saison_id,
@@ -1881,7 +1887,7 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
         if count == 0:
             return True, f"Deja {len(existing)} matchs, {skipped} ignores (doublons)", len(existing)
 
-        return True, f"{count} nouveaux matchs ajoutes ({total} total: {nb_l1} L1 + {nb_etrangers} etrangers)", total
+        return True, f"{count} matchs importes dont {activated} actives par le bot ({total} total: {nb_l1} L1 + {nb_etrangers} etrangers)", total
 
     except Exception as e:
         return False, str(e), 0
