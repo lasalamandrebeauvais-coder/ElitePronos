@@ -1678,6 +1678,95 @@ def update_scores_from_api(semaine_id, saison_id=None):
         return False, str(e)
 
 
+def get_points_joueur_semaine(user_id, semaine_id, saison_id=None):
+    """
+    Recupere les points d'un joueur pour une semaine donnee.
+    Retourne dict avec total, nb_exacts, detail par match (mise, points_gagnes).
+    """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        supabase = get_supabase()
+
+        # Recuperer les matchs de la semaine
+        matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id'
+        ) or []
+
+        if not matchs:
+            return {'total': 0, 'nb_exacts': 0, 'details': []}
+
+        match_ids = [m['id'] for m in matchs]
+        match_ids_str = ','.join(map(str, match_ids))
+
+        # Recuperer les predictions du joueur
+        predictions = supabase._request('GET',
+            f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=match_id,mise_points,points_gagnes,is_score_exact'
+        ) or []
+
+        total = 0
+        nb_exacts = 0
+        details = []
+        for p in predictions:
+            pts = p.get('points_gagnes') or 0
+            total += pts
+            if p.get('is_score_exact'):
+                nb_exacts += 1
+            details.append({
+                'match_id': p['match_id'],
+                'mise': p.get('mise_points') or 0,
+                'points_gagnes': pts,
+                'is_exact': p.get('is_score_exact') or False
+            })
+
+        return {'total': total, 'nb_exacts': nb_exacts, 'details': details}
+
+    except Exception as e:
+        print(f"Erreur get_points_joueur_semaine: {e}")
+        return {'total': 0, 'nb_exacts': 0, 'details': []}
+
+
+def get_streak_meilleur_joueur(user_id, saison_id=None):
+    """
+    Calcule le nombre de journees consecutives ou le joueur est meilleur joueur,
+    en partant de la journee la plus recente.
+    """
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    journee_courante = get_journee_courante(saison_id)
+    streak = 0
+
+    for j in range(journee_courante - 1, 0, -1):
+        mvp = get_mvp_semaine(j, saison_id)
+        if mvp and mvp['user_id'] == user_id:
+            streak += 1
+        else:
+            break
+
+    return streak
+
+
+def get_bonus_meilleur_joueur(user_id, saison_id=None):
+    """
+    Calcule le bonus pour meilleur joueur consecutif.
+    - streak < 2 : 0 pts
+    - streak == 2 : +10 pts
+    - streak > 2 : +10 + 15*(streak-2) pts
+    """
+    streak = get_streak_meilleur_joueur(user_id, saison_id)
+
+    if streak < 2:
+        return 0
+    elif streak == 2:
+        return 10
+    else:
+        return 10 + 15 * (streak - 2)
+
+
 def importer_matchs_journee_supabase(semaine_id, saison_id=None):
     """
     Importe les matchs d'une journee:

@@ -166,6 +166,23 @@ def afficher_reglement():
     st.markdown('<div class="point-titre">5.5 Fair-play</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Triche = <span class="valeur-rouge">disqualification immediate</span> et definitive.</div>', unsafe_allow_html=True)
 
+    # =====================================================
+    # ARTICLE 6 : CHALLENGES
+    # =====================================================
+    st.markdown('<div class="article-titre">Article 6 - Challenges</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">6.1 Duel de la semaine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Chaque semaine, un rival est designe automatiquement pour un <span class="valeur-or">duel amical</span>. Comparaison des points de la journee entre les deux joueurs. <span class="valeur-or">Aucun point en jeu</span>, pour le plaisir uniquement.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">6.2 Face a face</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Bilan des <span class="valeur-or">confrontations directes</span> contre chacun de vos rivaux sur toute la saison. Victoires, nuls et defaites comptabilises journee par journee.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">6.3 Defis hebdomadaires</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte"><span class="valeur-or">3 defis</span> a relever chaque semaine : obtenir <span class="valeur-vert">200+ points</span>, trouver <span class="valeur-vert">2 scores exacts</span>, miser <span class="valeur-vert">40 pts sur un match et gagner</span>. Pour le plaisir !</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">6.4 Bonus meilleur joueur consecutif</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Si un joueur est designe meilleur joueur <span class="valeur-or">2 semaines de suite</span> : bonus de <span class="valeur-vert">+10 points</span>. Au-dela de 2 semaines consecutives : <span class="valeur-vert">+15 points</span> par semaine supplementaire.</div>', unsafe_allow_html=True)
+
     # Footer
     st.markdown("---")
     st.caption("Reglement officiel Elite Pronos - Saison 2025-2026")

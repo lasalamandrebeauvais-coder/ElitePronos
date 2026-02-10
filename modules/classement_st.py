@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Import Supabase
 from modules.supabase_db import get_supabase
-from modules.database_manager import get_mvp_semaine, get_saison_actuelle, get_saison_label, get_journee_courante
+from modules.database_manager import get_mvp_semaine, get_saison_actuelle, get_saison_label, get_journee_courante, get_streak_meilleur_joueur, get_bonus_meilleur_joueur
 
 # Chemins pour assets (images)
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
@@ -391,12 +391,58 @@ def afficher_classement(user):
                     podium_html += '</div>'
                     st.markdown(podium_html, unsafe_allow_html=True)
 
+                # Calculer les streaks pour chaque joueur qui a ete MVP
+                # On parcourt la liste de la fin vers le debut pour detecter les series
+                streaks_at_journee = {}
+                for idx_j in range(len(mvp_list)):
+                    j, mvp_j = mvp_list[idx_j]
+                    if not mvp_j:
+                        continue
+                    # Compter combien de journees consecutives ce joueur est MVP
+                    # en regardant en arriere depuis cette journee
+                    streak = 1
+                    for k in range(idx_j - 1, -1, -1):
+                        _, prev_mvp = mvp_list[k]
+                        if prev_mvp and prev_mvp['user_id'] == mvp_j['user_id']:
+                            streak += 1
+                        else:
+                            break
+                    streaks_at_journee[j] = streak
+
+                # Calculer le bonus pour les joueurs actuellement en serie
+                bonus_actifs = {}
+                if mvp_list:
+                    for pseudo, count in titres.items():
+                        # Trouver le user_id pour ce pseudo
+                        for j, mvp_j in mvp_list:
+                            if mvp_j and mvp_j['pseudo'] == pseudo:
+                                uid = mvp_j['user_id']
+                                bonus = get_bonus_meilleur_joueur(uid, saison_id)
+                                if bonus > 0:
+                                    bonus_actifs[pseudo] = bonus
+                                break
+
+                # Afficher les bonus actifs
+                if bonus_actifs:
+                    bonus_html = '<div style="background:linear-gradient(135deg,#002520,#003530);border:2px solid #00FF00;border-radius:10px;padding:12px;margin:15px 0;">'
+                    bonus_html += '<div style="color:#00FF00;font-weight:bold;text-align:center;margin-bottom:8px;">🔥 Bonus serie active</div>'
+                    for pseudo, bonus in bonus_actifs.items():
+                        streak = get_streak_meilleur_joueur(
+                            next(mvp_j['user_id'] for j, mvp_j in mvp_list if mvp_j and mvp_j['pseudo'] == pseudo),
+                            saison_id
+                        )
+                        bonus_html += f'<div style="color:#FFF;text-align:center;font-size:0.85em;">{pseudo} : {streak} journees consecutives → <span style="color:#00FF00;font-weight:bold;">+{bonus} pts</span></div>'
+                    bonus_html += '</div>'
+                    st.markdown(bonus_html, unsafe_allow_html=True)
+
                 # Tableau historique
                 mvp_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
                 mvp_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
                 mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Journee</th>'
                 mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Meilleur joueur</th>'
                 mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Points</th>'
+                mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Serie</th>'
+                mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Bonus</th>'
                 mvp_html += '</tr></thead><tbody>'
 
                 has_mvp = False
@@ -407,14 +453,28 @@ def afficher_classement(user):
                         is_me_mvp = (mvp_j['user_id'] == current_user_id)
                         pseudo_display = f"⭐ {mvp_j['pseudo']}" if is_me_mvp else mvp_j['pseudo']
                         pts_color = '#00FF00' if mvp_j['points_journee'] >= 0 else '#FF4444'
+
+                        streak = streaks_at_journee.get(j, 1)
+                        streak_display = f"🔥 {streak}" if streak >= 2 else str(streak)
+
+                        if streak >= 2:
+                            bonus = 10 + 15 * (streak - 2) if streak > 2 else 10
+                            bonus_display = f'<span style="color:#00FF00;">+{bonus}</span>'
+                        else:
+                            bonus_display = '-'
+
                         mvp_html += f'<tr style="background:{bg};color:#FFF;">'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;font-weight:bold;">{pseudo_display}</td>'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;color:{pts_color};">{mvp_j["points_journee"]} pts</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">{streak_display}</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">{bonus_display}</td>'
                         mvp_html += '</tr>'
                     else:
                         mvp_html += f'<tr style="background:{bg};color:#555;">'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
                         mvp_html += '</tr>'

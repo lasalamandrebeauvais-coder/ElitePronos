@@ -177,6 +177,11 @@ def afficher_dashboard(user):
         afficher_profil(user)
         return
 
+    if st.session_state.dashboard_section == "challenges":
+        from modules.challenges_st import afficher_challenges
+        afficher_challenges(user)
+        return
+
     # === STYLE CSS ELITE ===
     st.markdown("""
     <style>
@@ -338,6 +343,14 @@ def afficher_dashboard(user):
 
         if st.button("PROFIL\n\nMes informations", use_container_width=True):
             st.session_state.dashboard_section = "profil"
+            st.rerun()
+
+    # 3eme ligne : Challenges
+    st.markdown("")
+    nav_col3, nav_col4 = st.columns(2)
+    with nav_col3:
+        if st.button("CHALLENGES\n\nMes defis", use_container_width=True):
+            st.session_state.dashboard_section = "challenges"
             st.rerun()
 
     # === STATS RAPIDES ===
