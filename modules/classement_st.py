@@ -8,6 +8,7 @@ from datetime import datetime
 
 # Import Supabase
 from modules.supabase_db import get_supabase
+from modules.database_manager import get_mvp_semaine, get_saison_actuelle, get_saison_label, get_journee_courante
 
 # Chemins pour assets (images)
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
@@ -275,8 +276,8 @@ def afficher_classement(user):
 
     current_user_id = user['id']
 
-    # Onglets (5 onglets)
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🥇 General", "🎯 Scores Exacts", "✅ Pronostics", "📅 Ma Semaine", "🔥 Records"])
+    # Onglets (6 onglets)
+    tab1, tab_mj, tab2, tab3, tab4, tab5 = st.tabs(["🥇 General", "🏆 Meilleur joueur", "🎯 Scores Exacts", "✅ Pronostics", "📅 Ma Semaine", "🔥 Records"])
 
     # === ONGLET GENERAL ===
     with tab1:
@@ -351,6 +352,84 @@ def afficher_classement(user):
             """, unsafe_allow_html=True)
         else:
             st.info("Aucun joueur dans le classement.")
+
+    # === ONGLET MEILLEUR JOUEUR ===
+    with tab_mj:
+        saison_id = get_saison_actuelle()
+        saison_label = get_saison_label(saison_id)
+        journee_courante = get_journee_courante(saison_id)
+
+        st.markdown(f"### Meilleur joueur de la semaine")
+        st.caption(f"Saison {saison_label} - Le joueur avec le plus de points chaque journee")
+
+        if journee_courante > 1:
+            try:
+                # Compter les titres par joueur
+                titres = {}
+                mvp_list = []
+                for j in range(1, journee_courante):
+                    mvp_j = get_mvp_semaine(j, saison_id)
+                    mvp_list.append((j, mvp_j))
+                    if mvp_j:
+                        pseudo = mvp_j['pseudo']
+                        titres[pseudo] = titres.get(pseudo, 0) + 1
+
+                # Podium des joueurs les plus titres
+                if titres:
+                    podium = sorted(titres.items(), key=lambda x: x[1], reverse=True)[:3]
+                    podium_html = '<div style="display:flex;justify-content:center;gap:15px;margin:15px 0;">'
+                    medals = ['🥇', '🥈', '🥉']
+                    for i, (pseudo, count) in enumerate(podium):
+                        is_me_p = (pseudo == user['pseudo'])
+                        border_color = '#FFD700' if i == 0 else '#C0C0C0' if i == 1 else '#CD7F32'
+                        pseudo_display = f"⭐ {pseudo}" if is_me_p else pseudo
+                        podium_html += f'''<div style="background:linear-gradient(135deg,#001529,#002040);border:2px solid {border_color};border-radius:10px;padding:12px 18px;text-align:center;min-width:90px;">
+                            <div style="font-size:1.5em;">{medals[i]}</div>
+                            <div style="color:#FFFFFF;font-weight:bold;font-size:0.85em;margin:4px 0;">{pseudo_display}</div>
+                            <div style="color:{border_color};font-size:0.8em;">{count}x meilleur</div>
+                        </div>'''
+                    podium_html += '</div>'
+                    st.markdown(podium_html, unsafe_allow_html=True)
+
+                # Tableau historique
+                mvp_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
+                mvp_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
+                mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Journee</th>'
+                mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Meilleur joueur</th>'
+                mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Points</th>'
+                mvp_html += '</tr></thead><tbody>'
+
+                has_mvp = False
+                for j, mvp_j in mvp_list:
+                    bg = '#002040' if j % 2 == 0 else '#001a35'
+                    if mvp_j:
+                        has_mvp = True
+                        is_me_mvp = (mvp_j['user_id'] == current_user_id)
+                        pseudo_display = f"⭐ {mvp_j['pseudo']}" if is_me_mvp else mvp_j['pseudo']
+                        pts_color = '#00FF00' if mvp_j['points_journee'] >= 0 else '#FF4444'
+                        mvp_html += f'<tr style="background:{bg};color:#FFF;">'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;font-weight:bold;">{pseudo_display}</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;color:{pts_color};">{mvp_j["points_journee"]} pts</td>'
+                        mvp_html += '</tr>'
+                    else:
+                        mvp_html += f'<tr style="background:{bg};color:#555;">'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
+                        mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
+                        mvp_html += '</tr>'
+
+                mvp_html += '</tbody></table>'
+
+                if has_mvp:
+                    st.markdown(mvp_html, unsafe_allow_html=True)
+                else:
+                    st.info("Aucun meilleur joueur disponible pour le moment.")
+
+            except Exception as e:
+                st.warning(f"Erreur chargement meilleur joueur: {e}")
+        else:
+            st.info("Le classement du meilleur joueur sera disponible apres la J1.")
 
     # === ONGLET SCORES EXACTS ===
     with tab2:

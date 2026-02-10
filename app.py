@@ -831,22 +831,20 @@ else:
                 # Definir les tabs selon l'etat (avant/apres deadline)
                 if pronostics_ouverts:
                     # Avant deadline: Tab Matchs par defaut, autres grises
-                    tab_matchs, tab_tendances, tab_rivaux, tab_recap, tab_mvp = st.tabs([
+                    tab_matchs, tab_tendances, tab_rivaux, tab_recap = st.tabs([
                         "⚽ Matchs",
                         "📊 Tendances",
                         "👥 Rivaux",
-                        "📋 Recap",
-                        "🏆 Meilleur"
+                        "📋 Recap"
                     ])
                     default_tab = tab_matchs
                 else:
                     # Apres deadline: Tab Tendances par defaut
-                    tab_tendances, tab_matchs, tab_rivaux, tab_recap, tab_mvp = st.tabs([
+                    tab_tendances, tab_matchs, tab_rivaux, tab_recap = st.tabs([
                         "📊 Tendances",
                         "⚽ Matchs",
                         "👥 Rivaux",
-                        "📋 Recap",
-                        "🏆 Meilleur"
+                        "📋 Recap"
                     ])
                     default_tab = tab_tendances
 
@@ -1210,48 +1208,6 @@ else:
 
                         except Exception as e:
                             st.warning(f"Erreur chargement recap: {e}")
-
-                # === TAB MVP ===
-                with tab_mvp:
-                    st.subheader(f"🏆 Meilleur joueur de la semaine - Saison {saison_label}")
-                    try:
-                        mvp_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
-                        mvp_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
-                        mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Journee</th>'
-                        mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">MVP</th>'
-                        mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Points</th>'
-                        mvp_html += '</tr></thead><tbody>'
-
-                        has_mvp = False
-                        for j in range(1, journee_courante):
-                            mvp_j = get_mvp_semaine(j, saison_id)
-                            bg = '#002040' if j % 2 == 0 else '#001a35'
-                            if mvp_j:
-                                has_mvp = True
-                                is_me_mvp = (mvp_j['user_id'] == user_id)
-                                pseudo_display = f"⭐ {mvp_j['pseudo']}" if is_me_mvp else mvp_j['pseudo']
-                                pts_color = '#00FF00' if mvp_j['points_journee'] >= 0 else '#FF4444'
-                                mvp_html += f'<tr style="background:{bg};color:#FFF;">'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;font-weight:bold;">{pseudo_display}</td>'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;color:{pts_color};">{mvp_j["points_journee"]} pts</td>'
-                                mvp_html += '</tr>'
-                            else:
-                                mvp_html += f'<tr style="background:{bg};color:#555;">'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;">J{j}</td>'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
-                                mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
-                                mvp_html += '</tr>'
-
-                        mvp_html += '</tbody></table>'
-
-                        if has_mvp:
-                            st.markdown(mvp_html, unsafe_allow_html=True)
-                        else:
-                            st.info("Aucun MVP disponible pour le moment.")
-
-                    except Exception as e:
-                        st.warning(f"Erreur chargement historique MVP: {e}")
 
         except Exception as e:
             st.error(f"Erreur de lecture Supabase: {e}")
