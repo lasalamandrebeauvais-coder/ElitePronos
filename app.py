@@ -550,18 +550,77 @@ else:
                     mvp_pseudo = mvp_data['pseudo']
                     mvp_pts = mvp_data['points_journee']
                     is_me = (mvp_data['user_id'] == user_id)
-                    mvp_label = f"{mvp_pseudo} - C'est vous !" if is_me else mvp_pseudo
+                    if is_me:
+                        mvp_msg = f"C'est vous ! Vous avez domine la J{journee_courante - 1}"
+                    else:
+                        mvp_msg = f"A detroner cette semaine !"
                     st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #D4AF37 0%, #B8960C 100%);
-                        border-radius: 10px;
-                        padding: 10px 20px;
-                        margin: 10px 0;
-                        text-align: center;
-                    ">
-                        <span style="color: #001529; font-size: 0.9em; font-weight: bold;">
-                            🏆 Meilleur joueur J{journee_courante - 1} : {mvp_label} ({mvp_pts} pts)
-                        </span>
+                    <style>
+                        @keyframes shimmer {{
+                            0% {{ background-position: -200% center; }}
+                            100% {{ background-position: 200% center; }}
+                        }}
+                        @keyframes pulse-glow {{
+                            0%, 100% {{ box-shadow: 0 0 15px rgba(212,175,55,0.4); }}
+                            50% {{ box-shadow: 0 0 30px rgba(255,215,0,0.7); }}
+                        }}
+                        .mvp-banner {{
+                            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
+                            border: 2px solid #D4AF37;
+                            border-radius: 12px;
+                            padding: 15px 20px;
+                            margin: 10px 0;
+                            text-align: center;
+                            animation: pulse-glow 3s ease-in-out infinite;
+                            position: relative;
+                            overflow: hidden;
+                        }}
+                        .mvp-banner::before {{
+                            content: '';
+                            position: absolute;
+                            top: 0; left: 0; right: 0; bottom: 0;
+                            background: linear-gradient(90deg, transparent, rgba(212,175,55,0.1), transparent);
+                            background-size: 200% 100%;
+                            animation: shimmer 4s linear infinite;
+                        }}
+                        .mvp-title {{
+                            color: #D4AF37;
+                            font-size: 0.7em;
+                            letter-spacing: 3px;
+                            text-transform: uppercase;
+                            margin-bottom: 6px;
+                        }}
+                        .mvp-pseudo {{
+                            background: linear-gradient(90deg, #D4AF37, #FFD700, #D4AF37);
+                            background-size: 200% auto;
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                            font-size: 1.4em;
+                            font-weight: bold;
+                            animation: shimmer 3s linear infinite;
+                        }}
+                        .mvp-points {{
+                            display: inline-block;
+                            background: linear-gradient(135deg, #D4AF37, #B8960C);
+                            color: #001529;
+                            font-weight: bold;
+                            font-size: 0.85em;
+                            padding: 3px 12px;
+                            border-radius: 20px;
+                            margin-top: 6px;
+                        }}
+                        .mvp-sub {{
+                            color: #AAAAAA;
+                            font-size: 0.75em;
+                            font-style: italic;
+                            margin-top: 4px;
+                        }}
+                    </style>
+                    <div class="mvp-banner">
+                        <div class="mvp-title">Meilleur joueur J{journee_courante - 1}</div>
+                        <div class="mvp-pseudo">🏆 {mvp_pseudo} 🏆</div>
+                        <div class="mvp-points">{mvp_pts} pts</div>
+                        <div class="mvp-sub">{mvp_msg}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
