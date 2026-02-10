@@ -560,7 +560,7 @@ else:
                         text-align: center;
                     ">
                         <span style="color: #001529; font-size: 0.9em; font-weight: bold;">
-                            🏆 MVP J{journee_courante - 1} : {mvp_label} ({mvp_pts} pts)
+                            🏆 Meilleur joueur J{journee_courante - 1} : {mvp_label} ({mvp_pts} pts)
                         </span>
                     </div>
                     """, unsafe_allow_html=True)
@@ -777,7 +777,7 @@ else:
                         "📊 Tendances",
                         "👥 Rivaux",
                         "📋 Recap",
-                        "🏆 MVP"
+                        "🏆 Meilleur"
                     ])
                     default_tab = tab_matchs
                 else:
@@ -787,7 +787,7 @@ else:
                         "⚽ Matchs",
                         "👥 Rivaux",
                         "📋 Recap",
-                        "🏆 MVP"
+                        "🏆 Meilleur"
                     ])
                     default_tab = tab_tendances
 
@@ -1154,7 +1154,7 @@ else:
 
                 # === TAB MVP ===
                 with tab_mvp:
-                    st.subheader(f"🏆 Historique MVP - Saison {saison_label}")
+                    st.subheader(f"🏆 Meilleur joueur de la semaine - Saison {saison_label}")
                     try:
                         mvp_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
                         mvp_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
