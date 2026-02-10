@@ -637,6 +637,65 @@ def get_dernier_classement():
 # GESTION DE L'OUBLI (ÉTAPE 48)
 # ============================================
 
+def get_mvp_semaine(semaine_id, saison_id=None):
+    """
+    Retourne le MVP (meilleur joueur) d'une semaine donnee.
+    Agrege les points_gagnes de toutes les predictions sur les matchs actifs de la semaine.
+    Retourne: dict {'user_id', 'pseudo', 'points_journee'} ou None
+    """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        supabase = get_supabase()
+
+        # Recuperer les matchs de la semaine
+        matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,score_final_home'
+        ) or []
+
+        if not matchs:
+            return None
+
+        # Verifier qu'au moins un match est termine
+        matchs_termines = [m for m in matchs if m.get('score_final_home') is not None]
+        if not matchs_termines:
+            return None
+
+        match_ids = [m['id'] for m in matchs]
+        match_ids_str = ','.join(map(str, match_ids))
+
+        # Recuperer toutes les predictions avec points
+        predictions = supabase._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&points_gagnes=not.is.null&select=user_id,points_gagnes,utilisateurs(pseudo)'
+        ) or []
+
+        if not predictions:
+            return None
+
+        # Agreger par joueur
+        joueurs_pts = {}
+        for p in predictions:
+            uid = p['user_id']
+            pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
+            if uid not in joueurs_pts:
+                joueurs_pts[uid] = {'user_id': uid, 'pseudo': pseudo, 'points_journee': 0}
+            joueurs_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
+
+        if not joueurs_pts:
+            return None
+
+        # Trouver le meilleur
+        mvp = max(joueurs_pts.values(), key=lambda x: x['points_journee'])
+        return mvp
+
+    except Exception as e:
+        print(f"Erreur get_mvp_semaine: {e}")
+        return None
+
+
 def get_utilisateurs_sans_pronostics(semaine_id):
     """Récupère les utilisateurs qui n'ont pas fait de pronostics cette semaine"""
     conn = get_connection()
