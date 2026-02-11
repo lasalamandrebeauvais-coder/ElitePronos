@@ -143,7 +143,7 @@ def afficher_challenges(user):
 
                 # Affichage visuel face a face
                 st.markdown(f"""
-                <div style="display:flex;justify-content:center;align-items:center;gap:20px;margin:20px 0;">
+                <div class="ep-duel" style="display:flex;justify-content:center;align-items:center;gap:20px;margin:20px 0;">
                     <div style="background:linear-gradient(135deg,#001529,#002040);border:2px solid {user_color};border-radius:15px;padding:20px 30px;text-align:center;min-width:130px;">
                         <div style="font-size:1.5em;margin-bottom:5px;">🧑</div>
                         <div style="color:#FFFFFF;font-weight:bold;font-size:1em;">{user['pseudo']}</div>
@@ -234,7 +234,8 @@ def afficher_challenges(user):
                 })
 
             # Affichage tableau H2H
-            h2h_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
+            h2h_html = '<div class="ep-table-scroll">'
+            h2h_html += '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
             h2h_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
             h2h_html += '<th style="padding:8px 6px;border:1px solid #003060;">Rival</th>'
             h2h_html += '<th style="padding:8px 6px;border:1px solid #003060;">V</th>'
@@ -253,7 +254,7 @@ def afficher_challenges(user):
                 h2h_html += f'<td style="padding:6px;border:1px solid #003060;color:{b["bilan_color"]};font-weight:bold;">{b["bilan_str"]}</td>'
                 h2h_html += '</tr>'
 
-            h2h_html += '</tbody></table>'
+            h2h_html += '</tbody></table></div>'
             st.markdown(h2h_html, unsafe_allow_html=True)
 
             st.markdown("""
@@ -347,7 +348,8 @@ def afficher_challenges(user):
             st.markdown("---")
             st.markdown("#### Historique des defis")
 
-            hist_html = '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;text-align:center;background:#001529;">'
+            hist_html = '<div class="ep-table-scroll">'
+            hist_html += '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;text-align:center;background:#001529;">'
             hist_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
             hist_html += '<th style="padding:6px;border:1px solid #003060;">Journee</th>'
             hist_html += '<th style="padding:6px;border:1px solid #003060;">200+ pts</th>'
@@ -369,5 +371,5 @@ def afficher_challenges(user):
                 hist_html += f'<td style="padding:5px;border:1px solid #003060;">{d3}</td>'
                 hist_html += '</tr>'
 
-            hist_html += '</tbody></table>'
+            hist_html += '</tbody></table></div>'
             st.markdown(hist_html, unsafe_allow_html=True)

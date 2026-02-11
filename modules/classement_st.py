@@ -290,23 +290,21 @@ def afficher_classement(user):
             # Recuperer l'evolution du classement
             evolution = get_evolution_classement()
 
-            # Header du tableau
-            st.markdown("""
-            <div style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.7em; color:#001529;">
-                <span style="width:40px; text-align:center;">#</span>
-                <span style="flex:1;">Pseudo</span>
-                <span style="width:35px; text-align:center;">Evol</span>
-                <span style="width:55px; text-align:center;">Pts</span>
-                <span style="width:40px; text-align:center;">Bons</span>
-                <span style="width:40px; text-align:center;">Exacts</span>
-                <span style="width:35px; text-align:center;">GC</span>
-                <span style="width:35px; text-align:center;">x2</span>
-                <span style="width:35px; text-align:center;">Vol</span>
-                <span style="width:35px; text-align:center;">Top</span>
-            </div>
-            """, unsafe_allow_html=True)
+            # Construire le tableau complet en une seule chaine HTML (scrollable sur mobile)
+            cls_html = '<div class="ep-table-scroll">'
+            cls_html += '<div class="ep-classement-header" style="display:flex; background:#D4AF37; padding:8px 5px; border-radius:8px 8px 0 0; font-weight:bold; font-size:0.7em; color:#001529;">'
+            cls_html += '<span style="width:40px; text-align:center;">#</span>'
+            cls_html += '<span style="flex:1;">Pseudo</span>'
+            cls_html += '<span style="width:35px; text-align:center;">Evol</span>'
+            cls_html += '<span style="width:55px; text-align:center;">Pts</span>'
+            cls_html += '<span style="width:40px; text-align:center;">Bons</span>'
+            cls_html += '<span style="width:40px; text-align:center;">Exacts</span>'
+            cls_html += '<span style="width:35px; text-align:center;">GC</span>'
+            cls_html += '<span style="width:35px; text-align:center;">x2</span>'
+            cls_html += '<span style="width:35px; text-align:center;">Vol</span>'
+            cls_html += '<span style="width:35px; text-align:center;">Top</span>'
+            cls_html += '</div>'
 
-            # Lignes du tableau - une par une avec fond forcé
             for joueur in classement:
                 is_current = (joueur['user_id'] == current_user_id)
                 bg = "#002855" if is_current else "#001529"
@@ -329,27 +327,23 @@ def afficher_classement(user):
                 else:
                     evol_html = '<span class="evol-same">-</span>'
 
-                st.markdown(f"""
-                <div style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.7em; {border}">
-                    <span style="width:40px; text-align:center;">{icon}</span>
-                    <span style="flex:1; color:#FFF;">{joueur['pseudo']}</span>
-                    <span style="width:35px; text-align:center;">{evol_html}</span>
-                    <span style="width:55px; text-align:center; color:#00FF00; font-weight:bold;">{joueur['points']}</span>
-                    <span style="width:40px; text-align:center; color:#4488FF;">{joueur['bons_pronos']}</span>
-                    <span style="width:40px; text-align:center; color:#FFD700;">{joueur['scores_exacts']}</span>
-                    <span style="width:35px; text-align:center; color:#FF6600;">{joueur['grand_chelem']}</span>
-                    <span style="width:35px; text-align:center; color:#00BFFF;">{joueur['jokers_double']}</span>
-                    <span style="width:35px; text-align:center; color:#FF69B4;">{joueur['jokers_vol']}</span>
-                    <span style="width:35px; text-align:center; color:#AAAAAA;">{joueur['meilleure_place']}</span>
-                </div>
-                """, unsafe_allow_html=True)
+                cls_html += f'<div class="ep-classement-row" style="display:flex; align-items:center; background:{bg}; padding:4px 5px; margin:0; border-bottom:1px solid #222; font-size:0.7em; {border}">'
+                cls_html += f'<span style="width:40px; text-align:center;">{icon}</span>'
+                cls_html += f'<span style="flex:1; color:#FFF;">{joueur["pseudo"]}</span>'
+                cls_html += f'<span style="width:35px; text-align:center;">{evol_html}</span>'
+                cls_html += f'<span style="width:55px; text-align:center; color:#00FF00; font-weight:bold;">{joueur["points"]}</span>'
+                cls_html += f'<span style="width:40px; text-align:center; color:#4488FF;">{joueur["bons_pronos"]}</span>'
+                cls_html += f'<span style="width:40px; text-align:center; color:#FFD700;">{joueur["scores_exacts"]}</span>'
+                cls_html += f'<span style="width:35px; text-align:center; color:#FF6600;">{joueur["grand_chelem"]}</span>'
+                cls_html += f'<span style="width:35px; text-align:center; color:#00BFFF;">{joueur["jokers_double"]}</span>'
+                cls_html += f'<span style="width:35px; text-align:center; color:#FF69B4;">{joueur["jokers_vol"]}</span>'
+                cls_html += f'<span style="width:35px; text-align:center; color:#AAAAAA;">{joueur["meilleure_place"]}</span>'
+                cls_html += '</div>'
 
-            # Légende
-            st.markdown("""
-            <div style="background:#0a1628; padding:6px; text-align:center; font-size:0.55em; color:#666; border-radius:0 0 8px 8px;">
-                Bons = 1N2 correct | Exacts = Score exact | GC = Grand Chelem | x2 = Joker Double | Vol = Joker Vol | Top = Meilleure place
-            </div>
-            """, unsafe_allow_html=True)
+            cls_html += '<div style="background:#0a1628; padding:6px; text-align:center; font-size:0.55em; color:#666; border-radius:0 0 8px 8px;">'
+            cls_html += 'Bons = 1N2 correct | Exacts = Score exact | GC = Grand Chelem | x2 = Joker Double | Vol = Joker Vol | Top = Meilleure place'
+            cls_html += '</div></div>'
+            st.markdown(cls_html, unsafe_allow_html=True)
         else:
             st.info("Aucun joueur dans le classement.")
 
@@ -436,7 +430,8 @@ def afficher_classement(user):
                     st.markdown(bonus_html, unsafe_allow_html=True)
 
                 # Tableau historique
-                mvp_html = '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
+                mvp_html = '<div class="ep-table-scroll">'
+                mvp_html += '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;text-align:center;background:#001529;">'
                 mvp_html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
                 mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Journee</th>'
                 mvp_html += '<th style="padding:8px 6px;border:1px solid #003060;">Meilleur joueur</th>'
@@ -479,7 +474,7 @@ def afficher_classement(user):
                         mvp_html += f'<td style="padding:6px;border:1px solid #003060;">-</td>'
                         mvp_html += '</tr>'
 
-                mvp_html += '</tbody></table>'
+                mvp_html += '</tbody></table></div>'
 
                 if has_mvp:
                     st.markdown(mvp_html, unsafe_allow_html=True)
@@ -604,21 +599,14 @@ def afficher_classement(user):
                 total_color = "#00FF00" if h['total'] >= 0 else "#FF4444"
 
                 with st.expander(f"📅 Journee {h['journee']} - {'+' if h['total'] > 0 else ''}{h['total']} pts", expanded=(h == historique[0])):
-                    # Header
-                    st.markdown("""
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.7em; color: #888; background: #002040; border-radius: 5px;">
-                        <span>Match</span>
-                        <span style="text-align: center;">Prono</span>
-                        <span style="text-align: center;">Mise</span>
-                        <span style="text-align: center;">Score</span>
-                        <span style="text-align: center;">Pts</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Construire le HTML complet en une seule chaine (scrollable sur mobile)
+                    hist_html = '<div class="ep-table-scroll">'
+                    hist_html += '<div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.7em; color: #888; background: #002040; border-radius: 5px; min-width: 350px;">'
+                    hist_html += '<span>Match</span><span style="text-align: center;">Prono</span><span style="text-align: center;">Mise</span><span style="text-align: center;">Score</span><span style="text-align: center;">Pts</span></div>'
 
                     for prono in h['pronos']:
                         home, away, ph, pa, mise, pts, score_h, score_a, is_exact = prono
 
-                        # Icone resultat
                         if score_h is not None:
                             if is_exact:
                                 icon = "🎯"
@@ -637,15 +625,16 @@ def afficher_classement(user):
                         home_short = home[:10] + ".." if len(home) > 12 else home
                         away_short = away[:10] + ".." if len(away) > 12 else away
 
-                        st.markdown(f"""
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.75em; border-bottom: 1px solid #333;">
-                            <span style="color: #FFFFFF;" title="{home} vs {away}">{home_short} - {away_short}</span>
-                            <span style="color: #4488FF; text-align: center;">{ph}-{pa}</span>
-                            <span style="color: #FFD700; text-align: center;">{mise}</span>
-                            <span style="color: #00FF00; text-align: center;">{score_display} {icon}</span>
-                            <span style="color: {pts_color}; text-align: center; font-weight: bold;">{'+' if pts_val > 0 else ''}{pts_val}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        hist_html += f'<div style="display: grid; grid-template-columns: 2fr 1fr 0.8fr 1fr 0.8fr; gap: 5px; padding: 5px; font-size: 0.75em; border-bottom: 1px solid #333; min-width: 350px;">'
+                        hist_html += f'<span style="color: #FFFFFF;" title="{home} vs {away}">{home_short} - {away_short}</span>'
+                        hist_html += f'<span style="color: #4488FF; text-align: center;">{ph}-{pa}</span>'
+                        hist_html += f'<span style="color: #FFD700; text-align: center;">{mise}</span>'
+                        hist_html += f'<span style="color: #00FF00; text-align: center;">{score_display} {icon}</span>'
+                        hist_html += f'<span style="color: {pts_color}; text-align: center; font-weight: bold;">{("+" if pts_val > 0 else "")}{pts_val}</span>'
+                        hist_html += '</div>'
+
+                    hist_html += '</div>'
+                    st.markdown(hist_html, unsafe_allow_html=True)
         else:
             st.info("Aucun historique disponible.")
 

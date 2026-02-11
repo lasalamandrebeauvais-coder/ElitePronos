@@ -408,6 +408,117 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+
+    /* ===== MOBILE RESPONSIVE ===== */
+
+    /* Tableaux larges : scroll horizontal */
+    .ep-table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -5px;
+        padding: 0 5px;
+    }
+
+    /* Classement header + rows : largeur min pour scroll */
+    .ep-classement-header, .ep-classement-row {
+        min-width: 420px;
+    }
+
+    @media (max-width: 768px) {
+
+        /* Headings plus compacts */
+        h1 { font-size: 1.4em !important; }
+        h2 { font-size: 1.15em !important; }
+        h3 { font-size: 1em !important; }
+
+        /* Boutons */
+        .stButton > button {
+            padding: 8px 16px !important;
+            font-size: 0.85em !important;
+            border-radius: 20px !important;
+        }
+
+        /* Tabs : texte plus petit */
+        .stTabs [data-baseweb="tab"] {
+            font-size: 0.7em !important;
+            padding: 6px 8px !important;
+        }
+
+        /* Metrics */
+        [data-testid="metric-container"] {
+            padding: 10px !important;
+        }
+
+        /* Match row grids : colonnes reduites */
+        .ep-match-row {
+            grid-template-columns: 2fr 45px 2fr 40px !important;
+            font-size: 0.75em !important;
+            padding: 5px 6px !important;
+        }
+        .ep-match-status {
+            font-size: 0.65em !important;
+        }
+
+        /* Countdown boxes */
+        .ep-countdown {
+            gap: 8px !important;
+        }
+        .ep-countdown > div {
+            min-width: 45px !important;
+            padding: 6px 8px !important;
+        }
+        .ep-countdown > div > div:first-child {
+            font-size: 1.2em !important;
+        }
+
+        /* Duel : stack vertical */
+        .ep-duel {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+        .ep-duel > div {
+            min-width: 180px !important;
+            width: 80% !important;
+        }
+
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            min-width: 200px !important;
+            max-width: 250px !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+
+        /* Encore plus compact */
+        h1 { font-size: 1.2em !important; }
+        h2 { font-size: 1em !important; }
+
+        /* Tabs encore plus petits */
+        .stTabs [data-baseweb="tab"] {
+            font-size: 0.65em !important;
+            padding: 5px 5px !important;
+        }
+
+        /* Match row */
+        .ep-match-row {
+            grid-template-columns: 1fr 45px 1fr !important;
+            font-size: 0.7em !important;
+        }
+
+        /* Countdown */
+        .ep-countdown > div {
+            min-width: 38px !important;
+            padding: 5px 6px !important;
+        }
+
+        /* Duel full width */
+        .ep-duel > div {
+            width: 95% !important;
+            padding: 12px 15px !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -637,7 +748,7 @@ else:
                         <div style="color: #001529; font-size: 0.75em; margin-bottom: 8px; font-weight: bold;">
                             ⏱️ FERMETURE DES PRONOSTICS
                         </div>
-                        <div style="display: flex; justify-content: center; gap: 15px;">
+                        <div class="ep-countdown" style="display: flex; justify-content: center; gap: 15px;">
                             <div style="background: #001529; border-radius: 8px; padding: 8px 15px; min-width: 60px;">
                                 <div style="color: #FFD700; font-size: 1.5em; font-weight: bold;">{countdown['days']}</div>
                                 <div style="color: #FFFFFF; font-size: 0.7em;">JOURS</div>
@@ -688,11 +799,11 @@ else:
                     """, unsafe_allow_html=True)
 
                     for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
-                        st.markdown(f"""<div style="display: grid; grid-template-columns: 2fr 50px 2fr 45px; align-items: center; padding: 6px 8px; margin: 3px 0; background: #002040; border-radius: 5px; font-size: 0.8em;">
+                        st.markdown(f"""<div class="ep-match-row" style="display: grid; grid-template-columns: 2fr 50px 2fr 45px; align-items: center; padding: 6px 8px; margin: 3px 0; background: #002040; border-radius: 5px; font-size: 0.8em;">
                             <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
                             <span style="color: #4488FF; font-weight: bold; text-align: center;">{score_h}-{score_a}</span>
                             <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
-                            <span style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pt</span>
+                            <span class="ep-match-status" style="color: #00FF00; font-weight: bold; text-align: center;">{mise}pt</span>
                         </div>""", unsafe_allow_html=True)
 
                     st.markdown("</div>", unsafe_allow_html=True)
@@ -762,7 +873,7 @@ else:
                             status_text = date_info if date_info else "À venir"
 
                         st.markdown(f"""
-                        <div style="
+                        <div class="ep-match-row" style="
                             display: grid;
                             grid-template-columns: 2fr 70px 2fr 80px;
                             align-items: center;
@@ -775,7 +886,7 @@ else:
                             <span style="color: #FFFFFF; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{home}</span>
                             <span style="color: {score_color}; font-weight: bold; text-align: center;">{score_display}</span>
                             <span style="color: #FFFFFF; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{away}</span>
-                            <span style="color: {score_color}; text-align: center; font-size: 0.75em;">{status_text}</span>
+                            <span class="ep-match-status" style="color: {score_color}; text-align: center; font-size: 0.75em;">{status_text}</span>
                         </div>
                         """, unsafe_allow_html=True)
 
@@ -1160,8 +1271,9 @@ else:
                                 a = TEAM_ABBR.get(m['equipe_away'].lower(), m['equipe_away'][:5].upper())
                                 match_headers.append((m['id'], f"{h}-{a}"))
 
-                            # Construire le tableau HTML
-                            html = '<table style="width:100%;border-collapse:collapse;font-size:0.7rem;text-align:center;background:#001529;">'
+                            # Construire le tableau HTML (scrollable sur mobile)
+                            html = '<div class="ep-table-scroll">'
+                            html += '<table style="width:100%;border-collapse:collapse;font-size:0.7rem;text-align:center;background:#001529;min-width:500px;">'
                             # En-tete doree
                             html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
                             html += '<th style="padding:6px 4px;border:1px solid #003060;">#</th>'
@@ -1202,7 +1314,7 @@ else:
                                     else:
                                         html += '<td style="padding:5px 4px;border:1px solid #003060;color:#555;">-</td>'
                                 html += '</tr>'
-                            html += '</tbody></table>'
+                            html += '</tbody></table></div>'
 
                             st.markdown(html, unsafe_allow_html=True)
 
