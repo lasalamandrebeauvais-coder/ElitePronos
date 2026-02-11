@@ -316,6 +316,10 @@ def afficher_dashboard(user):
         st.markdown("""
         <div class="stat-box" style="padding: 10px 15px 5px 15px;">
             <div class="stat-label">Progression</div>
+            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 6px;">
+                <span style="font-size: 0.75em;"><span style="color: #00FF00;">&#9473;</span> Toi</span>
+                <span style="font-size: 0.75em;"><span style="color: #888888;">&#9473;</span> Moyenne</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
