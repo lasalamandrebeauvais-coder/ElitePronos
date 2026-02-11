@@ -53,6 +53,44 @@ def get_classement_cache(saison_id):
     classement.sort(key=lambda x: x['points'], reverse=True)
     return classement
 
+
+@st.cache_data(ttl=30)
+def get_moyenne_cumul_par_journee(saison_id):
+    """Calcule les points cumules moyens par journee (tous joueurs actifs)"""
+    supabase = get_supabase()
+
+    all_preds = supabase._request('GET',
+        f'predictions?saison_id=eq.{saison_id}&select=user_id,points_gagnes,matches(semaine_id)'
+    ) or []
+
+    # Grouper par user puis par journee
+    user_journees = {}
+    for p in all_preds:
+        if p.get('matches'):
+            uid = p['user_id']
+            j = p['matches'].get('semaine_id')
+            if j:
+                if uid not in user_journees:
+                    user_journees[uid] = {}
+                user_journees[uid][j] = user_journees[uid].get(j, 0) + (p.get('points_gagnes') or 0)
+
+    if not user_journees:
+        return {}
+
+    # Trouver toutes les journees
+    toutes_journees = sorted(set(j for uj in user_journees.values() for j in uj))
+
+    # Calculer cumul moyen par journee
+    moyenne_cumul = {}
+    for j in toutes_journees:
+        cumuls = []
+        for uid, journees in user_journees.items():
+            cumul = sum(journees.get(jj, 0) for jj in toutes_journees if jj <= j)
+            cumuls.append(cumul)
+        moyenne_cumul[j] = sum(cumuls) / len(cumuls) if cumuls else 0
+
+    return moyenne_cumul
+
 # Chemin avatars
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 
@@ -283,14 +321,19 @@ def afficher_dashboard(user):
 
         pts_par_journee = stats.get('pts_par_journee', {})
         if pts_par_journee:
+            moyenne_cumul = get_moyenne_cumul_par_journee(saison_id)
             journees_triees = sorted(pts_par_journee.keys())
             cumul = 0
             data = []
             for j in journees_triees:
                 cumul += pts_par_journee[j]
-                data.append({'Journee': f'J{j}', 'Points': cumul})
+                data.append({
+                    'Journee': f'J{j}',
+                    'Toi': cumul,
+                    'Moyenne': round(moyenne_cumul.get(j, 0), 1)
+                })
             df = pd.DataFrame(data).set_index('Journee')
-            st.area_chart(df, color='#FFD700', height=150)
+            st.line_chart(df, color=['#00FF00', '#888888'], height=150)
         else:
             st.markdown("""
             <div style="text-align: center; color: #AAAAAA; font-size: 0.85em; padding: 20px 0;">
