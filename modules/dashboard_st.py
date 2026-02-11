@@ -3,6 +3,7 @@ Module Dashboard Streamlit pour Elite Pronos
 Tableau de bord principal du joueur - Version Supabase
 """
 import streamlit as st
+import pandas as pd
 import os
 from datetime import datetime, timedelta
 from PIL import Image
@@ -99,16 +100,16 @@ def get_user_stats_supabase(user_id, saison_id):
             f'predictions?user_id=eq.{user_id}&saison_id=eq.{saison_id}&select=points_gagnes,match_id,matches(semaine_id)'
         ) or []
 
-        # Grouper par journee
-        journee_courante = get_journee_courante(saison_id)
+        # Grouper par journee (toutes les journees pour le chart de progression)
         pts_par_journee = {}
         for p in predictions_user:
             if p.get('matches'):
                 j = p['matches'].get('semaine_id')
-                if j and j >= journee_courante - 4:
+                if j:
                     pts_par_journee[j] = pts_par_journee.get(j, 0) + (p.get('points_gagnes') or 0)
 
         stats['nb_semaines'] = len(pts_par_journee)
+        stats['pts_par_journee'] = pts_par_journee
 
         for j in sorted(pts_par_journee.keys())[-5:]:
             pts = pts_par_journee[j]
@@ -259,7 +260,7 @@ def afficher_dashboard(user):
     # === ZONE STATISTIQUES (3 BOXES) ===
     st.markdown("### Mes Statistiques")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([1, 2, 1])
 
     # Box 1: Classement
     with col1:
@@ -272,29 +273,30 @@ def afficher_dashboard(user):
         </div>
         """, unsafe_allow_html=True)
 
-    # Box 2: Forme (5 indicateurs)
+    # Box 2: Progression (chart points cumules)
     with col2:
-        forme_icons = []
-        for i in range(5):
-            if i < len(stats['forme']):
-                if stats['forme'][i] == 'up':
-                    forme_icons.append('🟢')
-                elif stats['forme'][i] == 'stable':
-                    forme_icons.append('🟡')
-                else:
-                    forme_icons.append('🔴')
-            else:
-                forme_icons.append('⚪')
-
-        forme_display = ' '.join(forme_icons)
-
-        st.markdown(f"""
-        <div class="stat-box">
-            <div class="stat-label">Forme</div>
-            <div style="font-size: 1.8em; margin: 10px 0;">{forme_display}</div>
-            <div style="color: #AAAAAA; font-size: 0.8em;">{stats['nb_semaines']} semaines jouees</div>
+        st.markdown("""
+        <div class="stat-box" style="padding: 10px 15px 5px 15px;">
+            <div class="stat-label">Progression</div>
         </div>
         """, unsafe_allow_html=True)
+
+        pts_par_journee = stats.get('pts_par_journee', {})
+        if pts_par_journee:
+            journees_triees = sorted(pts_par_journee.keys())
+            cumul = 0
+            data = []
+            for j in journees_triees:
+                cumul += pts_par_journee[j]
+                data.append({'Journee': f'J{j}', 'Points': cumul})
+            df = pd.DataFrame(data).set_index('Journee')
+            st.area_chart(df, color='#FFD700', height=150)
+        else:
+            st.markdown("""
+            <div style="text-align: center; color: #AAAAAA; font-size: 0.85em; padding: 20px 0;">
+                Aucune donnee disponible
+            </div>
+            """, unsafe_allow_html=True)
 
     # Box 3: Jokers
     with col3:
