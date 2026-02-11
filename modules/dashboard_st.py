@@ -243,6 +243,12 @@ def afficher_dashboard(user):
             color: #aaa;
             text-transform: uppercase;
         }
+        .chart-gold-border iframe,
+        .chart-gold-border > div > div {
+            border: 2px solid #FFD700;
+            border-radius: 12px;
+            padding: 4px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -361,11 +367,11 @@ def afficher_dashboard(user):
 
             chart = (line_moy + line_toi).properties(
                 height=160, background='transparent'
-            ).configure_view(
-                stroke='#FFD700', strokeWidth=1.5, cornerRadius=8
-            ).configure(padding={"left": 5, "right": 5, "top": 5, "bottom": 5})
+            ).configure_view(strokeWidth=0).configure(padding=0)
 
+            st.markdown('<div class="chart-gold-border">', unsafe_allow_html=True)
             st.altair_chart(chart, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown("""
             <div class="stat-box" style="padding: 15px;">
