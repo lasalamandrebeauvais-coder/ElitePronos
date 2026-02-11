@@ -319,15 +319,16 @@ def afficher_dashboard(user):
             moyenne_cumul = get_moyenne_cumul_par_journee(saison_id)
             journees_triees = sorted(pts_par_journee.keys())
             cumul = 0
-            rows = []
+            data_toi = []
+            data_moy = []
             for j in journees_triees:
                 cumul += pts_par_journee[j]
-                rows.append({'journee': j, 'label': f'J{j}', 'Points': cumul, 'Serie': 'Toi'})
-                rows.append({'journee': j, 'label': f'J{j}', 'Points': round(moyenne_cumul.get(j, 0), 1), 'Serie': 'Moyenne'})
-            df = pd.DataFrame(rows)
+                data_toi.append({'journee': j, 'Points': cumul})
+                data_moy.append({'journee': j, 'Points': round(moyenne_cumul.get(j, 0), 1)})
+            df_toi = pd.DataFrame(data_toi)
+            df_moy = pd.DataFrame(data_moy)
 
-            # Dernier cumul du joueur
-            dernier_cumul = rows[-2]['Points']  # avant-dernier = derniere ligne "Toi"
+            dernier_cumul = data_toi[-1]['Points']
 
             st.markdown(f"""
             <div class="stat-box" style="padding: 12px 15px 8px 15px;">
@@ -344,28 +345,24 @@ def afficher_dashboard(user):
             </div>
             """, unsafe_allow_html=True)
 
-            chart = alt.Chart(df).mark_line(strokeWidth=2).encode(
-                x=alt.X('journee:O', axis=alt.Axis(
-                    title=None, labelAngle=0, labelColor='#888',
-                    labelExpr="'J' + datum.value"
-                )),
-                y=alt.Y('Points:Q', axis=alt.Axis(title=None, labelColor='#888')),
-                color=alt.Color('Serie:N', scale=alt.Scale(
-                    domain=['Toi', 'Moyenne'],
-                    range=['#00FF00', '#555555']
-                ), legend=None),
-                strokeDash=alt.StrokeDash('Serie:N', scale=alt.Scale(
-                    domain=['Toi', 'Moyenne'],
-                    range=[[0], [6, 3]]
-                ), legend=None)
-            ).properties(
-                height=160,
-                background='transparent'
-            ).configure(
-                padding=0
-            ).configure_view(
-                strokeWidth=0
-            )
+            x_ax = alt.X('journee:O', axis=alt.Axis(
+                title=None, labelAngle=0, labelColor='#888',
+                labelExpr="'J' + datum.value"
+            ))
+            y_ax = alt.Y('Points:Q', axis=alt.Axis(title=None, labelColor='#888'))
+
+            line_toi = alt.Chart(df_toi).mark_line(
+                color='#00FF00', strokeWidth=2.5
+            ).encode(x=x_ax, y=y_ax)
+
+            line_moy = alt.Chart(df_moy).mark_line(
+                color='#555555', strokeWidth=1.5, strokeDash=[6, 3]
+            ).encode(x=x_ax, y=y_ax)
+
+            chart = (line_moy + line_toi).properties(
+                height=160, background='transparent'
+            ).configure_view(strokeWidth=0).configure(padding=0)
+
             st.altair_chart(chart, use_container_width=True)
         else:
             st.markdown("""
