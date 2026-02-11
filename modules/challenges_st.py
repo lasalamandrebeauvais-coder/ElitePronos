@@ -1,20 +1,59 @@
 """
 Module Challenges Streamlit pour Elite Pronos
 3 onglets : Duel de la semaine, Face a face, Defis hebdomadaires
+Version optimisee : 2-3 requetes Supabase max (batch)
 """
 import streamlit as st
 
 from modules.supabase_db import get_supabase
 from modules.database_manager import (
-    get_saison_actuelle, get_saison_label, get_journee_courante,
-    get_points_joueur_semaine, get_mvp_semaine
+    get_saison_actuelle, get_saison_label, get_journee_courante
 )
 
 
 @st.cache_data(ttl=30)
-def _get_points_semaine_cache(user_id, semaine_id, saison_id):
-    """Version cachee de get_points_joueur_semaine"""
-    return get_points_joueur_semaine(user_id, semaine_id, saison_id)
+def _get_all_points_by_user_journee(user_ids, saison_id):
+    """
+    Recupere en UNE SEULE requete les points de tous les joueurs par journee.
+    Retourne: {user_id: {semaine_id: {'total': X, 'nb_exacts': Y, 'details': [...]}}}
+    """
+    supabase = get_supabase()
+
+    # Convertir en tuple pour le cache hashable
+    user_ids = list(user_ids)
+    user_ids_str = ','.join(map(str, user_ids))
+
+    # 1 seule requete : toutes les predictions de tous les users avec semaine_id
+    predictions = supabase._request('GET',
+        f'predictions?user_id=in.({user_ids_str})&saison_id=eq.{saison_id}'
+        f'&select=user_id,match_id,mise_points,points_gagnes,is_score_exact,matches(semaine_id)'
+    ) or []
+
+    # Agreger par user_id + semaine_id
+    result = {}
+    for p in predictions:
+        uid = p['user_id']
+        semaine = (p.get('matches') or {}).get('semaine_id')
+        if semaine is None:
+            continue
+
+        if uid not in result:
+            result[uid] = {}
+        if semaine not in result[uid]:
+            result[uid][semaine] = {'total': 0, 'nb_exacts': 0, 'details': []}
+
+        pts = p.get('points_gagnes') or 0
+        result[uid][semaine]['total'] += pts
+        if p.get('is_score_exact'):
+            result[uid][semaine]['nb_exacts'] += 1
+        result[uid][semaine]['details'].append({
+            'match_id': p['match_id'],
+            'mise': p.get('mise_points') or 0,
+            'points_gagnes': pts,
+            'is_exact': p.get('is_score_exact') or False
+        })
+
+    return result
 
 
 def afficher_challenges(user):
@@ -41,6 +80,18 @@ def afficher_challenges(user):
     journee_courante = get_journee_courante(saison_id)
     current_user_id = user['id']
 
+    # Recuperer les rivaux UNE SEULE FOIS
+    rivaux_ids = supabase.get_rivaux_ids(current_user_id)
+
+    # Charger TOUTES les donnees en 1 requete batch (user + tous les rivaux)
+    all_user_ids = tuple(sorted(set([current_user_id] + rivaux_ids)))
+    all_data = _get_all_points_by_user_journee(all_user_ids, saison_id)
+
+    # Helper pour acceder aux donnees
+    EMPTY = {'total': 0, 'nb_exacts': 0, 'details': []}
+    def pts(uid, j):
+        return all_data.get(uid, {}).get(j, EMPTY)
+
     # 3 onglets
     tab_duel, tab_h2h, tab_defis = st.tabs(["⚔️ Duel", "🤝 Face a face", "🎯 Defis"])
 
@@ -50,8 +101,6 @@ def afficher_challenges(user):
     with tab_duel:
         st.markdown("### Duel de la semaine")
         st.caption("Un rival designe chaque semaine pour un duel amical - pas de points en jeu !")
-
-        rivaux_ids = supabase.get_rivaux_ids(current_user_id)
 
         if not rivaux_ids:
             st.info("Selectionnez des rivaux dans **Mes Rivaux** pour debloquer les duels !")
@@ -69,9 +118,8 @@ def afficher_challenges(user):
             else:
                 rival_pseudo = rival_data[0]['pseudo']
 
-                # Points des 2 joueurs pour la journee courante
-                pts_user = _get_points_semaine_cache(current_user_id, journee_courante, saison_id)
-                pts_rival = _get_points_semaine_cache(rival_id, journee_courante, saison_id)
+                pts_user = pts(current_user_id, journee_courante)
+                pts_rival = pts(rival_id, journee_courante)
 
                 user_total = pts_user['total']
                 rival_total = pts_rival['total']
@@ -130,8 +178,6 @@ def afficher_challenges(user):
         st.markdown("### Face a face")
         st.caption("Bilan de vos confrontations directes contre vos rivaux")
 
-        rivaux_ids = supabase.get_rivaux_ids(current_user_id)
-
         if not rivaux_ids:
             st.info("Selectionnez des rivaux dans **Mes Rivaux** pour voir le bilan H2H !")
         else:
@@ -142,7 +188,7 @@ def afficher_challenges(user):
             ) or []
             rivaux_pseudo = {r['id']: r['pseudo'] for r in rivaux_data}
 
-            # Pour chaque rival, compter victoires/nuls/defaites par journee
+            # Calculer les bilans H2H (tout en memoire, 0 requete supplementaire)
             bilans = []
             for rival_id in rivaux_ids:
                 victories = 0
@@ -150,14 +196,14 @@ def afficher_challenges(user):
                 defeats = 0
 
                 for j in range(1, journee_courante):
-                    pts_me = _get_points_semaine_cache(current_user_id, j, saison_id)
-                    pts_rival = _get_points_semaine_cache(rival_id, j, saison_id)
+                    pts_me = pts(current_user_id, j)
+                    pts_riv = pts(rival_id, j)
 
                     # Ne compter que si les deux ont joue
-                    if pts_me['details'] and pts_rival['details']:
-                        if pts_me['total'] > pts_rival['total']:
+                    if pts_me['details'] and pts_riv['details']:
+                        if pts_me['total'] > pts_riv['total']:
                             victories += 1
-                        elif pts_me['total'] < pts_rival['total']:
+                        elif pts_me['total'] < pts_riv['total']:
                             defeats += 1
                         else:
                             draws += 1
@@ -223,10 +269,9 @@ def afficher_challenges(user):
         st.markdown("### Defis hebdomadaires")
         st.caption("3 defis a relever chaque semaine - pour le plaisir !")
 
-        # Determiner la semaine a afficher (courante si en cours, precedente si terminee)
+        # Semaine courante
         semaine_defis = journee_courante
-
-        pts_data = _get_points_semaine_cache(current_user_id, semaine_defis, saison_id)
+        pts_data = pts(current_user_id, semaine_defis)
 
         # Defi 1 : 200+ points
         defi1_ok = pts_data['total'] >= 200
@@ -297,7 +342,7 @@ def afficher_challenges(user):
                 </div>
                 """, unsafe_allow_html=True)
 
-        # Historique des defis (journees precedentes)
+        # Historique des defis (journees precedentes, deja en memoire)
         if journee_courante > 1:
             st.markdown("---")
             st.markdown("#### Historique des defis")
@@ -311,7 +356,7 @@ def afficher_challenges(user):
             hist_html += '</tr></thead><tbody>'
 
             for j in range(journee_courante - 1, max(0, journee_courante - 6), -1):
-                pts_j = _get_points_semaine_cache(current_user_id, j, saison_id)
+                pts_j = pts(current_user_id, j)
                 d1 = "✅" if pts_j['total'] >= 200 else "❌"
                 d2 = "✅" if pts_j['nb_exacts'] >= 2 else "❌"
                 d3 = "✅" if any(d['mise'] >= 40 and d['points_gagnes'] > 0 for d in pts_j['details']) else "❌"
