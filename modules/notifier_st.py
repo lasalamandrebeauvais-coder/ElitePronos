@@ -5,6 +5,7 @@ Design Elite: Bleu Nuit & Dore
 """
 import smtplib
 import os
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -44,11 +45,20 @@ def get_smtp_config():
     }
 
 
+def _is_valid_email(email):
+    """Verifie le format d'une adresse email"""
+    return bool(re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
+
+
 def send_email(destinataire, sujet, html_content):
     """
     Envoie un email via SMTP
     Retourne (success, message)
     """
+    # Validation du format email
+    if not destinataire or not _is_valid_email(destinataire):
+        return False, f"Adresse email invalide: {destinataire}"
+
     # Verifier le mode officiel
     if not is_mode_officiel():
         return True, f"[MODE TEST] Email simule vers {destinataire}: {sujet}"

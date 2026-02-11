@@ -468,7 +468,7 @@ else:
     st.sidebar.markdown("---")
 
     # Liste des pages pour utilisateur connecte (Admin visible uniquement pour les admins)
-    is_admin = user.get('is_admin', False) or user.get('pseudo', '').lower() == 'baggio'
+    is_admin = user.get('is_admin', False)
     if is_admin:
         pages = ["Admin", "Accueil", "Tableau de bord", "Reglement"]
     else:

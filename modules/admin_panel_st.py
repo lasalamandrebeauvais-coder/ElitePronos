@@ -43,9 +43,11 @@ def is_admin(user_id):
     return result and len(result) > 0 and result[0].get('is_admin', False)
 
 
+SUPER_ADMIN_PSEUDO = 'baggio'
+
 def is_super_admin(pseudo):
-    """Verifie si c'est le super admin (Baggio)"""
-    return pseudo.lower() == 'baggio'
+    """Verifie si c'est le super admin"""
+    return pseudo.lower() == SUPER_ADMIN_PSEUDO
 
 
 def promouvoir_admin(user_id):
@@ -59,7 +61,7 @@ def revoquer_admin(user_id):
     """Revoque les droits admin d'un utilisateur"""
     supabase = get_supabase()
     result = supabase._request('GET', f'utilisateurs?id=eq.{user_id}&select=pseudo')
-    if result and result[0].get('pseudo', '').lower() == 'baggio':
+    if result and result[0].get('pseudo', '').lower() == SUPER_ADMIN_PSEUDO:
         return False
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': False})
     return True

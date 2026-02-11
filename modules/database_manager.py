@@ -1062,27 +1062,34 @@ def get_countdown_pronostics_journee(semaine_id, saison_id=None):
 def get_journee_courante(saison_id=None):
     """
     Retourne le numero de la journee courante.
-    Utilise Supabase.
+    Utilise Supabase. Cache 5 min (change rarement).
     """
     if saison_id is None:
         saison_id = get_saison_actuelle()
 
-    # Essayer Supabase d'abord (pour Streamlit Cloud)
-    try:
+    return _get_journee_courante_cached(saison_id)
+
+
+def _get_journee_courante_cached(saison_id):
+    """Version cachee (import st local pour eviter dependance top-level)"""
+    import streamlit as st
+
+    @st.cache_data(ttl=300)
+    def _fetch(saison_id):
         from modules.supabase_db import get_supabase
         supabase = get_supabase()
-        # Lire depuis la table saisons (utiliser annee_debut pour filtrer par saison)
-        saisons = supabase._request('GET', f'saisons?annee_debut=eq.{saison_id}&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            return saisons[0].get('journee_courante', 1)
-        # Fallback: saison active
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            return saisons[0].get('journee_courante', 1)
-    except Exception:
-        pass
+        try:
+            saisons = supabase._request('GET', f'saisons?annee_debut=eq.{saison_id}&select=journee_courante')
+            if saisons and len(saisons) > 0:
+                return saisons[0].get('journee_courante', 1)
+            saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
+            if saisons and len(saisons) > 0:
+                return saisons[0].get('journee_courante', 1)
+        except Exception:
+            pass
+        return 1
 
-    return 1
+    return _fetch(saison_id)
 
 
 # ============================================
