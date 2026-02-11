@@ -118,7 +118,6 @@ def get_user_stats_supabase(user_id, saison_id):
         'total_points': 0,
         'nb_semaines': 0,
         'scores_exacts': 0,
-        'forme': [],
         'jokers_doubles': 0,
         'jokers_voles': 0,
         'nb_joueurs': 0
@@ -136,30 +135,18 @@ def get_user_stats_supabase(user_id, saison_id):
                 stats['scores_exacts'] = joueur['scores_exacts']
                 break
 
-        # === 2. FORME (simplifie - une seule requete) ===
+        # === 2. NB SEMAINES ===
         predictions_user = supabase._request('GET',
-            f'predictions?user_id=eq.{user_id}&saison_id=eq.{saison_id}&select=points_gagnes,match_id,matches(semaine_id)'
+            f'predictions?user_id=eq.{user_id}&saison_id=eq.{saison_id}&select=match_id,matches(semaine_id)'
         ) or []
 
-        # Grouper par journee (toutes les journees pour le chart de progression)
-        pts_par_journee = {}
+        semaines_jouees = set()
         for p in predictions_user:
             if p.get('matches'):
                 j = p['matches'].get('semaine_id')
                 if j:
-                    pts_par_journee[j] = pts_par_journee.get(j, 0) + (p.get('points_gagnes') or 0)
-
-        stats['nb_semaines'] = len(pts_par_journee)
-        stats['pts_par_journee'] = pts_par_journee
-
-        for j in sorted(pts_par_journee.keys())[-5:]:
-            pts = pts_par_journee[j]
-            if pts >= 50:
-                stats['forme'].append('up')
-            elif pts >= 0:
-                stats['forme'].append('stable')
-            else:
-                stats['forme'].append('down')
+                    semaines_jouees.add(j)
+        stats['nb_semaines'] = len(semaines_jouees)
 
         # === 3. JOKERS ===
         stock = supabase.get_stock_jokers(user_id, saison_id)
