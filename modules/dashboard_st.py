@@ -56,8 +56,8 @@ def get_classement_cache(saison_id):
 
 
 @st.cache_data(ttl=30)
-def get_moyenne_cumul_par_journee(saison_id):
-    """Calcule les points cumules moyens par journee (tous joueurs actifs)"""
+def get_classement_par_journee(saison_id):
+    """Calcule le classement (rang) de chaque joueur a chaque journee (points cumules)"""
     supabase = get_supabase()
 
     all_preds = supabase._request('GET',
@@ -76,21 +76,23 @@ def get_moyenne_cumul_par_journee(saison_id):
                 user_journees[uid][j] = user_journees[uid].get(j, 0) + (p.get('points_gagnes') or 0)
 
     if not user_journees:
-        return {}
+        return {}, []
 
-    # Trouver toutes les journees
     toutes_journees = sorted(set(j for uj in user_journees.values() for j in uj))
 
-    # Calculer cumul moyen par journee
-    moyenne_cumul = {}
+    # Pour chaque journee, calculer le cumul de chaque joueur puis classer
+    # resultat: {user_id: {journee: rang}}
+    rangs = {uid: {} for uid in user_journees}
     for j in toutes_journees:
         cumuls = []
-        for uid, journees in user_journees.items():
-            cumul = sum(journees.get(jj, 0) for jj in toutes_journees if jj <= j)
-            cumuls.append(cumul)
-        moyenne_cumul[j] = sum(cumuls) / len(cumuls) if cumuls else 0
+        for uid in user_journees:
+            cumul = sum(user_journees[uid].get(jj, 0) for jj in toutes_journees if jj <= j)
+            cumuls.append((uid, cumul))
+        cumuls.sort(key=lambda x: x[1], reverse=True)
+        for rang, (uid, _) in enumerate(cumuls, 1):
+            rangs[uid][j] = rang
 
-    return moyenne_cumul
+    return rangs, toutes_journees
 
 # Chemin avatars
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
@@ -243,11 +245,6 @@ def afficher_dashboard(user):
             color: #aaa;
             text-transform: uppercase;
         }
-        .gold-chart-container [data-testid="stVerticalBlockBorderWrapper"] {
-            border: 2px solid #FFD700 !important;
-            border-radius: 12px !important;
-            background: transparent !important;
-        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -310,61 +307,77 @@ def afficher_dashboard(user):
         </div>
         """, unsafe_allow_html=True)
 
-    # Box 2: Progression (chart points cumules)
+    # Box 2: Progression (classement par journee)
     with col2:
-        pts_par_journee = stats.get('pts_par_journee', {})
-        if pts_par_journee:
-            moyenne_cumul = get_moyenne_cumul_par_journee(saison_id)
-            journees_triees = sorted(pts_par_journee.keys())
-            cumul = 0
-            data_toi = []
-            data_moy = []
-            for j in journees_triees:
-                cumul += pts_par_journee[j]
-                data_toi.append({'journee': j, 'Points': cumul})
-                data_moy.append({'journee': j, 'Points': round(moyenne_cumul.get(j, 0), 1)})
-            df_toi = pd.DataFrame(data_toi)
-            df_moy = pd.DataFrame(data_moy)
+        rangs_all, journees_list = get_classement_par_journee(saison_id)
+        user_rangs = rangs_all.get(user['id'], {})
 
-            dernier_cumul = data_toi[-1]['Points']
+        if user_rangs and journees_list:
+            # Recuperer les rivaux (max 5)
+            supabase_dash = get_supabase()
+            rivaux_ids = supabase_dash.get_rivaux_ids(user['id'])[:5]
+
+            # Pseudos des rivaux
+            rivaux_pseudos = {}
+            if rivaux_ids:
+                all_users = supabase_dash.get_all_utilisateurs(statut='Actif')
+                pseudo_map = {u['id']: u['pseudo'] for u in all_users}
+                for rid in rivaux_ids:
+                    rivaux_pseudos[rid] = pseudo_map.get(rid, '???')
+
+            # Rang actuel du joueur
+            derniere_j = journees_list[-1]
+            rang_actuel = user_rangs.get(derniere_j, '--')
+
+            # Legende HTML
+            couleurs_rivaux = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#A78BFA', '#F97316']
+            legende_items = '<span style="font-size:0.8em;color:#ccc;display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:16px;height:3px;background:#00FF00;border-radius:2px;"></span> Toi</span>'
+            for i, rid in enumerate(rivaux_ids):
+                pseudo = rivaux_pseudos.get(rid, '???')[:8]
+                c = couleurs_rivaux[i]
+                legende_items += f'<span style="font-size:0.8em;color:#ccc;display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:16px;height:3px;background:{c};border-radius:2px;border-top:1px dashed {c};"></span> {pseudo}</span>'
 
             st.markdown(f"""
             <div class="stat-box" style="padding: 12px 15px 8px 15px;">
                 <div class="stat-label" style="margin-bottom: 4px;">Progression</div>
-                <div class="stat-value" style="font-size: 1.8em;">{dernier_cumul:.0f} pts</div>
-                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 6px;">
-                    <span style="font-size: 0.8em; color: #ccc; display: flex; align-items: center; gap: 5px;">
-                        <span style="display: inline-block; width: 16px; height: 3px; background: #00FF00; border-radius: 2px;"></span> Toi
-                    </span>
-                    <span style="font-size: 0.8em; color: #ccc; display: flex; align-items: center; gap: 5px;">
-                        <span style="display: inline-block; width: 16px; height: 3px; background: #555555; border-radius: 2px;"></span> Moyenne
-                    </span>
+                <div class="stat-value" style="font-size: 1.8em;">#{rang_actuel}</div>
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                    {legende_items}
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            # Construire les donnees du joueur
+            df_toi = pd.DataFrame([{'journee': j, 'Rang': user_rangs[j]} for j in journees_list if j in user_rangs])
 
             x_ax = alt.X('journee:O', axis=alt.Axis(
                 title=None, labelAngle=0, labelColor='#888',
                 labelExpr="'J' + datum.value"
             ))
-            y_ax = alt.Y('Points:Q', axis=alt.Axis(title=None, labelColor='#888'))
+            y_ax = alt.Y('Rang:Q', axis=alt.Axis(title=None, labelColor='#888'),
+                         scale=alt.Scale(reverse=True))
 
             line_toi = alt.Chart(df_toi).mark_line(
-                color='#00FF00', strokeWidth=2.5
+                color='#00FF00', strokeWidth=2.5, point=True
             ).encode(x=x_ax, y=y_ax)
 
-            line_moy = alt.Chart(df_moy).mark_line(
-                color='#555555', strokeWidth=1.5, strokeDash=[6, 3]
-            ).encode(x=x_ax, y=y_ax)
+            layers = [line_toi]
 
-            chart = (line_moy + line_toi).properties(
-                height=160, background='transparent'
+            # Courbes des rivaux
+            for i, rid in enumerate(rivaux_ids):
+                rival_rangs = rangs_all.get(rid, {})
+                if rival_rangs:
+                    df_rival = pd.DataFrame([{'journee': j, 'Rang': rival_rangs[j]} for j in journees_list if j in rival_rangs])
+                    line_rival = alt.Chart(df_rival).mark_line(
+                        color=couleurs_rivaux[i], strokeWidth=1.5, strokeDash=[6, 3]
+                    ).encode(x=x_ax, y=y_ax)
+                    layers.append(line_rival)
+
+            chart = alt.layer(*layers).properties(
+                height=180, background='transparent'
             ).configure_view(strokeWidth=0).configure(padding=0)
 
-            st.markdown('<div class="gold-chart-container">', unsafe_allow_html=True)
-            with st.container(border=True):
-                st.altair_chart(chart, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.markdown("""
             <div class="stat-box" style="padding: 15px;">
