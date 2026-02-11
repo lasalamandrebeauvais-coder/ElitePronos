@@ -361,7 +361,9 @@ def afficher_dashboard(user):
 
             chart = (line_moy + line_toi).properties(
                 height=160, background='transparent'
-            ).configure_view(strokeWidth=0).configure(padding=0)
+            ).configure_view(
+                stroke='#FFD700', strokeWidth=1.5, cornerRadius=8
+            ).configure(padding={"left": 5, "right": 5, "top": 5, "bottom": 5})
 
             st.altair_chart(chart, use_container_width=True)
         else:
