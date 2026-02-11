@@ -314,11 +314,15 @@ def afficher_dashboard(user):
     # Box 2: Progression (chart points cumules)
     with col2:
         st.markdown("""
-        <div class="stat-box" style="padding: 10px 15px 5px 15px;">
-            <div class="stat-label">Progression</div>
-            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 6px;">
-                <span style="font-size: 0.75em;"><span style="color: #00FF00;">&#9473;</span> Toi</span>
-                <span style="font-size: 0.75em;"><span style="color: #888888;">&#9473;</span> Moyenne</span>
+        <div class="stat-box" style="padding: 12px 15px 8px 15px;">
+            <div class="stat-label" style="margin-bottom: 8px;">Progression</div>
+            <div style="display: flex; justify-content: center; gap: 25px;">
+                <span style="font-size: 0.85em; color: #ccc; display: flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 18px; height: 3px; background: #00FF00; border-radius: 2px;"></span> Toi
+                </span>
+                <span style="font-size: 0.85em; color: #ccc; display: flex; align-items: center; gap: 6px;">
+                    <span style="display: inline-block; width: 18px; height: 3px; background: #888888; border-radius: 2px;"></span> Moyenne
+                </span>
             </div>
         </div>
         """, unsafe_allow_html=True)
