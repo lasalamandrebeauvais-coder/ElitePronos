@@ -293,13 +293,6 @@ def afficher_dashboard(user):
             st.session_state.dashboard_section = None
             st.session_state.page = "Accueil"
             st.rerun()
-        if st.button("Deconnexion", type="secondary"):
-            from modules.login_st import logout
-            logout()
-            st.session_state.page = "Connexion"
-            st.rerun()
-
-    st.markdown("---")
 
     # === ZONE STATISTIQUES (3 BOXES) ===
     st.markdown("### Mes Statistiques")
