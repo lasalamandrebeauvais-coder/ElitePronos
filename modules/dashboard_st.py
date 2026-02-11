@@ -243,11 +243,10 @@ def afficher_dashboard(user):
             color: #aaa;
             text-transform: uppercase;
         }
-        .chart-gold-border iframe,
-        .chart-gold-border > div > div {
-            border: 2px solid #FFD700;
-            border-radius: 12px;
-            padding: 4px;
+        .gold-chart-container [data-testid="stVerticalBlockBorderWrapper"] {
+            border: 2px solid #FFD700 !important;
+            border-radius: 12px !important;
+            background: transparent !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -369,8 +368,9 @@ def afficher_dashboard(user):
                 height=160, background='transparent'
             ).configure_view(strokeWidth=0).configure(padding=0)
 
-            st.markdown('<div class="chart-gold-border">', unsafe_allow_html=True)
-            st.altair_chart(chart, use_container_width=True)
+            st.markdown('<div class="gold-chart-container">', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.altair_chart(chart, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown("""
