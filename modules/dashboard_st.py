@@ -4,6 +4,7 @@ Tableau de bord principal du joueur - Version Supabase
 """
 import streamlit as st
 import pandas as pd
+import altair as alt
 import os
 from datetime import datetime, timedelta
 from PIL import Image
@@ -313,39 +314,66 @@ def afficher_dashboard(user):
 
     # Box 2: Progression (chart points cumules)
     with col2:
-        st.markdown("""
-        <div class="stat-box" style="padding: 12px 15px 8px 15px;">
-            <div class="stat-label" style="margin-bottom: 8px;">Progression</div>
-            <div style="display: flex; justify-content: center; gap: 25px;">
-                <span style="font-size: 0.85em; color: #ccc; display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 18px; height: 3px; background: #00FF00; border-radius: 2px;"></span> Toi
-                </span>
-                <span style="font-size: 0.85em; color: #ccc; display: flex; align-items: center; gap: 6px;">
-                    <span style="display: inline-block; width: 18px; height: 3px; background: #888888; border-radius: 2px;"></span> Moyenne
-                </span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
         pts_par_journee = stats.get('pts_par_journee', {})
         if pts_par_journee:
             moyenne_cumul = get_moyenne_cumul_par_journee(saison_id)
             journees_triees = sorted(pts_par_journee.keys())
             cumul = 0
-            data = []
+            rows = []
             for j in journees_triees:
                 cumul += pts_par_journee[j]
-                data.append({
-                    'Journee': f'J{j}',
-                    'Toi': cumul,
-                    'Moyenne': round(moyenne_cumul.get(j, 0), 1)
-                })
-            df = pd.DataFrame(data).set_index('Journee')
-            st.line_chart(df, color=['#00FF00', '#888888'], height=150)
+                rows.append({'journee': j, 'label': f'J{j}', 'Points': cumul, 'Serie': 'Toi'})
+                rows.append({'journee': j, 'label': f'J{j}', 'Points': round(moyenne_cumul.get(j, 0), 1), 'Serie': 'Moyenne'})
+            df = pd.DataFrame(rows)
+
+            # Dernier cumul du joueur
+            dernier_cumul = rows[-2]['Points']  # avant-dernier = derniere ligne "Toi"
+
+            st.markdown(f"""
+            <div class="stat-box" style="padding: 12px 15px 8px 15px;">
+                <div class="stat-label" style="margin-bottom: 4px;">Progression</div>
+                <div class="stat-value" style="font-size: 1.8em;">{dernier_cumul:.0f} pts</div>
+                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 6px;">
+                    <span style="font-size: 0.8em; color: #ccc; display: flex; align-items: center; gap: 5px;">
+                        <span style="display: inline-block; width: 16px; height: 3px; background: #00FF00; border-radius: 2px;"></span> Toi
+                    </span>
+                    <span style="font-size: 0.8em; color: #ccc; display: flex; align-items: center; gap: 5px;">
+                        <span style="display: inline-block; width: 16px; height: 3px; background: #555555; border-radius: 2px;"></span> Moyenne
+                    </span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            chart = alt.Chart(df).mark_line(strokeWidth=2).encode(
+                x=alt.X('journee:O', axis=alt.Axis(
+                    title=None, labelAngle=0, labelColor='#888',
+                    labelExpr="'J' + datum.value"
+                )),
+                y=alt.Y('Points:Q', axis=alt.Axis(title=None, labelColor='#888')),
+                color=alt.Color('Serie:N', scale=alt.Scale(
+                    domain=['Toi', 'Moyenne'],
+                    range=['#00FF00', '#555555']
+                ), legend=None),
+                strokeDash=alt.StrokeDash('Serie:N', scale=alt.Scale(
+                    domain=['Toi', 'Moyenne'],
+                    range=[[0], [6, 3]]
+                ), legend=None)
+            ).properties(
+                height=160,
+                background='transparent'
+            ).configure(
+                padding=0
+            ).configure_view(
+                strokeWidth=0
+            )
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.markdown("""
-            <div style="text-align: center; color: #AAAAAA; font-size: 0.85em; padding: 20px 0;">
-                Aucune donnee disponible
+            <div class="stat-box" style="padding: 15px;">
+                <div class="stat-label">Progression</div>
+                <div style="text-align: center; color: #AAAAAA; font-size: 0.85em; padding: 20px 0;">
+                    Aucune donnee disponible
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
