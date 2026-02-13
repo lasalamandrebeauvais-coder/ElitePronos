@@ -41,13 +41,13 @@ def get_saison_actuelle():
 
 
 def get_journee_courante(saison_id):
-    """Recupere la journee courante depuis Supabase"""
+    """Recupere la journee courante depuis la table saisons"""
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/matches?saison_id=eq.{saison_id}&is_active=eq.true&select=semaine_id&order=semaine_id.desc&limit=1",
+        f"{SUPABASE_URL}/rest/v1/saisons?annee_debut=eq.{saison_id}&select=journee_courante",
         headers=SUPABASE_HEADERS
     )
     if response.status_code == 200 and response.json():
-        return response.json()[0]['semaine_id']
+        return response.json()[0]['journee_courante']
     return None
 
 
@@ -150,9 +150,9 @@ def get_users_grand_chelem_precedente(semaine_id, saison_id):
     if semaine_prec < 1:
         return set()
 
-    # Recuperer les matchs actifs termines de la semaine precedente
+    # Recuperer les matchs termines de la semaine precedente (sans filtre is_active)
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,score_final_home,score_final_away",
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&select=id,score_final_home,score_final_away",
         headers=SUPABASE_HEADERS
     )
     if response.status_code != 200:
@@ -162,8 +162,26 @@ def get_users_grand_chelem_precedente(semaine_id, saison_id):
     if len(matchs_prec) < 4:
         return set()
 
-    match_ids = [m['id'] for m in matchs_prec]
+    all_match_ids = [m['id'] for m in matchs_prec]
     matchs_dict = {m['id']: (m['score_final_home'], m['score_final_away']) for m in matchs_prec}
+
+    # Filtrer sur les matchs actifs (ceux sur lesquels Kingo a pronostique)
+    kingo_id = get_kingo_user_id()
+    if kingo_id:
+        all_ids_str = ','.join(map(str, all_match_ids))
+        resp_kingo = requests.get(
+            f"{SUPABASE_URL}/rest/v1/predictions?user_id=eq.{kingo_id}&match_id=in.({all_ids_str})&select=match_id",
+            headers=SUPABASE_HEADERS
+        )
+        if resp_kingo.status_code == 200 and resp_kingo.json():
+            match_ids = [p['match_id'] for p in resp_kingo.json()]
+        else:
+            match_ids = all_match_ids
+    else:
+        match_ids = all_match_ids
+
+    if len(match_ids) < 4:
+        return set()
 
     # Recuperer toutes les predictions de ces matchs
     match_ids_str = ','.join(map(str, match_ids))
@@ -296,9 +314,9 @@ def recalculer_points_complet(semaine_id, saison_id):
 
     print(f"Jokers DOUBLE: {len(users_double)}, VOL: {len(vol_cibles)}")
 
-    # Recuperer les matchs termines avec cotes
+    # Recuperer les matchs termines avec cotes (sans filtre is_active car il passe a False apres validation)
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,score_final_home,score_final_away,cote_home,cote_draw,cote_away",
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&score_final_home=not.is.null&select=id,score_final_home,score_final_away,cote_home,cote_draw,cote_away",
         headers=SUPABASE_HEADERS
     )
     if response.status_code != 200:
@@ -407,19 +425,58 @@ def recalculer_points_complet(semaine_id, saison_id):
     return total_updates
 
 
-def check_journee_terminee(semaine_id, saison_id):
-    """Verifie si tous les matchs de la journee sont termines"""
+def get_kingo_user_id():
+    """Retourne l'ID de Kingo"""
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id,score_final_home",
+        f"{SUPABASE_URL}/rest/v1/utilisateurs?pseudo=eq.Kingo&select=id",
         headers=SUPABASE_HEADERS
     )
-    if response.status_code == 200:
-        matchs = response.json()
-        if not matchs:
-            return False  # Pas de matchs actifs
-        # Tous les matchs ont un score ?
-        return all(m.get('score_final_home') is not None for m in matchs)
-    return False
+    if response.status_code == 200 and response.json():
+        return response.json()[0]['id']
+    return None
+
+
+def check_journee_terminee(semaine_id, saison_id):
+    """Verifie si tous les matchs actifs de la journee sont termines.
+    Utilise les predictions de Kingo pour determiner les matchs actifs."""
+    # Recuperer l'ID de Kingo
+    kingo_id = get_kingo_user_id()
+    if not kingo_id:
+        return False
+
+    # Recuperer tous les matchs de la semaine
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,score_final_home",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        return False
+
+    all_matchs = response.json()
+    if not all_matchs:
+        return False
+
+    all_match_ids = [m['id'] for m in all_matchs]
+    match_map = {m['id']: m for m in all_matchs}
+
+    # Les matchs actifs = ceux sur lesquels Kingo a pronostique
+    match_ids_str = ','.join(map(str, all_match_ids))
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?user_id=eq.{kingo_id}&match_id=in.({match_ids_str})&select=match_id",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200:
+        return False
+
+    kingo_match_ids = [p['match_id'] for p in response.json()]
+    if not kingo_match_ids:
+        return False
+
+    # Verifier que tous les matchs de Kingo ont un score final
+    return all(
+        match_map.get(mid, {}).get('score_final_home') is not None
+        for mid in kingo_match_ids
+    )
 
 
 def cloturer_journee(semaine_id, saison_id):
