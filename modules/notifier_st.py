@@ -1100,7 +1100,7 @@ def envoyer_synthese_paris(semaine_id):
     supabase = get_supabase()
 
     # Recuperer les matchs de la semaine
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home') or []
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,score_final_home') or []
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
@@ -1321,7 +1321,7 @@ def envoyer_resultats_ironiques(semaine_id):
     supabase = get_supabase()
 
     # Recuperer les matchs de la semaine avec scores
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home,score_final_away') or []
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away') or []
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
@@ -1525,7 +1525,7 @@ def envoyer_tableau_pronos_admin(semaine_id):
 
     # Recuperer les matchs avec cotes
     matchs = supabase._request('GET',
-        f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away&order=id'
+        f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,cote_home,cote_draw,cote_away&order=id'
     ) or []
     match_ids = [m['id'] for m in matchs]
 

@@ -1615,8 +1615,10 @@ def update_scores_from_api(semaine_id, saison_id=None):
     """
     Met a jour les scores depuis l'API et calcule les points automatiquement.
     Fonction all-in-one pour mise a jour en temps reel.
+    Couvre: Ligue 1 + Premier League + La Liga + Serie A + Bundesliga.
     """
     import requests
+    from datetime import timedelta
     from modules.supabase_db import get_supabase
 
     if saison_id is None:
@@ -1627,21 +1629,48 @@ def update_scores_from_api(semaine_id, saison_id=None):
         API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
         headers = {'X-Auth-Token': API_TOKEN}
 
-        # Recuperer les matchs de la journee depuis Supabase
+        # Recuperer les matchs de la journee depuis Supabase (avec date_match)
         matchs_db = supabase._request('GET',
-            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away'
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away,date_match'
         ) or []
 
-        # Appeler l'API pour les scores
+        # === 1. Matchs Ligue 1 ===
         url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
         response = requests.get(url, headers=headers)
 
-        if response.status_code != 200:
-            return False, f"Erreur API: {response.status_code}"
+        matchs_api = []
+        if response.status_code == 200:
+            matchs_api = response.json().get('matches', [])
 
-        matchs_api = response.json().get('matches', [])
+        # === 2. Matchs etrangers (PL, La Liga, Serie A, Bundesliga) ===
+        # Determiner la plage de dates depuis les matchs en base
+        dates_db = [m.get('date_match', '') for m in matchs_db if m.get('date_match')]
+        if dates_db:
+            dates_str = [str(d)[:10] for d in dates_db if d]
+            if dates_str:
+                dt_min = datetime.strptime(min(dates_str), '%Y-%m-%d') - timedelta(days=1)
+                dt_max = datetime.strptime(max(dates_str), '%Y-%m-%d') + timedelta(days=1)
+                date_from = dt_min.strftime('%Y-%m-%d')
+                date_to = dt_max.strftime('%Y-%m-%d')
+            else:
+                now = datetime.now()
+                date_from = (now - timedelta(days=3)).strftime('%Y-%m-%d')
+                date_to = (now + timedelta(days=4)).strftime('%Y-%m-%d')
+        else:
+            now = datetime.now()
+            date_from = (now - timedelta(days=3)).strftime('%Y-%m-%d')
+            date_to = (now + timedelta(days=4)).strftime('%Y-%m-%d')
 
-        # Mettre a jour les scores
+        for code in ['PL', 'PD', 'SA', 'BL1']:
+            try:
+                url_ext = f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}'
+                resp = requests.get(url_ext, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    matchs_api.extend(resp.json().get('matches', []))
+            except Exception:
+                pass  # Continuer si un championnat echoue
+
+        # === 3. Mettre a jour les scores ===
         updates = 0
         for m_api in matchs_api:
             home_api = m_api.get('homeTeam', {}).get('name')
