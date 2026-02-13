@@ -54,7 +54,7 @@ def get_journee_courante(saison_id):
 def get_matchs_supabase(semaine_id, saison_id):
     """Recupere les matchs de la journee depuis Supabase"""
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away",
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away,date_match",
         headers=SUPABASE_HEADERS
     )
     if response.status_code == 200:
