@@ -8,7 +8,12 @@ Script d'automatisation Elite Pronos
 
 import requests
 import os
-from datetime import datetime
+import random
+import smtplib
+import re
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime, timedelta
 
 # Configuration Supabase (fallback si secret GitHub vide)
 _DEFAULT_URL = "https://qyyfxbwyvshpuuqwrxsl.supabase.co"
@@ -665,6 +670,280 @@ def creer_matchs_journee(semaine_id, saison_id):
     print(f"{count} matchs importes pour J{semaine_id} (4 actifs par defaut)")
 
 
+# ============================================
+# RAPPEL RETARDATAIRES (H-4 avant deadline)
+# ============================================
+
+PHRASES_KINGO_RETARDATAIRES = [
+    "Tu sais que meme un poulpe ferait ses pronos plus vite que toi ? Et il a 8 bras pour trouver des excuses.",
+    "Allo ? Y'a quelqu'un ? J'ai cru voir une tumbleweed passer devant tes pronostics vides...",
+    "Je commence a croire que tu attends que les matchs soient finis pour pronostiquer. Strategie audacieuse.",
+    "Meme mon algorithme a eu le temps de faire ses pronos, prendre un cafe et ecrire un roman. Toi ? Rien. Nada. Le vide.",
+    "ALERTE DISPARITION : Les pronostics de {pseudo} n'ont toujours pas ete retrouves. Si vous avez des informations, contactez Elite Pronos.",
+    "Tu sais ce qui est plus vide que tes pronostics ? Rien. Absolument rien.",
+    "J'ai verifie 3 fois. Puis 4. Puis 5. Toujours aucun prono de ta part. Tu testes ma patience ou quoi ?",
+    "On m'a dit que tu avais une excuse. Et puis finalement non. Meme pas une excuse.",
+    "Les autres ont deja pronos, joker, et se la coulent douce. Et toi ? Tu fais quoi la exactement ?",
+    "Je suis un bot et meme MOI j'ai plus d'instinct football que quelqu'un qui ne pronostique pas.",
+    "Tick-tock, tick-tock... Tu entends ca ? C'est le son de la deadline qui se rapproche pendant que tu ne fais RIEN.",
+    "Fun fact : 100% des joueurs qui ne font pas leurs pronos finissent avec mes pronos a moi. Et crois-moi, je suis genereux... mais pas gentil.",
+    "Si l'oubli etait un sport olympique, tu serais deja triple champion du monde.",
+    "Je ne dis pas que tu es en retard... mais meme l'escargot de la Journee 1 est arrive avant toi.",
+    "BREAKING NEWS : {pseudo} est officiellement porte(e) disparu(e) de la plateforme. La police du prono est en route.",
+]
+
+PHRASES_KINGO_CONSEQUENCES = [
+    "Si tu ne fais rien, je te colle MES pronostics et je te vole un joker. Oui oui, automatiquement. Sans pitie.",
+    "Rappel : pas de pronos = vol automatique d'un joker + tu herites de mes predictions. Et je suis un bot, pas Nostradamus.",
+    "Tu veux vraiment que je choisisse pour toi ? Je suis programme pour etre mediocre, pas pour te faire gagner.",
+    "Sans tes pronos, c'est VOL AUTO garanti : adieu un joker, bonjour mes predictions de robot.",
+    "Le systeme va te voler un joker et copier mes pronos. C'est pas une menace, c'est une promesse algorithmique.",
+]
+
+PHRASES_KINGO_MOTIVATION = [
+    "Allez, il te reste encore un peu de temps. Montre-moi que t'es pas qu'un fantome dans le classement !",
+    "4 petits pronos, c'est tout ce qu'on te demande. Meme ton chat pourrait le faire (bon, peut-etre pas).",
+    "Saisis tes pronos maintenant et prouve que tu merites ta place parmi l'Elite !",
+    "Il n'est pas trop tard pour sauver l'honneur. Clique, pronostique, et redeviens un champion.",
+    "Ton classement te remercie d'avance. Enfin... si tu bouges.",
+]
+
+
+def send_email_direct(destinataire, sujet, html_content):
+    """Envoie un email via SMTP (version standalone pour GitHub Actions)"""
+    if not destinataire or not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', destinataire):
+        print(f"  Email invalide: {destinataire}")
+        return False
+
+    is_officiel = os.getenv('IS_OFFICIEL', '').lower() in ('true', '1', 'oui')
+    if not is_officiel:
+        print(f"  [MODE TEST] Email simule vers {destinataire}: {sujet}")
+        return True
+
+    smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
+    smtp_port = int(os.getenv('SMTP_PORT', '587'))
+    smtp_user = os.getenv('SMTP_USER', '')
+    smtp_password = os.getenv('SMTP_PASSWORD', '')
+
+    if not smtp_user or not smtp_password:
+        print("  Config SMTP incomplete")
+        return False
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = sujet
+        msg['From'] = f"Elite Pronos <{smtp_user}>"
+        msg['To'] = destinataire
+        msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+
+        print(f"  Email envoye a {destinataire}")
+        return True
+    except Exception as e:
+        print(f"  Erreur envoi email: {e}")
+        return False
+
+
+def generer_html_rappel_retardataire(pseudo, semaine_id):
+    """Genere le HTML de l'email de rappel pour un retardataire"""
+    phrase_provoc = random.choice(PHRASES_KINGO_RETARDATAIRES).replace("{pseudo}", pseudo)
+    phrase_consequence = random.choice(PHRASES_KINGO_CONSEQUENCES)
+    phrase_motivation = random.choice(PHRASES_KINGO_MOTIVATION)
+
+    # Saison label
+    now = datetime.now()
+    annee = now.year if now.month >= 8 else now.year - 1
+    saison_label = f"{annee}-{annee + 1}"
+
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #0a0a1a; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #0d1b2a 0%, #1a1a2e 100%); border: 2px solid #FFD700; border-radius: 15px; overflow: hidden; }}
+            .header {{ background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; text-align: center; }}
+            .header h1 {{ color: #0a0a1a; margin: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }}
+            .header .subtitle {{ color: #1a1a2e; font-size: 14px; margin-top: 5px; }}
+            .content {{ padding: 30px; color: #ffffff; }}
+            .content h2 {{ margin-top: 0; }}
+            .content p {{ line-height: 1.6; color: #cccccc; }}
+            .button {{ display: inline-block; color: #0a0a1a !important; padding: 18px 45px; text-decoration: none; border-radius: 25px; font-weight: bold; text-transform: uppercase; font-size: 16px; }}
+            .footer {{ background: #0a0a1a; padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Rappel Retardataire</h1>
+                <div class="subtitle">La ligue des experts du football</div>
+            </div>
+            <div class="content">
+                <h2 style="color: #ff6b6b;">Hep {pseudo} ! T'as oublie quelque chose...</h2>
+
+                <div style="background: rgba(155, 89, 182, 0.15); border: 1px solid #9b59b6; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                    <div style="display: flex; align-items: flex-start;">
+                        <div style="font-size: 36px; margin-right: 15px;">&#129302;</div>
+                        <div>
+                            <div style="color: #9b59b6; font-weight: bold; font-size: 15px; margin-bottom: 10px;">Kingo - Le Bot Elite</div>
+                            <p style="color: #e0e0e0; margin: 0; line-height: 1.7; font-size: 15px; font-style: italic;">{phrase_provoc}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #ff6b6b; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center;">
+                    <div style="font-size: 36px; color: #ff6b6b; font-weight: bold;">&#9200; H - 4</div>
+                    <p style="margin: 10px 0 0 0; color: #ff6b6b; font-size: 16px; font-weight: bold;">
+                        Plus que quelques heures avant la deadline de la Journee {semaine_id} !
+                    </p>
+                </div>
+
+                <div style="background: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <p style="color: #e74c3c; font-weight: bold; margin: 0 0 8px 0;">&#9888; Ce qui t'attend si tu ne bouges pas :</p>
+                    <p style="color: #cccccc; margin: 0; line-height: 1.6;">{phrase_consequence}</p>
+                </div>
+
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
+                       class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);">
+                        SAISIR MES PRONOS MAINTENANT
+                    </a>
+                </p>
+
+                <div style="text-align: center; margin: 20px 0;">
+                    <p style="color: #FFD700; font-size: 14px; font-style: italic;">&laquo; {phrase_motivation} &raquo;</p>
+                    <p style="color: #666; font-size: 11px;">- Kingo, ton bot prefere (ou pas)</p>
+                </div>
+            </div>
+            <div class="footer">
+                <p>Cet email a ete envoye automatiquement par Elite Pronos.</p>
+                <p>Saison {saison_label}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+
+def check_et_envoyer_rappel_retardataires(semaine_id, saison_id):
+    """
+    Verifie si on est ~4h avant la deadline et envoie les rappels.
+    Deadline = premier match - 1h, donc on verifie si on est a ~5h du premier match.
+    Fenetre de detection : entre 5h15 et 4h45 avant le premier match (30 min de marge pour le cron).
+    """
+    # 1. Recuperer la date du premier match
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=date_match&order=date_match&limit=1",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200 or not response.json():
+        return
+
+    date_str = response.json()[0].get('date_match')
+    if not date_str:
+        return
+
+    try:
+        date_match = datetime.fromisoformat(date_str.replace('Z', '+00:00').replace('+00:00', ''))
+    except:
+        try:
+            date_match = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        except:
+            return
+
+    # 2. Calculer si on est dans la fenetre H-4 avant deadline
+    # Deadline = date_match - 1h, donc H-4 avant deadline = date_match - 5h
+    now = datetime.now()
+    cible = date_match - timedelta(hours=5)  # 4h avant deadline
+    diff_minutes = (now - cible).total_seconds() / 60
+
+    # Fenetre : entre -15 et +15 minutes autour de la cible (30 min de marge)
+    if not (-15 <= diff_minutes <= 15):
+        return
+
+    print(f"=== RAPPEL RETARDATAIRES - H-4 avant deadline J{semaine_id} ===")
+
+    # 3. Recuperer les matchs actifs (ceux de Kingo)
+    kingo_id = get_kingo_user_id()
+    if not kingo_id:
+        print("Kingo introuvable")
+        return
+
+    matchs = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=id",
+        headers=SUPABASE_HEADERS
+    )
+    if matchs.status_code != 200:
+        return
+
+    all_match_ids = [m['id'] for m in matchs.json()]
+    if not all_match_ids:
+        return
+
+    # Matchs sur lesquels Kingo a pronostique = matchs actifs
+    match_ids_str = ','.join(map(str, all_match_ids))
+    kingo_preds = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?user_id=eq.{kingo_id}&match_id=in.({match_ids_str})&select=match_id",
+        headers=SUPABASE_HEADERS
+    )
+    if kingo_preds.status_code != 200:
+        return
+
+    active_match_ids = [p['match_id'] for p in kingo_preds.json()]
+    if not active_match_ids:
+        return
+
+    # 4. Recuperer les joueurs qui ont deja fait leurs pronos
+    active_ids_str = ','.join(map(str, active_match_ids))
+    preds = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({active_ids_str})&select=user_id",
+        headers=SUPABASE_HEADERS
+    )
+    users_avec_pronos = set()
+    if preds.status_code == 200:
+        users_avec_pronos = set(p['user_id'] for p in preds.json())
+
+    # 5. Recuperer tous les joueurs actifs avec email
+    users_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/utilisateurs?statut=eq.Actif&select=id,pseudo,email",
+        headers=SUPABASE_HEADERS
+    )
+    if users_resp.status_code != 200:
+        return
+
+    users = users_resp.json()
+
+    # 6. Envoyer les rappels aux retardataires
+    envois = 0
+    for user in users:
+        uid = user['id']
+        pseudo = user['pseudo']
+
+        # Ignorer Kingo et ceux qui ont deja fait leurs pronos
+        if uid == kingo_id:
+            continue
+        if uid in users_avec_pronos:
+            continue
+        if not user.get('email'):
+            continue
+
+        html = generer_html_rappel_retardataire(pseudo, semaine_id)
+        success = send_email_direct(
+            user['email'],
+            f"Elite Pronos - Kingo te cherche ! Journee {semaine_id}",
+            html
+        )
+        if success:
+            envois += 1
+
+    print(f"Rappels envoyes: {envois} retardataire(s)")
+
+
 def run_auto_update():
     """Fonction principale d'automatisation"""
     print(f"=== Auto Update Scores - {datetime.now()} ===")
@@ -678,6 +957,12 @@ def run_auto_update():
         return
 
     print(f"Journee: {semaine_id}")
+
+    # === VERIFIER RAPPEL RETARDATAIRES (H-4 avant deadline) ===
+    try:
+        check_et_envoyer_rappel_retardataires(semaine_id, saison_id)
+    except Exception as e:
+        print(f"Erreur rappel retardataires: {e}")
 
     # Recuperer les matchs en base
     matchs_db = get_matchs_supabase(semaine_id, saison_id)

@@ -30,5 +30,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           FOOTBALL_API_TOKEN: ${{ secrets.FOOTBALL_API_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          IS_OFFICIEL: ${{ secrets.IS_OFFICIEL }}
         run: |
           python scripts/auto_update_scores.py

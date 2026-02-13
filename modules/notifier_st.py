@@ -1589,6 +1589,174 @@ def envoyer_tableau_pronos_admin(semaine_id):
 
 
 # ============================================
+# EMAIL RAPPEL RETARDATAIRES (H-4 avant deadline)
+# ============================================
+
+PHRASES_KINGO_RETARDATAIRES = [
+    # Provocations amicales
+    "Tu sais que meme un poulpe ferait ses pronos plus vite que toi ? Et il a 8 bras pour trouver des excuses.",
+    "Allo ? Y'a quelqu'un ? J'ai cru voir une tumbleweeed passer devant tes pronostics vides...",
+    "Je commence a croire que tu attends que les matchs soient finis pour pronostiquer. Strategie audacieuse.",
+    "Meme mon algorithme a eu le temps de faire ses pronos, prendre un cafe et ecrire un roman. Toi ? Rien. Nada. Le vide.",
+    "ALERTE DISPARITION : Les pronostics de {pseudo} n'ont toujours pas ete retrouves. Si vous avez des informations, contactez Elite Pronos.",
+    "Tu sais ce qui est plus vide que tes pronostics ? Rien. Absolument rien.",
+    "J'ai verifie 3 fois. Puis 4. Puis 5. Toujours aucun prono de ta part. Tu testes ma patience ou quoi ?",
+    "On m'a dit que tu avais une excuse. Et puis finalement non. Meme pas une excuse.",
+    "Les autres ont deja pronos, joker, et se la coulent douce. Et toi ? Tu fais quoi la exactement ?",
+    "Je suis un bot et meme MOI j'ai plus d'instinct football que quelqu'un qui ne pronos pas.",
+    "Tick-tock, tick-tock... Tu entends ca ? C'est le son de la deadline qui se rapproche pendant que tu ne fais RIEN.",
+    "Fun fact : 100% des joueurs qui ne font pas leurs pronos finissent avec mes pronos a moi. Et crois-moi, je suis genereux... mais pas gentil.",
+    "Si l'oubli etait un sport olympique, tu serais deja triple champion du monde.",
+    "Je ne dis pas que tu es en retard... mais meme l'escargot de la Journee 1 est arrive avant toi.",
+    "BREAKING NEWS : {pseudo} est officiellement porte(e) disparu(e) de la plateforme. La police du prono est en route.",
+]
+
+PHRASES_KINGO_CONSEQUENCES = [
+    "Si tu ne fais rien, je te colle MES pronostics et je te vole un joker. Oui oui, automatiquement. Sans pitie.",
+    "Rappel : pas de pronos = vol automatique d'un joker + tu herites de mes predictions. Et je suis un bot, pas Nostradamus.",
+    "Tu veux vraiment que je choisisse pour toi ? Je suis programme pour etre mediocre, pas pour te faire gagner.",
+    "Sans tes pronos, c'est VOL AUTO garanti : adieu un joker, bonjour mes predictions de robot.",
+    "Le systeme va te voler un joker et copier mes pronos. C'est pas une menace, c'est une promesse algorithmique.",
+]
+
+PHRASES_KINGO_MOTIVATION = [
+    "Allez, il te reste encore un peu de temps. Montre-moi que t'es pas qu'un fantome dans le classement !",
+    "4 petits pronos, c'est tout ce qu'on te demande. Meme ton chat pourrait le faire (bon, peut-etre pas).",
+    "Saisis tes pronos maintenant et prouve que tu merites ta place parmi l'Elite !",
+    "Il n'est pas trop tard pour sauver l'honneur. Clique, pronostique, et redeviens un champion.",
+    "Ton classement te remercie d'avance. Enfin... si tu bouges.",
+]
+
+
+def email_rappel_retardataires(pseudo, semaine_id):
+    """
+    Email de rappel envoye 4h avant la deadline aux joueurs
+    qui n'ont pas encore fait leurs pronostics.
+    Kingo est creatif et provoque amicalement les retardataires.
+    """
+    # Choisir des phrases aleatoires pour chaque section
+    phrase_provoc = random.choice(PHRASES_KINGO_RETARDATAIRES).replace("{pseudo}", pseudo)
+    phrase_consequence = random.choice(PHRASES_KINGO_CONSEQUENCES)
+    phrase_motivation = random.choice(PHRASES_KINGO_MOTIVATION)
+
+    content = f'''
+    <h2 style="color: #ff6b6b;">Hep {pseudo} ! T'as oublie quelque chose...</h2>
+
+    <!-- Message de Kingo -->
+    <div style="background: rgba(155, 89, 182, 0.15); border: 1px solid #9b59b6; border-radius: 12px; padding: 20px; margin: 20px 0;">
+        <div style="display: flex; align-items: flex-start;">
+            <div style="font-size: 36px; margin-right: 15px;">🤖</div>
+            <div>
+                <div style="color: #9b59b6; font-weight: bold; font-size: 15px; margin-bottom: 10px;">
+                    Kingo - Le Bot Elite
+                </div>
+                <p style="color: #e0e0e0; margin: 0; line-height: 1.7; font-size: 15px; font-style: italic;">
+                    {phrase_provoc}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countdown urgence -->
+    <div class="highlight-box" style="border-color: #ff6b6b; background: rgba(255, 107, 107, 0.1);">
+        <div class="big-text" style="color: #ff6b6b;">&#9200; H - 4</div>
+        <p style="margin: 10px 0 0 0; color: #ff6b6b; font-size: 16px; font-weight: bold;">
+            Plus que quelques heures avant la deadline de la Journee {semaine_id} !
+        </p>
+    </div>
+
+    <!-- Consequences -->
+    <div style="background: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; border-radius: 8px; padding: 15px; margin: 20px 0;">
+        <p style="color: #e74c3c; font-weight: bold; margin: 0 0 8px 0;">&#9888; Ce qui t'attend si tu ne bouges pas :</p>
+        <p style="color: #cccccc; margin: 0; line-height: 1.6;">
+            {phrase_consequence}
+        </p>
+    </div>
+
+    <!-- Bouton CTA -->
+    <p style="text-align: center; margin: 30px 0;">
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
+           class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%); font-size: 16px; padding: 18px 45px;">
+            SAISIR MES PRONOS MAINTENANT
+        </a>
+    </p>
+
+    <!-- Motivation -->
+    <div style="text-align: center; margin: 20px 0;">
+        <p style="color: #FFD700; font-size: 14px; font-style: italic;">
+            &laquo; {phrase_motivation} &raquo;
+        </p>
+        <p style="color: #666; font-size: 11px;">- Kingo, ton bot prefere (ou pas)</p>
+    </div>
+    '''
+
+    return get_base_template(content, "Rappel Retardataire")
+
+
+def envoyer_rappel_retardataires(semaine_id):
+    """
+    Envoie un email de rappel aux joueurs qui n'ont pas fait leurs pronostics.
+    A appeler ~4h avant la deadline (premier match - 5h).
+    Retourne la liste des resultats d'envoi.
+    """
+    from modules.supabase_db import get_supabase
+    supabase = get_supabase()
+
+    # Recuperer les utilisateurs actifs
+    users = supabase._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo,email') or []
+    user_map = {u['id']: u for u in users}
+
+    # Recuperer les matchs de la semaine
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id') or []
+    match_ids = [m['id'] for m in matchs]
+
+    if not match_ids:
+        return []
+
+    # Recuperer les predictions existantes
+    predictions = supabase._request('GET',
+        f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id'
+    ) or []
+
+    # Identifier les joueurs qui ont deja pronos
+    users_avec_pronos = set(p['user_id'] for p in predictions)
+
+    # Exclure Kingo (le bot)
+    kingo_id = None
+    for u in users:
+        if u['pseudo'] == 'Kingo':
+            kingo_id = u['id']
+            break
+
+    resultats = []
+    for uid, user in user_map.items():
+        # Ignorer Kingo et ceux qui ont deja fait leurs pronos
+        if uid == kingo_id:
+            continue
+        if uid in users_avec_pronos:
+            continue
+        if not user.get('email'):
+            continue
+
+        pseudo = user['pseudo']
+        html = email_rappel_retardataires(pseudo, semaine_id)
+
+        success, msg = send_email(
+            user['email'],
+            f"Elite Pronos - Kingo te cherche ! Journee {semaine_id}",
+            html
+        )
+        resultats.append({
+            'user': pseudo,
+            'email': user['email'],
+            'success': success,
+            'message': msg
+        })
+
+    return resultats
+
+
+# ============================================
 # TEST
 # ============================================
 
@@ -1633,6 +1801,7 @@ def test_email_template():
         ("Bienvenue", email_bienvenue(user_test)),
         ("Rappel J-7", email_rappel_j7(user_test)),
         ("Rappel J-1", email_rappel_j1(user_test)),
+        ("Rappel Retardataire", email_rappel_retardataires("TestUser", 21)),
         ("Synthese Paris", email_synthese_paris(1, data_paris_test)),
         ("Resultats Ironiques", email_resultats_ironiques(1, classement_test, {}))
     ]
