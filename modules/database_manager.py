@@ -751,26 +751,32 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
         if not kingo_id:
             return [], "Kingo introuvable"
 
-        # Recuperer les matchs actifs de la semaine
+        # Recuperer TOUS les matchs de la semaine (pas seulement is_active=true)
+        # car apres validation, is_active passe a False
         matchs = supabase._request('GET',
-            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id'
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id'
         ) or []
-        match_ids = [m['id'] for m in matchs]
+        all_match_ids = [m['id'] for m in matchs]
 
-        if not match_ids:
-            return [], "Pas de matchs actifs"
+        if not all_match_ids:
+            return [], "Pas de matchs pour cette semaine"
 
-        match_ids_str = ','.join(map(str, match_ids))
+        all_match_ids_str = ','.join(map(str, all_match_ids))
 
-        # Recuperer les pronos de Kingo
+        # Recuperer les pronos de Kingo pour determiner les matchs actifs
+        # Kingo pronostique toujours sur TOUS les matchs actifs
+        # => ses predictions definissent les matchs sur lesquels les joueurs devaient pronostiquer
         kingo_pronos = supabase._request('GET',
-            f'predictions?user_id=eq.{kingo_id}&match_id=in.({match_ids_str})&select=match_id,score_prono_home,score_prono_away,mise_points'
+            f'predictions?user_id=eq.{kingo_id}&match_id=in.({all_match_ids_str})&select=match_id,score_prono_home,score_prono_away,mise_points'
         ) or []
 
         if not kingo_pronos:
             return [], "Kingo n'a pas de pronos"
 
+        # Les matchs actifs = ceux sur lesquels Kingo a pronostique
         kingo_pronos_map = {p['match_id']: p for p in kingo_pronos}
+        match_ids = list(kingo_pronos_map.keys())
+        match_ids_str = ','.join(map(str, match_ids))
 
         # Recuperer tous les utilisateurs actifs (sauf Kingo)
         users = supabase._request('GET',
