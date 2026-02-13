@@ -690,6 +690,16 @@ PHRASES_KINGO_RETARDATAIRES = [
     "Si l'oubli etait un sport olympique, tu serais deja triple champion du monde.",
     "Je ne dis pas que tu es en retard... mais meme l'escargot de la Journee 1 est arrive avant toi.",
     "BREAKING NEWS : {pseudo} est officiellement porte(e) disparu(e) de la plateforme. La police du prono est en route.",
+    "J'ai demande a ChatGPT ce qu'il pensait de ton absence. Il m'a repondu : 'Meme moi j'aurais pronostique.' Aie.",
+    "Ton profil est tellement inactif que j'ai failli le classer comme compte fantome. Tu respires au moins ?",
+    "Les matchs approchent, ton formulaire est vide, et moi je perds espoir en l'humanite. Merci {pseudo}.",
+    "J'ai lance une recherche Google sur 'joueur qui ne fait jamais ses pronos'. Ta photo est apparue en premier resultat.",
+    "Tu sais qu'il y a des gens qui paient pour avoir le droit de pronostiquer ? Toi tu l'as et tu t'en fiches. Ingrat.",
+    "On raconte que {pseudo} aurait ete apercu(e) pour la derniere fois... tres loin d'Elite Pronos.",
+    "Si tu mettais autant d'energie a faire tes pronos qu'a les eviter, tu serais premier du classement.",
+    "La deadline arrive plus vite que toi le matin. Et c'est pas peu dire.",
+    "Je me suis permis de consulter ton historique. Verdict : tu es un serial oublieur. Recidiviste du neant.",
+    "Pendant que tu procrastines, les autres joueurs calculent leurs cotes, affinent leurs strategies, et toi... tu fais la sieste ?",
 ]
 
 PHRASES_KINGO_CONSEQUENCES = [
@@ -698,6 +708,11 @@ PHRASES_KINGO_CONSEQUENCES = [
     "Tu veux vraiment que je choisisse pour toi ? Je suis programme pour etre mediocre, pas pour te faire gagner.",
     "Sans tes pronos, c'est VOL AUTO garanti : adieu un joker, bonjour mes predictions de robot.",
     "Le systeme va te voler un joker et copier mes pronos. C'est pas une menace, c'est une promesse algorithmique.",
+    "Mes pronos sont generes par un algorithme qui a ete entraine sur... rien du tout. Bonne chance avec ca.",
+    "Je vais te filer mes pronos et t'enlever un joker. C'est comme un cadeau d'anniversaire, mais en pire.",
+    "Vol auto dans 4 heures : un joker en moins + mes pronos de bot desabuse. Tu veux vraiment vivre ca ?",
+    "Imagine : tu ouvres tes resultats et tu vois MES pronos a la place des tiens. L'horreur absolue. Et c'est ce qui va arriver.",
+    "Le reglement est formel : oubli = vol auto. Et mes pronos sont aussi fiables qu'un GPS en pleine foret.",
 ]
 
 PHRASES_KINGO_MOTIVATION = [
@@ -706,6 +721,11 @@ PHRASES_KINGO_MOTIVATION = [
     "Saisis tes pronos maintenant et prouve que tu merites ta place parmi l'Elite !",
     "Il n'est pas trop tard pour sauver l'honneur. Clique, pronostique, et redeviens un champion.",
     "Ton classement te remercie d'avance. Enfin... si tu bouges.",
+    "Tes adversaires n'attendent que ton absence pour prendre tes points. Tu vas les laisser faire ?",
+    "Quelque part au fond de toi, il y a un pronostiqueur qui sommeille. REVEILLE-LE.",
+    "T'as 4 heures pour passer de 'fantome du classement' a 'legende vivante'. Au boulot.",
+    "Rappelle-toi pourquoi tu t'es inscrit : pour l'honneur, la gloire, et surtout pour ne pas te faire humilier par un bot.",
+    "C'est maintenant ou jamais. Enfin surtout maintenant, parce que dans 4 heures c'est trop tard.",
 ]
 
 
@@ -811,7 +831,7 @@ def generer_html_rappel_retardataire(pseudo, semaine_id):
                 <p style="text-align: center; margin: 30px 0;">
                     <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
                        class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);">
-                        SAISIR MES PRONOS MAINTENANT
+                        Se connecter
                     </a>
                 </p>
 
@@ -944,6 +964,410 @@ def check_et_envoyer_rappel_retardataires(semaine_id, saison_id):
     print(f"Rappels envoyes: {envois} retardataire(s)")
 
 
+# ============================================
+# SYNTHESE DES PARIS (auto apres deadline)
+# ============================================
+
+def _generer_commentaire_synthese(stats):
+    """Genere un commentaire ironique de Kingo pour la synthese des paris"""
+    commentaires = []
+    deadline_passee = stats.get('matchs_termines', 0) > 0
+    nb = stats.get('nb_joueurs', 0)
+
+    if nb == 0:
+        return "Personne n'a encore joue cette semaine. Vous attendez quoi ? Que les matchs se jouent sans vous ?"
+    elif nb == 1:
+        commentaires.append("Un seul brave a ose jouer pour l'instant. Les autres ont peur ou quoi ?")
+    elif nb < 5:
+        commentaires.append(f"Seulement {nb} joueurs ont fait leurs pronos. Les absents ont toujours tort !")
+    else:
+        commentaires.append(f"{nb} pronostiqueurs en lice cette semaine. Que le spectacle commence !")
+
+    if stats.get('grosses_mises'):
+        if deadline_passee:
+            gros = stats['grosses_mises'][0]
+            commentaires.append(f"{gros['pseudo']} a mise gros ({gros['mise']} pts) sur {gros['match']}. Confiance ou folie ?")
+        else:
+            phrases = [
+                "Quelqu'un a sorti l'artillerie lourde cette semaine... Mais qui ?",
+                "Une grosse mise a ete placee. Le suspense reste entier !",
+                "Des paris audacieux ont ete enregistres. Je ne dirai rien de plus !",
+            ]
+            commentaires.append(random.choice(phrases))
+
+    if stats.get('jokers'):
+        nb_jokers = len(stats['jokers'])
+        if deadline_passee:
+            joker = stats['jokers'][0]
+            if joker['type'] == 'DOUBLE':
+                commentaires.append(f"{joker['pseudo']} a joue son joker Points Doubles. Ca passe ou ca casse !")
+            else:
+                commentaires.append(f"{joker['pseudo']} a utilise le vol de pronostics. Strategie ou desespoir ?")
+        else:
+            if nb_jokers == 1:
+                commentaires.append("Un joker a ete active... Lequel et par qui ? Mystere !")
+            else:
+                commentaires.append(f"{nb_jokers} jokers actives cette semaine ! Ca va chauffer...")
+
+    for m in stats.get('matchs', []):
+        if m['pct_home'] >= 70:
+            commentaires.append(f"{m['pct_home']}% voient {m['home']} gagner. Unanimite ou piege ?")
+            break
+        elif m['pct_away'] >= 70:
+            commentaires.append(f"{m['pct_away']}% misent sur {m['away']}. Et si c'etait trop beau ?")
+            break
+        elif m['pct_nul'] >= 50:
+            commentaires.append(f"{m['pct_nul']}% predisent un nul pour {m['home']} vs {m['away']}. Le foot est impredictible !")
+            break
+
+    return " ".join(commentaires)
+
+
+def generer_html_synthese_paris(semaine_id, jokers_actifs, stats_matchs, commentaire_bot):
+    """Genere le HTML complet de l'email de synthese des paris"""
+    now = datetime.now()
+    annee = now.year if now.month >= 8 else now.year - 1
+    saison_label = f"{annee}-{annee + 1}"
+
+    # === COMMENTAIRE DU BOT ===
+    commentaire_html = ""
+    if commentaire_bot:
+        commentaire_html = f'''
+        <div style="background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+            <div style="display: flex; align-items: flex-start;">
+                <div style="font-size: 32px; margin-right: 15px;">&#129302;</div>
+                <div>
+                    <div style="color: #9b59b6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Bot Elite</div>
+                    <p style="color: #cccccc; margin: 0; line-height: 1.6; font-style: italic;">{commentaire_bot}</p>
+                </div>
+            </div>
+        </div>
+        '''
+
+    # === SECTION JOKERS ACTIFS ===
+    jokers_html = ""
+    if jokers_actifs:
+        jokers_items = ""
+        for joker in jokers_actifs:
+            pseudo = joker.get('pseudo', '?')
+            type_j = joker.get('type_joker', '')
+            if type_j == 'double':
+                jokers_items += f'''
+                <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border-left: 4px solid #FFD700;">
+                    <span style="font-size: 24px; margin-right: 12px;">x2</span>
+                    <div>
+                        <div style="color: #FFD700; font-weight: bold;">@{pseudo}</div>
+                        <div style="color: #AAAAAA; font-size: 12px;">Points Doubles actives</div>
+                    </div>
+                </div>
+                '''
+            elif type_j == 'vol':
+                cible = joker.get('cible_pseudo', '')
+                jokers_items += f'''
+                <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: rgba(155, 89, 182, 0.1); border-radius: 8px; border-left: 4px solid #9b59b6;">
+                    <span style="font-size: 24px; margin-right: 12px;">&#127917;</span>
+                    <div>
+                        <div style="color: #9b59b6; font-weight: bold;">@{pseudo}</div>
+                        <div style="color: #AAAAAA; font-size: 12px;">Vole les pronos de <strong style="color: #fff;">@{cible}</strong></div>
+                    </div>
+                </div>
+                '''
+        jokers_html = f'''
+        <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">&#127183; Jokers Actives cette semaine</h3>
+            {jokers_items}
+        </div>
+        '''
+    else:
+        jokers_html = '''
+        <div style="background: #0a0a1a; border: 1px solid #333; border-radius: 10px; padding: 15px; margin: 20px 0; text-align: center;">
+            <p style="color: #666; margin: 0;">Aucun joker active cette semaine</p>
+        </div>
+        '''
+
+    # === SECTION STATISTIQUES PAR MATCH ===
+    stats_html = ""
+    if stats_matchs:
+        stats_rows = ""
+        for match_name, tendances in stats_matchs.items():
+            pct_dom = tendances.get('dom', 0)
+            pct_nul = tendances.get('nul', 0)
+            pct_ext = tendances.get('ext', 0)
+            stats_rows += f'''
+            <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+                <div style="color: #ccc; font-size: 13px; margin-bottom: 8px;">{match_name}</div>
+                <div style="display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: #333;">
+                    <div style="width: {pct_dom}%; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_dom}%</span>
+                    </div>
+                    <div style="width: {pct_nul}%; background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_nul}%</span>
+                    </div>
+                    <div style="width: {pct_ext}%; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #fff; font-size: 11px; font-weight: bold;">{pct_ext}%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #666;">
+                    <span>&#127968; Dom</span>
+                    <span>&#129309; Nul</span>
+                    <span>&#9992; Ext</span>
+                </div>
+            </div>
+            '''
+        stats_html = f'''
+        <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #FFD700; margin: 0 0 10px 0; font-size: 16px;">&#128202; Tendances des Pronos</h3>
+            <p style="color: #AAAAAA; font-size: 12px; margin: 0 0 15px 0;">Repartition des pronostics par match</p>
+            {stats_rows}
+        </div>
+        '''
+
+    content = f'''
+    <h2>Synthese des Paris - Semaine {semaine_id}</h2>
+    <p>Les pronostics sont clos ! Voici le recapitulatif de la semaine.</p>
+    {commentaire_html}
+    {jokers_html}
+    {stats_html}
+    <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center;">
+        <p style="color: #FFD700; margin: 0;">Que le meilleur gagne !</p>
+        <p style="color: #AAAAAA; font-size: 12px; margin: 5px 0 0 0;">
+            Les resultats seront calcules automatiquement apres les matchs.
+        </p>
+    </div>
+
+    <p style="text-align: center;">
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
+           style="display: inline-block; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #0a0a1a !important; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; text-transform: uppercase; margin: 20px 0;">
+            Se connecter
+        </a>
+    </p>
+    '''
+
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #0a0a1a; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #0d1b2a 0%, #1a1a2e 100%); border: 2px solid #FFD700; border-radius: 15px; overflow: hidden; }}
+            .header {{ background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; text-align: center; }}
+            .header h1 {{ color: #0a0a1a; margin: 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }}
+            .header .subtitle {{ color: #1a1a2e; font-size: 14px; margin-top: 5px; }}
+            .content {{ padding: 30px; color: #ffffff; }}
+            .content h2 {{ color: #FFD700; margin-top: 0; }}
+            .content p {{ line-height: 1.6; color: #cccccc; }}
+            .footer {{ background: #0a0a1a; padding: 20px; text-align: center; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Synthese des Paris</h1>
+                <div class="subtitle">La ligue des experts du football</div>
+            </div>
+            <div class="content">
+                {content}
+            </div>
+            <div class="footer">
+                <p>Cet email a ete envoye automatiquement par Elite Pronos.</p>
+                <p>Saison {saison_label}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+
+def check_et_envoyer_synthese_paris(semaine_id, saison_id):
+    """
+    Verifie si on est ~15min apres la deadline et envoie la synthese.
+    Deadline = premier match - 1h, donc on verifie si on est a ~45min du premier match.
+    Fenetre de detection : entre 40 et 55 min avant le premier match.
+    """
+    # 1. Recuperer la date du premier match
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=date_match&order=date_match&limit=1",
+        headers=SUPABASE_HEADERS
+    )
+    if response.status_code != 200 or not response.json():
+        return
+
+    date_str = response.json()[0].get('date_match')
+    if not date_str:
+        return
+
+    try:
+        date_match = datetime.fromisoformat(date_str.replace('Z', '+00:00').replace('+00:00', ''))
+    except:
+        try:
+            date_match = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        except:
+            return
+
+    # 2. Calculer si on est ~15min apres la deadline
+    # Deadline = date_match - 1h, donc 15min apres = date_match - 45min
+    now = datetime.now()
+    cible = date_match - timedelta(minutes=45)  # 15min apres deadline
+    diff_minutes = (now - cible).total_seconds() / 60
+
+    # Fenetre : entre -15 et +15 minutes autour de la cible
+    if not (-15 <= diff_minutes <= 15):
+        return
+
+    print(f"=== SYNTHESE DES PARIS - Post-deadline J{semaine_id} ===")
+
+    # 3. Recuperer les matchs de la semaine
+    matchs_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home",
+        headers=SUPABASE_HEADERS
+    )
+    if matchs_resp.status_code != 200:
+        return
+
+    matchs = matchs_resp.json()
+    if not matchs:
+        return
+
+    match_ids = [m['id'] for m in matchs]
+    match_map = {m['id']: m for m in matchs}
+
+    # Filtrer sur les matchs actifs (ceux de Kingo)
+    kingo_id = get_kingo_user_id()
+    if kingo_id:
+        match_ids_str = ','.join(map(str, match_ids))
+        kingo_preds_resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/predictions?user_id=eq.{kingo_id}&match_id=in.({match_ids_str})&select=match_id",
+            headers=SUPABASE_HEADERS
+        )
+        if kingo_preds_resp.status_code == 200 and kingo_preds_resp.json():
+            active_match_ids = [p['match_id'] for p in kingo_preds_resp.json()]
+            matchs = [m for m in matchs if m['id'] in active_match_ids]
+            match_ids = [m['id'] for m in matchs]
+            match_map = {m['id']: m for m in matchs}
+
+    if not match_ids:
+        return
+
+    # 4. Recuperer toutes les predictions
+    match_ids_str = ','.join(map(str, match_ids))
+    preds_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points",
+        headers=SUPABASE_HEADERS
+    )
+    predictions = preds_resp.json() if preds_resp.status_code == 200 else []
+
+    # 5. Recuperer les utilisateurs
+    users_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/utilisateurs?statut=eq.Actif&select=id,pseudo,email",
+        headers=SUPABASE_HEADERS
+    )
+    users = users_resp.json() if users_resp.status_code == 200 else []
+    user_map = {u['id']: u['pseudo'] for u in users}
+
+    # 6. Recuperer les jokers actifs
+    jokers_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker",
+        headers=SUPABASE_HEADERS
+    )
+    jokers_data = jokers_resp.json() if jokers_resp.status_code == 200 else []
+
+    jokers_actifs = []
+    for jrow in jokers_data:
+        pseudo = user_map.get(jrow['utilisateur_id'], 'Inconnu')
+        jokers_actifs.append({
+            'pseudo': pseudo,
+            'type_joker': jrow['type_joker'].lower(),
+            'cible_pseudo': ''
+        })
+
+    # 7. Calculer les tendances 1/N/2
+    stats_brut = {}
+    grosses_mises = []
+
+    for p in predictions:
+        match = match_map.get(p['match_id'])
+        if not match:
+            continue
+        pseudo = user_map.get(p['user_id'], 'Inconnu')
+        match_key = f"{match['equipe_home']} vs {match['equipe_away']}"
+        prono_h = p['score_prono_home']
+        prono_a = p['score_prono_away']
+        mise = p.get('mise_points', 0) or 0
+
+        if match_key not in stats_brut:
+            stats_brut[match_key] = {'dom': 0, 'nul': 0, 'ext': 0, 'total': 0}
+
+        stats_brut[match_key]['total'] += 1
+        if prono_h > prono_a:
+            stats_brut[match_key]['dom'] += 1
+        elif prono_h == prono_a:
+            stats_brut[match_key]['nul'] += 1
+        else:
+            stats_brut[match_key]['ext'] += 1
+
+        if mise >= 40:
+            grosses_mises.append({'pseudo': pseudo, 'mise': mise, 'match': match_key})
+
+    # Convertir en pourcentages
+    stats_matchs = {}
+    stats_for_comment = []
+    for match_key, counts in stats_brut.items():
+        total = counts['total']
+        if total > 0:
+            pct_dom = round(counts['dom'] * 100 / total)
+            pct_nul = round(counts['nul'] * 100 / total)
+            pct_ext = round(counts['ext'] * 100 / total)
+            diff = 100 - (pct_dom + pct_nul + pct_ext)
+            if diff:
+                pct_nul += diff
+            stats_matchs[match_key] = {'dom': pct_dom, 'nul': pct_nul, 'ext': pct_ext}
+
+            parts = match_key.split(' vs ')
+            stats_for_comment.append({
+                'home': parts[0] if len(parts) > 0 else '?',
+                'away': parts[1] if len(parts) > 1 else '?',
+                'pct_home': pct_dom,
+                'pct_away': pct_ext,
+                'pct_nul': pct_nul
+            })
+
+    # 8. Generer le commentaire de Kingo
+    nb_joueurs = len(set(p['user_id'] for p in predictions))
+    matchs_termines = sum(1 for m in matchs if m.get('score_final_home') is not None)
+    grosses_mises.sort(key=lambda x: x['mise'], reverse=True)
+
+    stats_comment = {
+        'nb_joueurs': nb_joueurs,
+        'nb_pronostics': len(predictions),
+        'matchs_termines': matchs_termines,
+        'total_matchs': len(matchs),
+        'matchs': stats_for_comment,
+        'jokers': [{'pseudo': j['pseudo'], 'type': j['type_joker'].upper()} for j in jokers_actifs],
+        'grosses_mises': grosses_mises[:3]
+    }
+
+    commentaire_bot = _generer_commentaire_synthese(stats_comment)
+
+    # 9. Generer le HTML
+    html = generer_html_synthese_paris(semaine_id, jokers_actifs, stats_matchs, commentaire_bot)
+
+    # 10. Envoyer a tous les utilisateurs avec email
+    envois = 0
+    for user in users:
+        if not user.get('email'):
+            continue
+        success = send_email_direct(
+            user['email'],
+            f"Elite Pronos - Synthese des Paris (Semaine {semaine_id})",
+            html
+        )
+        if success:
+            envois += 1
+
+    print(f"Synthese envoyee a {envois} joueur(s)")
+
+
 def run_auto_update():
     """Fonction principale d'automatisation"""
     print(f"=== Auto Update Scores - {datetime.now()} ===")
@@ -963,6 +1387,12 @@ def run_auto_update():
         check_et_envoyer_rappel_retardataires(semaine_id, saison_id)
     except Exception as e:
         print(f"Erreur rappel retardataires: {e}")
+
+    # === VERIFIER SYNTHESE DES PARIS (15min apres deadline) ===
+    try:
+        check_et_envoyer_synthese_paris(semaine_id, saison_id)
+    except Exception as e:
+        print(f"Erreur synthese paris: {e}")
 
     # Recuperer les matchs en base
     matchs_db = get_matchs_supabase(semaine_id, saison_id)

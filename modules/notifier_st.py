@@ -104,6 +104,10 @@ PHRASES_IRONIQUES = {
         "Attention, on a un expert parmi nous... ou juste un coup de bol ?",
         "Tel un aigle, tu domines... pour l'instant.",
         "La place est chaude, profites-en avant qu'elle refroidisse !",
+        "Tu brilles tellement que les autres portent des lunettes de soleil pour lire le classement.",
+        "Premier ! Ne t'habitue pas, la chute est proportionnelle a l'altitude.",
+        "On devrait renommer le trophee en ton nom... puis te le retirer la semaine prochaine.",
+        "Messi, Ronaldo, et maintenant toi. L'un de ces trois n'a rien a faire dans la liste.",
     ],
     'dernier': [
         "Au moins, tu es constant dans la mediocrite !",
@@ -112,6 +116,10 @@ PHRASES_IRONIQUES = {
         "Meme un singe avec des flechettes aurait fait mieux !",
         "Le fond du classement te dit merci pour ta fidelite.",
         "Tu collectionnes les defaites comme d'autres les timbres.",
+        "On a tous un talent cache. Le tien c'est de finir dernier avec une regularite impressionnante.",
+        "Tu es la preuve vivante que la passion ne suffit pas. Il faut aussi un cerveau.",
+        "Le pire c'est que t'as VRAIMENT essaye. Imagine si t'avais pas essaye.",
+        "Si on donnait des points pour la perseverance dans l'echec, tu serais premier.",
     ],
     'progresse': [
         "Tiens, tu as enfin trouve comment marche le foot ?",
@@ -119,6 +127,9 @@ PHRASES_IRONIQUES = {
         "Miracle ! Il y a de l'espoir pour toi finalement.",
         "Tu as change de lunettes ou quoi ?",
         "Enfin reveille ! On commencait a s'inquieter.",
+        "Progression detectee ! Je repete : ce n'est PAS un exercice.",
+        "Tu montes ! Bon, tu partais de tres tres bas, mais quand meme.",
+        "Quelqu'un a enfin compris qu'il y avait 2 equipes dans un match. Bravo.",
     ],
     'regresse': [
         "La chute est rude ! Tu etais en vacances mentales ?",
@@ -126,6 +137,9 @@ PHRASES_IRONIQUES = {
         "Retour sur Terre brutal... ca fait mal ?",
         "Tu redescends aussi vite que tu es monte.",
         "L'ascenseur etait en panne ? Tu as pris l'escalier... vers le bas.",
+        "Icare aussi volait haut avant de se crasher. Tu as des ailes en cire toi aussi ?",
+        "Tu regressas si vite que meme mon processeur n'a pas eu le temps de calculer.",
+        "Dechéance royale. Shakespeare aurait pas ecrit mieux.",
     ],
     'stable': [
         "Stable comme un diesel... qui ne demarre pas.",
@@ -133,6 +147,9 @@ PHRASES_IRONIQUES = {
         "La regularite dans la mediocrite, c'est presque un talent.",
         "Tu fais du surplace, mais au moins tu ne recules pas.",
         "Comme un meuble : present mais pas remarque.",
+        "Tu es le beige du classement. Ni chaud, ni froid. Juste... tiede.",
+        "Stable. Previsible. Ennuyeux. Mais present, c'est deja ca.",
+        "On t'appelle Monsieur Moyenne. C'est pas un compliment.",
     ],
     'grand_chelem': [
         "4/4 ! Tu as vendu ton ame au diable ou tu savais vraiment ?",
@@ -142,6 +159,9 @@ PHRASES_IRONIQUES = {
         "Le sans-faute ! Profite, ca n'arrivera plus avant longtemps.",
         "Grand Chelem ! Ta boule de cristal fonctionne encore ?",
         "LEGENDAIRE ! On devrait t'appeler Madame Irma.",
+        "4/4 ! La probabilite etait de 1 sur 81. Tu as battu les maths. Respect.",
+        "Grand Chelem ! Je lance une enquete interne. Personne n'est aussi bon sans tricher.",
+        "Le sans-faute absolu. Meme moi, le bot omniscient, je suis impressionne. Et un peu vexe.",
     ],
     'score_exact': [
         "Score exact ! Tu as un don ou c'est de la triche ?",
@@ -150,6 +170,9 @@ PHRASES_IRONIQUES = {
         "Precision chirurgicale ! On t'engage comme consultant.",
         "Score exact ! La chance sourit aux audacieux... ou aux tricheurs.",
         "Bullseye ! Tu devrais jouer aux flechettes aussi.",
+        "Score exact ! Tu as un abonnement premium a l'avenir ou quoi ?",
+        "Tes pronos sont tellement precis que la NASA veut t'embaucher pour calculer des trajectoires.",
+        "Score exact ! Dis-moi, tu as un cousin arbitre ? Un oncle commentateur ? Un chat voyant ?",
     ],
     'joker_vole_reussi': [
         "Ton vol a paye ! Le crime parfait existe donc.",
@@ -158,6 +181,8 @@ PHRASES_IRONIQUES = {
         "Le casse du siecle ! Ocean's Eleven peut aller se rhabiller.",
         "Vol qualifie et assume ! Pas de remords, que des points.",
         "Tu as vole ses pronos ET sa dignite. Bien joue !",
+        "Arsene Lupin applaudit depuis sa tombe. Le gentleman cambrioleur du prono.",
+        "Vol reussi ! Ta victime est en PLS et toi tu sirotes un cocktail au sommet du classement.",
     ],
     'joker_vole_rate': [
         "Tu as vole les pronos d'un nul... Bien joue, genie !",
@@ -167,6 +192,8 @@ PHRASES_IRONIQUES = {
         "Comme voler une voiture en panne... Quelle strategie !",
         "Tu as vole a l'aveugle et tu es tombe sur un borgne.",
         "Le voleur vole ! La cible etait encore plus nulle que toi.",
+        "Tu as braque une banque... qui etait deja en faillite. Magnifique strategie.",
+        "Vol catastrophique. Tu as pris ses pronos ET ses problemes. Double peine.",
     ],
     'lanterne_rouge': [
         "Lanterne rouge ! Tu eclaires le chemin... par le bas.",
@@ -177,6 +204,8 @@ PHRASES_IRONIQUES = {
         "Le sous-sol du classement te connait bien maintenant.",
         "Dernier ! On dit que la vue est belle d'en bas... non en fait.",
         "Tu as trouve ta place : tout en bas, bien au chaud.",
+        "Lanterne rouge a vie. On va bientot renommer la derniere place en ton honneur.",
+        "Meme le plancher a peur que tu passes a travers. C'est dire.",
     ],
     'oubli_prono': [
         "Oubli de pronos ! Le systeme t'a attribue ceux du dernier. Malin !",
@@ -186,6 +215,9 @@ PHRASES_IRONIQUES = {
         "Oups ! Oubli de deadline = cadeau empoisonne automatique.",
         "Le reveil n'a pas sonne ? Pas grave, le dernier du classement t'a prete ses pronos.",
         "Memoire de poisson rouge ! Le systeme t'a mis d'office les pires pronos.",
+        "Tu as oublie tes pronos. Le systeme ne t'a pas oublie, lui. -1 joker. Bonne journee.",
+        "Absent sans excuse ! Le tribunal du prono t'a condamne a mes predictions. La peine maximale.",
+        "L'oubli est humain. Mais repete chaque semaine, ca devient un talent.",
     ],
     'holdup': [
         "HOLD-UP ! Tu as braque la banque des pronos !",
@@ -194,6 +226,8 @@ PHRASES_IRONIQUES = {
         "Hold-up reussi ! Le crime parfait, ca existe.",
         "Tu as cambriole les pronos comme un pro. Respect... ou pas.",
         "HOLD-UP MAGISTRAL ! La cible n'a rien vu venir.",
+        "Braquage de haute voltige ! La police du prono est depassee.",
+        "Tu as vole le match et le show. Standing ovation du gang des pronostiqueurs.",
     ],
     'joker_double_gagnant': [
         "Joker x2 au bon moment ! Tu as double la mise et le butin !",
@@ -201,6 +235,8 @@ PHRASES_IRONIQUES = {
         "Le x2 etait parfait ! Tu as fait sauter la banque.",
         "Joker double bien place ! Les autres peuvent pleurer.",
         "Multiplication des points ! Ta semaine est en or.",
+        "x2 gagnant ! Warren Buffett du pronostic. L'investissement du siecle.",
+        "Tu as double tes points comme on double la mise au casino. Sauf que toi, tu as gagne.",
     ],
     'joker_double_perdant': [
         "Joker x2 sur une semaine pourrie... Double peine !",
@@ -208,6 +244,9 @@ PHRASES_IRONIQUES = {
         "Le x2 sur une catastrophe, c'etait vraiment l'idee du siecle ?",
         "Points doubles sur zero points = toujours zero. Les maths, c'est cruel.",
         "Joker gaspille ! Tu aurais du le garder pour une bonne semaine.",
+        "Tu as joue ton x2 comme on joue au loto : avec beaucoup d'espoir et zero resultat.",
+        "Doubler ses pertes, fallait oser. Toi tu l'as fait. Avec panache.",
+        "Le x2 sur une semaine catastrophique, c'est comme mettre de l'essence sur un feu. Bravo l'artiste.",
     ]
 }
 
@@ -410,7 +449,7 @@ def email_lancement_saison(utilisateur):
     que vous etes un veritable expert du football !</p>
 
     <p style="text-align: center;">
-        <a href="#" class="button">Acceder a Elite Pronos</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
 
     <p><strong>Rappel des regles :</strong></p>
@@ -645,7 +684,7 @@ def email_bienvenue(utilisateur):
     </p>
 
     <p style="text-align: center;">
-        <a href="#" class="button">Acceder a Elite Pronos</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
 
     <p style="color: #FFD700; font-weight: bold; text-align: right; margin-top: 30px;">
@@ -680,7 +719,7 @@ def email_rappel_j7(utilisateur):
     le systeme vous attribuera automatiquement les pronostics du dernier du classement.</p>
 
     <p style="text-align: center;">
-        <a href="#" class="button">Saisir mes pronostics</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
     '''
 
@@ -706,8 +745,8 @@ def email_rappel_j1(utilisateur):
     le systeme ne vous attribue les pronostics du dernier joueur.</p>
 
     <p style="text-align: center;">
-        <a href="#" class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);">
-            Saisir mes pronostics MAINTENANT
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);">
+            Se connecter
         </a>
     </p>
 
@@ -849,6 +888,10 @@ def email_synthese_paris(semaine_id, jokers_actifs=None, stats_matchs=None, comm
             Les resultats seront calcules automatiquement apres les matchs.
         </p>
     </div>
+
+    <p style="text-align: center;">
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
+    </p>
     '''
 
     return get_base_template(content, "Synthese des Paris")
@@ -955,7 +998,7 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
     </div>
 
     <p style="text-align: center;">
-        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Voir le classement complet</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
 
     <p style="color: #AAAAAA; font-size: 12px; text-align: center;">
@@ -1006,7 +1049,7 @@ def email_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
     </p>
 
     <p style="text-align: center;">
-        <a href="#" class="button">Acceder au Panel Admin</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
     '''
 
@@ -1593,9 +1636,8 @@ def envoyer_tableau_pronos_admin(semaine_id):
 # ============================================
 
 PHRASES_KINGO_RETARDATAIRES = [
-    # Provocations amicales
     "Tu sais que meme un poulpe ferait ses pronos plus vite que toi ? Et il a 8 bras pour trouver des excuses.",
-    "Allo ? Y'a quelqu'un ? J'ai cru voir une tumbleweeed passer devant tes pronostics vides...",
+    "Allo ? Y'a quelqu'un ? J'ai cru voir une tumbleweed passer devant tes pronostics vides...",
     "Je commence a croire que tu attends que les matchs soient finis pour pronostiquer. Strategie audacieuse.",
     "Meme mon algorithme a eu le temps de faire ses pronos, prendre un cafe et ecrire un roman. Toi ? Rien. Nada. Le vide.",
     "ALERTE DISPARITION : Les pronostics de {pseudo} n'ont toujours pas ete retrouves. Si vous avez des informations, contactez Elite Pronos.",
@@ -1603,12 +1645,22 @@ PHRASES_KINGO_RETARDATAIRES = [
     "J'ai verifie 3 fois. Puis 4. Puis 5. Toujours aucun prono de ta part. Tu testes ma patience ou quoi ?",
     "On m'a dit que tu avais une excuse. Et puis finalement non. Meme pas une excuse.",
     "Les autres ont deja pronos, joker, et se la coulent douce. Et toi ? Tu fais quoi la exactement ?",
-    "Je suis un bot et meme MOI j'ai plus d'instinct football que quelqu'un qui ne pronos pas.",
+    "Je suis un bot et meme MOI j'ai plus d'instinct football que quelqu'un qui ne pronostique pas.",
     "Tick-tock, tick-tock... Tu entends ca ? C'est le son de la deadline qui se rapproche pendant que tu ne fais RIEN.",
     "Fun fact : 100% des joueurs qui ne font pas leurs pronos finissent avec mes pronos a moi. Et crois-moi, je suis genereux... mais pas gentil.",
     "Si l'oubli etait un sport olympique, tu serais deja triple champion du monde.",
     "Je ne dis pas que tu es en retard... mais meme l'escargot de la Journee 1 est arrive avant toi.",
     "BREAKING NEWS : {pseudo} est officiellement porte(e) disparu(e) de la plateforme. La police du prono est en route.",
+    "J'ai demande a ChatGPT ce qu'il pensait de ton absence. Il m'a repondu : 'Meme moi j'aurais pronostique.' Aie.",
+    "Ton profil est tellement inactif que j'ai failli le classer comme compte fantome. Tu respires au moins ?",
+    "Les matchs approchent, ton formulaire est vide, et moi je perds espoir en l'humanite. Merci {pseudo}.",
+    "J'ai lance une recherche Google sur 'joueur qui ne fait jamais ses pronos'. Ta photo est apparue en premier resultat.",
+    "Tu sais qu'il y a des gens qui paient pour avoir le droit de pronostiquer ? Toi tu l'as et tu t'en fiches. Ingrat.",
+    "On raconte que {pseudo} aurait ete apercu(e) pour la derniere fois... tres loin d'Elite Pronos.",
+    "Si tu mettais autant d'energie a faire tes pronos qu'a les eviter, tu serais premier du classement.",
+    "La deadline arrive plus vite que toi le matin. Et c'est pas peu dire.",
+    "Je me suis permis de consulter ton historique. Verdict : tu es un serial oublieur. Recidiviste du neant.",
+    "Pendant que tu procrastines, les autres joueurs calculent leurs cotes, affinent leurs strategies, et toi... tu fais la sieste ?",
 ]
 
 PHRASES_KINGO_CONSEQUENCES = [
@@ -1617,6 +1669,11 @@ PHRASES_KINGO_CONSEQUENCES = [
     "Tu veux vraiment que je choisisse pour toi ? Je suis programme pour etre mediocre, pas pour te faire gagner.",
     "Sans tes pronos, c'est VOL AUTO garanti : adieu un joker, bonjour mes predictions de robot.",
     "Le systeme va te voler un joker et copier mes pronos. C'est pas une menace, c'est une promesse algorithmique.",
+    "Mes pronos sont generes par un algorithme qui a ete entraine sur... rien du tout. Bonne chance avec ca.",
+    "Je vais te filer mes pronos et t'enlever un joker. C'est comme un cadeau d'anniversaire, mais en pire.",
+    "Vol auto dans 4 heures : un joker en moins + mes pronos de bot desabuse. Tu veux vraiment vivre ca ?",
+    "Imagine : tu ouvres tes resultats et tu vois MES pronos a la place des tiens. L'horreur absolue. Et c'est ce qui va arriver.",
+    "Le reglement est formel : oubli = vol auto. Et mes pronos sont aussi fiables qu'un GPS en pleine foret.",
 ]
 
 PHRASES_KINGO_MOTIVATION = [
@@ -1625,6 +1682,11 @@ PHRASES_KINGO_MOTIVATION = [
     "Saisis tes pronos maintenant et prouve que tu merites ta place parmi l'Elite !",
     "Il n'est pas trop tard pour sauver l'honneur. Clique, pronostique, et redeviens un champion.",
     "Ton classement te remercie d'avance. Enfin... si tu bouges.",
+    "Tes adversaires n'attendent que ton absence pour prendre tes points. Tu vas les laisser faire ?",
+    "Quelque part au fond de toi, il y a un pronostiqueur qui sommeille. REVEILLE-LE.",
+    "T'as 4 heures pour passer de 'fantome du classement' a 'legende vivante'. Au boulot.",
+    "Rappelle-toi pourquoi tu t'es inscrit : pour l'honneur, la gloire, et surtout pour ne pas te faire humilier par un bot.",
+    "C'est maintenant ou jamais. Enfin surtout maintenant, parce que dans 4 heures c'est trop tard.",
 ]
 
 
@@ -1677,7 +1739,7 @@ def email_rappel_retardataires(pseudo, semaine_id):
     <p style="text-align: center; margin: 30px 0;">
         <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
            class="button" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%); font-size: 16px; padding: 18px 45px;">
-            SAISIR MES PRONOS MAINTENANT
+            Se connecter
         </a>
     </p>
 
