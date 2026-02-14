@@ -48,7 +48,20 @@ def get_saison_actuelle():
     Retourne l'ID de la saison actuelle (ex: 2026 pour 2026-2027).
     Si SAISON_FORCEE est defini, utilise cette valeur.
     Sinon, detection automatique basee sur le calendrier LFP.
+    Cache 1h (change 1x/an).
     """
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=3600)
+        def _get():
+            return _get_saison_actuelle_impl()
+        return _get()
+    except Exception:
+        return _get_saison_actuelle_impl()
+
+
+def _get_saison_actuelle_impl():
+    """Implementation sans cache de get_saison_actuelle"""
     # Si une saison est forcee, l'utiliser
     if SAISON_FORCEE is not None:
         return SAISON_FORCEE
@@ -639,14 +652,25 @@ def get_dernier_classement():
 
 def get_mvp_semaine(semaine_id, saison_id=None):
     """
-    Retourne le MVP (meilleur joueur) d'une semaine donnee.
-    Agrege les points_gagnes de toutes les predictions sur les matchs actifs de la semaine.
+    Retourne le MVP (meilleur joueur) d'une semaine donnee. Cache 60s.
     Retourne: dict {'user_id', 'pseudo', 'points_journee'} ou None
     """
-    from modules.supabase_db import get_supabase
-
     if saison_id is None:
         saison_id = get_saison_actuelle()
+
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=60)
+        def _fetch(semaine_id, saison_id):
+            return _get_mvp_semaine_impl(semaine_id, saison_id)
+        return _fetch(semaine_id, saison_id)
+    except Exception:
+        return _get_mvp_semaine_impl(semaine_id, saison_id)
+
+
+def _get_mvp_semaine_impl(semaine_id, saison_id):
+    """Implementation sans cache"""
+    from modules.supabase_db import get_supabase
 
     try:
         supabase = get_supabase()
@@ -979,18 +1003,43 @@ def get_countdown_j1(saison_id=None):
     }
 
 
+def get_matchs_journee_cached(saison_id, semaine_id):
+    """Recupere les matchs d'une journee avec cache 30s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=30)
+        def _fetch(saison_id, semaine_id):
+            from modules.supabase_db import get_supabase
+            return get_supabase().get_matches_journee(saison_id, semaine_id)
+        return _fetch(saison_id, semaine_id)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        return get_supabase().get_matches_journee(saison_id, semaine_id)
+
+
 # ============================================
 # CHRONOLOGIE PRONOSTICS (J-5)
 # ============================================
 
 def get_date_premiere_journee(semaine_id, saison_id=None):
-    """Retourne la date du premier match d'une journee"""
+    """Retourne la date du premier match d'une journee. Cache 5 min."""
     if saison_id is None:
         saison_id = get_saison_actuelle()
 
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=300)
+        def _fetch(semaine_id, saison_id):
+            return _get_date_premiere_journee_impl(semaine_id, saison_id)
+        return _fetch(semaine_id, saison_id)
+    except Exception:
+        return _get_date_premiere_journee_impl(semaine_id, saison_id)
+
+
+def _get_date_premiere_journee_impl(semaine_id, saison_id):
+    """Implementation sans cache"""
     date_str = None
 
-    # Essayer Supabase d'abord (pour Streamlit Cloud)
     try:
         from modules.supabase_db import get_supabase
         supabase = get_supabase()

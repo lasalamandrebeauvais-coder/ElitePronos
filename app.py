@@ -603,7 +603,7 @@ else:
         # Utiliser Supabase pour l'accueil
         try:
             from modules.supabase_db import get_supabase
-            from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee, get_mvp_semaine
+            from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee, get_mvp_semaine, get_matchs_journee_cached
 
             supabase = get_supabase()
             saison_id = get_saison_actuelle()
@@ -613,8 +613,8 @@ else:
             # Recuperer le countdown pour les pronostics
             countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
 
-            # Compter uniquement les matchs de la journee courante (Supabase)
-            matchs_journee = supabase.get_matches_journee(saison_id, journee_courante)
+            # Compter uniquement les matchs de la journee courante (cache 30s)
+            matchs_journee = get_matchs_journee_cached(saison_id, journee_courante)
             nb_matchs_journee = len(matchs_journee)
 
             # === SYNTHESE KINGO (en haut) ===
