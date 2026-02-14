@@ -6,6 +6,7 @@ Script d'automatisation Elite Pronos
 - Execution via GitHub Actions (cron)
 """
 
+import sys
 import requests
 import os
 import random
@@ -1496,4 +1497,10 @@ def run_auto_update():
 
 
 if __name__ == "__main__":
-    run_auto_update()
+    try:
+        run_auto_update()
+    except Exception as e:
+        print(f"ERREUR FATALE: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
