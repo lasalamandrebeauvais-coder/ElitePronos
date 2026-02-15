@@ -332,18 +332,95 @@ st.markdown("""
         color: inherit !important;
     }
 
-    /* ===== EXPANDERS ===== */
-    .streamlit-expanderHeader {
+    /* ===== EXPANDERS (anciens + nouveaux selectors) ===== */
+    .streamlit-expanderHeader,
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] [data-testid="stExpanderToggleDetails"] {
         background-color: #002040 !important;
         color: #D4AF37 !important;
         border: 1px solid #D4AF37 !important;
         border-radius: 10px !important;
     }
 
-    .streamlit-expanderContent {
+    .streamlit-expanderContent,
+    [data-testid="stExpander"] > div[data-testid="stExpanderDetails"],
+    [data-testid="stExpander"] [role="group"] {
         background-color: #001529 !important;
         border: 1px solid #D4AF37 !important;
         border-top: none !important;
+    }
+
+    [data-testid="stExpander"] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+
+    /* ===== FORMS ===== */
+    [data-testid="stForm"],
+    [data-testid="stForm"] > div,
+    .stForm {
+        background-color: #001529 !important;
+        border: 1px solid #D4AF37 !important;
+        border-radius: 10px !important;
+    }
+
+    /* ===== CONTAINERS AVEC BORDURE ===== */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] > div {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+
+    /* ===== CATCH-ALL : forcer fond sombre sur TOUS les divs internes ===== */
+    .main .block-container,
+    .main .block-container > div,
+    .main .block-container > div > div,
+    .main .block-container > div > div > div {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
+
+    /* Widgets internes Streamlit */
+    [data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stCheckbox"],
+    [data-testid="stCheckbox"] label,
+    [data-testid="stRadio"],
+    [data-testid="stRadio"] label {
+        background-color: transparent !important;
+        color: #FFFFFF !important;
+    }
+
+    /* Multiselect / Tags */
+    [data-baseweb="tag"] {
+        background-color: #D4AF37 !important;
+        color: #001529 !important;
+    }
+
+    /* Toast / Snackbar */
+    [data-testid="stToast"],
+    [data-testid="stSnackbar"] {
+        background-color: #002040 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #D4AF37 !important;
+    }
+
+    /* Dialog / Modal */
+    [data-testid="stModal"] > div,
+    [role="dialog"] {
+        background-color: #001529 !important;
+        border: 2px solid #D4AF37 !important;
+    }
+
+    /* Number input buttons */
+    .stNumberInput button {
+        background-color: #002040 !important;
+        color: #D4AF37 !important;
+        border: 1px solid #D4AF37 !important;
     }
 
     /* ===== ALERTES ===== */

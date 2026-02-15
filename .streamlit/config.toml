@@ -1,2 +1,7 @@
-# Reboot dim.  1 févr. 2026 20:24:48
-# Reboot trigger
+# Theme Elite Pronos - Bleu Nuit
+[theme]
+primaryColor = "#D4AF37"
+backgroundColor = "#001529"
+secondaryBackgroundColor = "#002040"
+textColor = "#FFFFFF"
+font = "sans serif"
