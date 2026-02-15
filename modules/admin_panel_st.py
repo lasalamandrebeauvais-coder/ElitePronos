@@ -54,6 +54,12 @@ def promouvoir_admin(user_id):
     """Promouvoit un utilisateur en admin"""
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': True})
+    # Invalider le cache admin
+    try:
+        from modules.database_manager import _fetch_is_admin
+        _fetch_is_admin.clear()
+    except Exception:
+        pass
     return True
 
 
@@ -64,6 +70,12 @@ def revoquer_admin(user_id):
     if result and result[0].get('pseudo', '').lower() == SUPER_ADMIN_PSEUDO:
         return False
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': False})
+    # Invalider le cache admin
+    try:
+        from modules.database_manager import _fetch_is_admin
+        _fetch_is_admin.clear()
+    except Exception:
+        pass
     return True
 
 

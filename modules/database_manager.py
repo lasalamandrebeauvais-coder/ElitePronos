@@ -1021,16 +1021,26 @@ def get_is_admin_cached(user_id):
     """Verifie is_admin avec cache 5 min (change rarement)"""
     try:
         import streamlit as st
-        @st.cache_data(ttl=300)
-        def _fetch(user_id):
-            from modules.supabase_db import get_supabase
-            r = get_supabase()._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
-            return bool(r and r[0].get('is_admin'))
-        return _fetch(user_id)
+        return _fetch_is_admin(user_id)
     except Exception:
-        from modules.supabase_db import get_supabase
-        r = get_supabase()._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
-        return bool(r and r[0].get('is_admin'))
+        return _fetch_is_admin_raw(user_id)
+
+
+def _fetch_is_admin_raw(user_id):
+    """Requete directe sans cache"""
+    from modules.supabase_db import get_supabase
+    r = get_supabase()._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
+    return bool(r and r[0].get('is_admin'))
+
+
+try:
+    import streamlit as st
+    @st.cache_data(ttl=300)
+    def _fetch_is_admin(user_id):
+        return _fetch_is_admin_raw(user_id)
+except Exception:
+    def _fetch_is_admin(user_id):
+        return _fetch_is_admin_raw(user_id)
 
 
 def get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str):
