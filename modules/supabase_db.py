@@ -248,33 +248,42 @@ class SupabaseClient:
         return True
 
     def get_joueurs_avec_stats(self, current_user_id, saison_id=2025):
-        """Recupere tous les joueurs actifs avec leurs stats pour selection rivaux"""
+        """Recupere tous les joueurs actifs avec leurs stats pour selection rivaux
+        Optimise: 2 requetes au lieu de N+1"""
         utilisateurs = self.get_all_utilisateurs(statut='Actif')
-        joueurs = []
 
+        # 1 seule requete pour TOUTES les predictions de la saison
+        all_predictions = self._request('GET',
+            f'predictions?saison_id=eq.{saison_id}&select=user_id,points_gagnes,is_score_exact'
+        ) or []
+
+        # Agreger par utilisateur
+        user_stats = {}
+        for p in all_predictions:
+            uid = p['user_id']
+            if uid not in user_stats:
+                user_stats[uid] = {'points': 0, 'bons': 0, 'exacts': 0}
+            pts = p.get('points_gagnes', 0) or 0
+            user_stats[uid]['points'] += pts
+            if pts > 0:
+                user_stats[uid]['bons'] += 1
+            if p.get('is_score_exact'):
+                user_stats[uid]['exacts'] += 1
+
+        joueurs = []
         for user in utilisateurs:
             if user['id'] == current_user_id:
-                continue  # Exclure soi-meme
-
-            # Stats du joueur
-            predictions = self._request('GET',
-                f'predictions?user_id=eq.{user["id"]}&saison_id=eq.{saison_id}&select=points_gagnes,is_score_exact'
-            ) or []
-
-            total_points = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
-            scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
-            bons_pronos = sum(1 for p in predictions if (p.get('points_gagnes') or 0) > 0)
-
+                continue
+            stats = user_stats.get(user['id'], {'points': 0, 'bons': 0, 'exacts': 0})
             joueurs.append({
                 'id': user['id'],
                 'pseudo': user['pseudo'],
                 'prenom': user.get('prenom', ''),
-                'points': total_points,
-                'bons_pronos': bons_pronos,
-                'scores_exacts': scores_exacts
+                'points': stats['points'],
+                'bons_pronos': stats['bons'],
+                'scores_exacts': stats['exacts']
             })
 
-        # Trier par points et ajouter le rang
         joueurs.sort(key=lambda x: x['points'], reverse=True)
         for idx, j in enumerate(joueurs):
             j['rang'] = idx + 1
@@ -286,29 +295,36 @@ class SupabaseClient:
     # ============================================
 
     def get_classement_general(self, saison_id):
-        """Calcule le classement general"""
-        # Recuperer tous les utilisateurs actifs avec leurs points
+        """Calcule le classement general
+        Optimise: 2 requetes au lieu de N+1"""
         utilisateurs = self.get_all_utilisateurs(statut='Actif')
+
+        # 1 seule requete pour TOUTES les predictions
+        all_predictions = self._request('GET',
+            f'predictions?saison_id=eq.{saison_id}&select=user_id,points_gagnes,is_score_exact'
+        ) or []
+
+        # Agreger par utilisateur
+        user_stats = {}
+        for p in all_predictions:
+            uid = p['user_id']
+            if uid not in user_stats:
+                user_stats[uid] = {'points': 0, 'exacts': 0, 'nb': 0}
+            user_stats[uid]['points'] += (p.get('points_gagnes', 0) or 0)
+            user_stats[uid]['nb'] += 1
+            if p.get('is_score_exact'):
+                user_stats[uid]['exacts'] += 1
+
         classement = []
-
         for user in utilisateurs:
-            # Calculer les points totaux
-            predictions = self._request('GET',
-                f'predictions?user_id=eq.{user["id"]}&saison_id=eq.{saison_id}&select=points_gagnes,is_score_exact'
-            ) or []
-
-            total_points = sum(p.get('points_gagnes', 0) or 0 for p in predictions)
-            scores_exacts = sum(1 for p in predictions if p.get('is_score_exact'))
-            nb_pronos = len(predictions)
-
+            stats = user_stats.get(user['id'], {'points': 0, 'exacts': 0, 'nb': 0})
             classement.append({
                 'pseudo': user['pseudo'],
-                'points': total_points,
-                'scores_exacts': scores_exacts,
-                'nb_pronos': nb_pronos
+                'points': stats['points'],
+                'scores_exacts': stats['exacts'],
+                'nb_pronos': stats['nb']
             })
 
-        # Trier par points decroissants
         classement.sort(key=lambda x: x['points'], reverse=True)
         return classement
 

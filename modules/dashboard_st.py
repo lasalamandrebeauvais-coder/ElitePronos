@@ -106,6 +106,7 @@ def get_avatar_path(pseudo):
     return None
 
 
+@st.cache_data(ttl=30)
 def get_user_stats_supabase(user_id, saison_id):
     """
     Recupere les statistiques du joueur depuis Supabase
