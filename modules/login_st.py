@@ -48,7 +48,7 @@ def verifier_identifiants(pseudo, pin):
             'prenom': user.get('prenom'),
             'email': user.get('email'),
             'statut': statut,
-            'is_admin': user.get('is_admin', False)
+            'is_admin': bool(user.get('is_admin', False))
         }
 
         return True, "Connexion reussie!", user_data

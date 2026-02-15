@@ -579,7 +579,13 @@ else:
     st.sidebar.markdown("---")
 
     # Liste des pages pour utilisateur connecte (Admin visible uniquement pour les admins)
-    is_admin = user.get('is_admin', False)
+    # Verifier is_admin directement depuis la base (au cas ou session obsolete)
+    try:
+        from modules.supabase_db import get_supabase
+        _check = get_supabase()._request('GET', f"utilisateurs?id=eq.{user['id']}&select=is_admin")
+        is_admin = bool(_check and _check[0].get('is_admin'))
+    except Exception:
+        is_admin = bool(user.get('is_admin', False))
     if is_admin:
         pages = ["Admin", "Accueil", "Tableau de bord", "Reglement"]
     else:
