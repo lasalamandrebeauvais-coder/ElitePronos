@@ -1017,6 +1017,142 @@ def get_matchs_journee_cached(saison_id, semaine_id):
         return get_supabase().get_matches_journee(saison_id, semaine_id)
 
 
+def get_is_admin_cached(user_id):
+    """Verifie is_admin avec cache 5 min (change rarement)"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=300)
+        def _fetch(user_id):
+            from modules.supabase_db import get_supabase
+            r = get_supabase()._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
+            return bool(r and r[0].get('is_admin'))
+        return _fetch(user_id)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        r = get_supabase()._request('GET', f'utilisateurs?id=eq.{user_id}&select=is_admin')
+        return bool(r and r[0].get('is_admin'))
+
+
+def get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str):
+    """Recupere les predictions d'un user pour une journee avec cache 15s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=15)
+        def _fetch(user_id, saison_id, journee_courante, match_ids_str):
+            from modules.supabase_db import get_supabase
+            return get_supabase()._request('GET',
+                f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
+            ) or []
+        return _fetch(user_id, saison_id, journee_courante, match_ids_str)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        return get_supabase()._request('GET',
+            f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
+        ) or []
+
+
+def get_rivaux_ids_cached(user_id):
+    """Recupere les IDs des rivaux avec cache 60s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=60)
+        def _fetch(user_id):
+            from modules.supabase_db import get_supabase
+            return get_supabase().get_rivaux_ids(user_id)
+        return _fetch(user_id)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        return get_supabase().get_rivaux_ids(user_id)
+
+
+def get_rivaux_predictions_cached(rivaux_ids_str, match_ids_str, journee_courante):
+    """Recupere les predictions des rivaux avec cache 15s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=15)
+        def _fetch(rivaux_ids_str, match_ids_str, journee_courante):
+            from modules.supabase_db import get_supabase
+            sb = get_supabase()
+            predictions = sb._request('GET',
+                f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
+            ) or []
+            jokers = sb._request('GET',
+                f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+            ) or []
+            return {'predictions': predictions, 'jokers': jokers}
+        return _fetch(rivaux_ids_str, match_ids_str, journee_courante)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        sb = get_supabase()
+        predictions = sb._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
+        ) or []
+        jokers = sb._request('GET',
+            f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+        ) or []
+        return {'predictions': predictions, 'jokers': jokers}
+
+
+def get_user_joker_cached(user_id, journee_courante):
+    """Recupere le joker d'un user pour une journee avec cache 15s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=15)
+        def _fetch(user_id, journee_courante):
+            from modules.supabase_db import get_supabase
+            return get_supabase()._request('GET',
+                f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
+            ) or []
+        return _fetch(user_id, journee_courante)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        return get_supabase()._request('GET',
+            f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
+        ) or []
+
+
+def get_recap_data_cached(match_ids_str, journee_courante):
+    """Recupere les donnees du recap avec cache 30s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=30)
+        def _fetch(match_ids_str, journee_courante):
+            from modules.supabase_db import get_supabase
+            sb = get_supabase()
+            preds = sb._request('GET',
+                f'predictions?match_id=in.({match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
+            ) or []
+            users = sb._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+            jokers = sb._request('GET',
+                f'jokers_historique?semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+            ) or []
+            return {'preds': preds, 'users': users, 'jokers': jokers}
+        return _fetch(match_ids_str, journee_courante)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        sb = get_supabase()
+        preds = sb._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
+        ) or []
+        users = sb._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+        jokers = sb._request('GET',
+            f'jokers_historique?semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+        ) or []
+        return {'preds': preds, 'users': users, 'jokers': jokers}
+
+
+def get_countdown_pronostics_journee_cached(semaine_id, saison_id):
+    """Countdown avec cache 10s"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=10)
+        def _fetch(semaine_id, saison_id):
+            return get_countdown_pronostics_journee(semaine_id, saison_id)
+        return _fetch(semaine_id, saison_id)
+    except Exception:
+        return get_countdown_pronostics_journee(semaine_id, saison_id)
+
+
 # ============================================
 # CHRONOLOGIE PRONOSTICS (J-5)
 # ============================================

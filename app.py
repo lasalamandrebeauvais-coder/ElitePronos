@@ -656,13 +656,8 @@ else:
     st.sidebar.markdown("---")
 
     # Liste des pages pour utilisateur connecte (Admin visible uniquement pour les admins)
-    # Verifier is_admin directement depuis la base (au cas ou session obsolete)
-    try:
-        from modules.supabase_db import get_supabase
-        _check = get_supabase()._request('GET', f"utilisateurs?id=eq.{user['id']}&select=is_admin")
-        is_admin = bool(_check and _check[0].get('is_admin'))
-    except Exception:
-        is_admin = bool(user.get('is_admin', False))
+    from modules.database_manager import get_is_admin_cached
+    is_admin = get_is_admin_cached(user['id'])
     if is_admin:
         pages = ["Admin", "Accueil", "Tableau de bord", "Reglement"]
     else:
@@ -686,15 +681,18 @@ else:
         # Utiliser Supabase pour l'accueil
         try:
             from modules.supabase_db import get_supabase
-            from modules.database_manager import get_saison_actuelle, get_saison_label, get_journee_courante, get_countdown_pronostics_journee, get_mvp_semaine, get_matchs_journee_cached
+            from modules.database_manager import (get_saison_actuelle, get_saison_label, get_journee_courante,
+                get_countdown_pronostics_journee_cached, get_mvp_semaine, get_matchs_journee_cached,
+                get_user_predictions_cached, get_rivaux_ids_cached, get_rivaux_predictions_cached,
+                get_user_joker_cached, get_recap_data_cached)
 
             supabase = get_supabase()
             saison_id = get_saison_actuelle()
             saison_label = get_saison_label(saison_id)
             journee_courante = get_journee_courante(saison_id)
 
-            # Recuperer le countdown pour les pronostics
-            countdown = get_countdown_pronostics_journee(journee_courante, saison_id)
+            # Recuperer le countdown pour les pronostics (cache 10s)
+            countdown = get_countdown_pronostics_journee_cached(journee_courante, saison_id)
 
             # Compter uniquement les matchs de la journee courante (cache 30s)
             matchs_journee = get_matchs_journee_cached(saison_id, journee_courante)
@@ -870,10 +868,8 @@ else:
             pronostics_ouverts = countdown and not countdown.get('expired', False)
 
             if pronostics_ouverts:
-                # PRONOSTICS OUVERTS: Afficher les pronostics du joueur (Supabase)
-                predictions_data = supabase._request('GET',
-                    f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,matches(id,equipe_home,equipe_away,semaine_id,saison_id)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
-                ) or []
+                # PRONOSTICS OUVERTS: Afficher les pronostics du joueur (cache 15s)
+                predictions_data = get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str if 'match_ids_str' in dir() else '')
                 mes_pronos_accueil = [(p['matches']['id'], p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points']) for p in predictions_data if p.get('matches') and p['matches'].get('semaine_id') == journee_courante]
 
                 if mes_pronos_accueil:
@@ -1121,8 +1117,8 @@ else:
                             </div>
                             """, unsafe_allow_html=True)
 
-                        # Recuperer les rivaux
-                        rivaux_ids = supabase.get_rivaux_ids(user_id)
+                        # Recuperer les rivaux (cache 60s)
+                        rivaux_ids = get_rivaux_ids_cached(user_id)
 
                         if match_ids and rivaux_ids:
                             rivaux_ids_str = ','.join(map(str, rivaux_ids))
@@ -1136,13 +1132,10 @@ else:
                                 joueurs_dict[uid]['total'] += p.get('points_gagnes') or 0
                             joueurs_journee = [(uid, data['pseudo'], data['total']) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
 
-                            # Bloc MES PRONOSTICS
-                            my_pronos = supabase._request('GET',
-                                f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away)'
-                            ) or []
-                            my_joker = supabase._request('GET',
-                                f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=type_joker&limit=1'
-                            ) or []
+                            # Bloc MES PRONOSTICS (cache 15s)
+                            _my_preds = get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str)
+                            my_pronos = [p for p in _my_preds if p.get('matches')]
+                            my_joker = get_user_joker_cached(user_id, journee_courante)
                             my_joker_icon = ""
                             if my_joker:
                                 jt = my_joker[0].get('type_joker', '')
@@ -1205,14 +1198,15 @@ else:
 
                             st.markdown(f"<div style='color: #D4AF37; font-size: 0.9em; margin: 15px 0 10px 0;'>📊 PRONOSTICS DE MES RIVAUX ({len(joueurs_journee)})</div>", unsafe_allow_html=True)
 
-                            # Recuperer jokers et pronos
+                            # Recuperer jokers et pronos (cache 15s - 1 seul appel groupe)
                             all_rivaux_ids = [j[0] for j in joueurs_journee]
                             all_rivaux_str = ','.join(map(str, all_rivaux_ids)) if all_rivaux_ids else '0'
 
-                            all_jokers = supabase._request('GET', f'jokers_historique?utilisateur_id=in.({all_rivaux_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker') or []
+                            _rivaux_data = get_rivaux_predictions_cached(all_rivaux_str, match_ids_str, journee_courante)
+                            all_jokers = _rivaux_data['jokers']
                             jokers_map = {j['utilisateur_id']: j['type_joker'] for j in all_jokers}
 
-                            all_pronos = supabase._request('GET', f'predictions?user_id=in.({all_rivaux_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away)') or []
+                            all_pronos = _rivaux_data['predictions']
                             pronos_par_joueur = {}
                             for p in all_pronos:
                                 uid = p['user_id']
@@ -1269,23 +1263,15 @@ else:
 
                             st.subheader(f"📋 Recap J{journee_courante}")
 
-                            # Recuperer donnees pour le tableau
-                            from modules.supabase_db import get_supabase as _get_sb
-                            _sb = _get_sb()
-
+                            # Recuperer donnees pour le tableau (cache 30s - 1 seul appel groupe)
                             match_ids_recap = [m['id'] for m in matchs_journee]
                             match_ids_recap_str = ','.join(map(str, match_ids_recap))
 
-                            all_preds = _sb._request('GET',
-                                f'predictions?match_id=in.({match_ids_recap_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points'
-                            ) or []
-
-                            all_users = _sb._request('GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo') or []
+                            _recap = get_recap_data_cached(match_ids_recap_str, journee_courante)
+                            all_preds = _recap['preds']
+                            all_users = _recap['users']
                             user_map_recap = {u['id']: u['pseudo'] for u in all_users}
-
-                            jokers_recap = _sb._request('GET',
-                                f'jokers_historique?semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
-                            ) or []
+                            jokers_recap = _recap['jokers']
                             jokers_map_recap = {j['utilisateur_id']: j['type_joker'].lower() for j in jokers_recap}
 
                             from modules.classement_st import get_classement_general_complet

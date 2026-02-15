@@ -300,15 +300,15 @@ def afficher_dashboard(user):
         user_rangs = rangs_all.get(user['id'], {})
 
         if user_rangs and journees_list:
-            # Recuperer les rivaux (max 5)
-            supabase_dash = get_supabase()
-            rivaux_ids = supabase_dash.get_rivaux_ids(user['id'])[:5]
+            # Recuperer les rivaux (max 5) - cache 60s
+            from modules.database_manager import get_rivaux_ids_cached
+            rivaux_ids = get_rivaux_ids_cached(user['id'])[:5]
 
-            # Pseudos des rivaux
+            # Pseudos des rivaux (cache via classement)
             rivaux_pseudos = {}
             if rivaux_ids:
-                all_users = supabase_dash.get_all_utilisateurs(statut='Actif')
-                pseudo_map = {u['id']: u['pseudo'] for u in all_users}
+                # Reutiliser le classement deja cache
+                pseudo_map = {j['id']: j['pseudo'] for j in get_classement_cache(saison_id)}
                 for rid in rivaux_ids:
                     rivaux_pseudos[rid] = pseudo_map.get(rid, '???')
 
@@ -455,27 +455,18 @@ def afficher_dashboard(user):
     st.markdown("---")
     st.markdown("### Mes pronostics")
 
-    # Recuperer le joker directement (meme requete que sauvegarde)
-    supabase = get_supabase()
-    saisons_data = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-    journee = saisons_data[0].get('journee_courante', 1) if saisons_data else 1
+    # Recuperer le joker (cache)
+    journee = get_journee_courante(saison_id)
 
-    joker_data = supabase._request('GET',
-        f'jokers_historique?utilisateur_id=eq.{user["id"]}&semaine_id=eq.{journee}&select=type_joker,cible_vol_id'
-    )
+    from modules.database_manager import get_user_joker_cached
+    joker_data = get_user_joker_cached(user['id'], journee)
 
     if joker_data and len(joker_data) > 0:
         type_joker = joker_data[0].get('type_joker')
         if type_joker == 'DOUBLE':
             st.info("⚡ **Points Doubles** joue cette semaine")
         elif type_joker == 'VOL':
-            cible_id = joker_data[0].get('cible_vol_id')
-            cible_pseudo = "???"
-            if cible_id:
-                cible_user = supabase._request('GET', f'utilisateurs?id=eq.{cible_id}&select=pseudo')
-                if cible_user and len(cible_user) > 0:
-                    cible_pseudo = cible_user[0].get('pseudo', '???')
-            st.info(f"🎯 **Points Voles** joue cette semaine sur **{cible_pseudo}**")
+            st.info("🎯 **Points Voles** joue cette semaine")
 
     # Recuperer et afficher les pronostics
     from modules.pronostics_st import get_pronos_existants, get_matchs_semaine

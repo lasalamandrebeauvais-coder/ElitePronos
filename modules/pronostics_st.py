@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 # Import Supabase
 from modules.supabase_db import get_supabase
-from modules.database_manager import get_saison_actuelle, get_users_grand_chelem_semaine_precedente
+from modules.database_manager import get_saison_actuelle, get_users_grand_chelem_semaine_precedente, get_journee_courante
 
 # Chemins
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
@@ -26,14 +26,8 @@ def get_budget_joueur(user_id):
     100 pts par defaut, +40 si Grand Chelem la semaine precedente.
     """
     try:
-        supabase = get_supabase()
         saison_id = get_saison_actuelle()
-
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            return BUDGET_BASE
+        journee_courante = get_journee_courante(saison_id)
 
         users_gc = get_users_grand_chelem_semaine_precedente(journee_courante, saison_id)
         if user_id in users_gc:
@@ -53,12 +47,7 @@ def get_matchs_semaine():
     saison_id = get_saison_actuelle()
 
     try:
-        # Recuperer la journee courante depuis la table saisons
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            journee_courante = 1
+        journee_courante = get_journee_courante(saison_id)
 
         # Recuperer les matchs de cette journee
         matchs = supabase._request('GET',
@@ -92,12 +81,7 @@ def get_pronos_existants(user_id):
     saison_id = get_saison_actuelle()
 
     try:
-        # Recuperer la journee courante
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            return {}
+        journee_courante = get_journee_courante(saison_id)
 
         # Recuperer les match_ids de cette journee
         matchs = supabase._request('GET',
@@ -137,11 +121,7 @@ def get_joker_semaine(user_id):
     supabase = get_supabase()
 
     try:
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            return None
+        journee_courante = get_journee_courante()
 
         joker = supabase._request('GET',
             f'jokers_historique?utilisateur_id=eq.{user_id}&semaine_id=eq.{journee_courante}&select=id,type_joker,cible_vol_id&limit=1'
@@ -180,12 +160,7 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, 
     saison_id = get_saison_actuelle()
 
     try:
-        # Recuperer la journee courante
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            return False, "Erreur: journee courante non trouvee"
+        journee_courante = get_journee_courante(saison_id)
 
         # Supprimer les anciens pronostics de cet utilisateur pour ces matchs
         match_ids = list(pronos_data.keys())
@@ -291,11 +266,7 @@ def get_deadline_pronostics():
     saison_id = get_saison_actuelle()
 
     try:
-        saisons = supabase._request('GET', 'saisons?is_active=eq.true&select=journee_courante')
-        if saisons and len(saisons) > 0:
-            journee_courante = saisons[0].get('journee_courante', 1)
-        else:
-            return None
+        journee_courante = get_journee_courante(saison_id)
 
         matchs = supabase._request('GET',
             f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{journee_courante}&is_active=eq.true&select=date_match&order=date_match&limit=1'
