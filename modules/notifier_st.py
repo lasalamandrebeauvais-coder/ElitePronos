@@ -695,35 +695,248 @@ def email_bienvenue(utilisateur):
     return get_base_template(content, "Bienvenue dans le Club")
 
 
-def email_rappel_j7(utilisateur):
-    """Email de rappel J-7 avant debut saison"""
+def _analyser_match_kingo(home, away, cote_h, cote_n, cote_a):
+    """Kingo analyse un match et explique pourquoi il est interessant.
+    Retourne un commentaire base sur les cotes et les equipes."""
+    import random
+
+    try:
+        ch = float(cote_h) if cote_h and cote_h != '-' else 2.0
+        cn = float(cote_n) if cote_n and cote_n != '-' else 3.0
+        ca = float(cote_a) if cote_a and cote_a != '-' else 2.0
+    except (ValueError, TypeError):
+        ch, cn, ca = 2.0, 3.0, 2.0
+
+    ecart = abs(ch - ca)
+    favori = home if ch < ca else away
+    outsider = away if ch < ca else home
+    cote_favori = min(ch, ca)
+
+    # === DERBY / CLASSIQUE ===
+    DERBYS = {
+        ('paris saint-germain fc', 'olympique de marseille'): "Le Classique ! PSG-OM, la guerre des ego. Tout le monde a un avis, personne n'a raison.",
+        ('olympique de marseille', 'paris saint-germain fc'): "OM-PSG au Velodrome ! L'ambiance va etre electrique et les pronostics impossibles.",
+        ('olympique lyonnais', 'as saint-etienne'): "Le Derby ! OL-ASSE, la haine cordiale du Rhone. Les cotes mentent forcement.",
+        ('as saint-etienne', 'olympique lyonnais'): "ASSE-OL, le Chaudron va bruler. Quand c'est le derby, les cotes ne veulent plus rien dire.",
+        ('rc lens', 'losc lille'): "Le Derby du Nord ! Lens-Lille, passion et intensite. Un match ou tout peut basculer.",
+        ('losc lille', 'rc lens'): "Lille-Lens ! Le Nord va trembler. Les bookmakers n'ont jamais compris ce derby.",
+        ('ogc nice', 'as monaco fc'): "Le Derby de la Cote d'Azur ! Nice-Monaco, soleil et tension. Un piege a pronostics.",
+        ('as monaco fc', 'ogc nice'): "Monaco-Nice, la Riviera s'enflamme. Attention aux surprises.",
+        ('stade rennais fc 1901', 'fc nantes'): "Le Derby breton ! Rennes-Nantes. La Bretagne contre la Loire, ca ne pardonne pas.",
+        ('fc nantes', 'stade rennais fc 1901'): "Nantes-Rennes ! Le derby de l'Ouest. Rien n'est jamais acquis dans cette rivalite.",
+        ('olympique lyonnais', 'olympique de marseille'): "OL-OM ! Le choc des Olympiques. Un classique qui fait toujours des degats dans les classements.",
+        ('olympique de marseille', 'olympique lyonnais'): "OM-OL au Velodrome ! Deux institutions, un seul vainqueur. Kingo adore ce genre de piege.",
+        # Chocs europeens
+        ('fc barcelona', 'real madrid cf'): "EL CLASICO ! Barca-Real. Le match le plus regarde de la planete. Et le plus impredictible.",
+        ('real madrid cf', 'fc barcelona'): "Real-Barca au Bernabeu ! Le Clasico, rien de moins. Bon courage pour vos pronos.",
+        ('manchester united fc', 'liverpool fc'): "Man United-Liverpool ! Le choc de l'Angleterre. La Premier League dans toute sa splendeur.",
+        ('liverpool fc', 'manchester united fc'): "Liverpool-United ! Anfield va rugir. Les cotes ne veulent rien dire ici.",
+        ('arsenal fc', 'tottenham hotspur fc'): "Le North London Derby ! Arsenal-Tottenham. La rivalite la plus feroce de Londres.",
+        ('tottenham hotspur fc', 'arsenal fc'): "Tottenham-Arsenal ! Le derby de Londres. Les pronostics vont voler en eclats.",
+        ('ac milan', 'fc internazionale milano'): "Le Derby della Madonnina ! Milan-Inter, San Siro va exploser.",
+        ('fc internazionale milano', 'ac milan'): "Inter-Milan ! Le Derby de Milan. Kingo tremble d'excitation.",
+        ('juventus fc', 'ssc napoli'): "Juve-Napoli ! Le choc du Calcio. Nord contre Sud, toujours explosif.",
+        ('ssc napoli', 'juventus fc'): "Napoli-Juve ! Le Maradona va s'enflammer. Un match qui defie la logique.",
+        ('fc bayern münchen', 'borussia dortmund'): "Der Klassiker ! Bayern-Dortmund. Le choc absolu du foot allemand.",
+        ('borussia dortmund', 'fc bayern münchen'): "Dortmund-Bayern ! Le Mur Jaune contre la machine bavaroise.",
+        ('atlético de madrid', 'real madrid cf'): "Le Derby de Madrid ! Atletico-Real. Simeone contre le Real, c'est toujours electrique.",
+        ('real madrid cf', 'atlético de madrid'): "Real-Atletico ! Le derby madrilene. Deux philosophies, un seul survivant.",
+    }
+
+    key = (home.lower(), away.lower())
+    if key in DERBYS:
+        return DERBYS[key]
+
+    # === GROS FAVORI (ecart > 1.5) ===
+    PHRASES_GROS_FAVORI = [
+        f"Les bookmakers voient {favori} ecraser {outsider}. Trop facile ? C'est la que le piege se referme.",
+        f"{favori} est ultra-favori a {cote_favori}. Mais Kingo sait que les certitudes, c'est fait pour etre detruites.",
+        f"Sur le papier, {outsider} n'a aucune chance. Mais le papier, ca ne joue pas au foot.",
+        f"{favori} favori ecrasant ? Attention, les upsets font les legendes... et les -20 pts aussi.",
+        f"Cote a {cote_favori} pour {favori}. Facile ? C'est exactement ce que pensaient ceux qui ont fini derniers.",
+        f"{outsider} donne perdant par tout le monde. Tout le monde sauf Kingo, qui voit le piege.",
+        f"Match desequilibre sur le papier. Miser gros sur {favori} ? Kingo ricane d'avance.",
+        f"{favori} enorme favori. Le genre de match qui transforme les certitudes en cauchemars.",
+    ]
+
+    # === MATCH SERRE (ecart < 0.3) ===
+    PHRASES_MATCH_SERRE = [
+        f"50/50 entre {home} et {away}. Le genre de match qui separe les vrais pronostiqueurs des touristes.",
+        f"{home}-{away} : impossible a departager. Les cotes sont identiques, les avis aussi. Pile ou face ?",
+        f"Match ultra-serre ! {home} et {away} au coude a coude. C'est ici que les champions se revelent.",
+        f"Les bookmakers n'arrivent pas a departager {home} et {away}. Kingo adore ce genre de casse-tete.",
+        f"{home} vs {away} : l'incertitude totale. C'est le match qui va faire la difference au classement.",
+        f"Quasi-egalite dans les cotes ! {home}-{away} c'est le match piege par excellence.",
+        f"Les cotes sont presque identiques. Ce match va faire exploser les certitudes de tout le monde.",
+        f"{home}-{away}, personne ne sait. Et c'est justement pour ca que Kingo a choisi ce match.",
+    ]
+
+    # === NUL PROBABLE (cote nul < 3.0) ===
+    PHRASES_NUL_PROBABLE = [
+        f"Attention au nul ! {home}-{away}, les cotes sentent le 0-0 ou le 1-1 a plein nez.",
+        f"Le nul rode a {cn}. {home}-{away}, le genre de match ou ceux qui osent le nul peuvent tout rafler.",
+        f"Kingo flaire le nul dans {home}-{away}. Mais qui aura le courage de miser dessus ?",
+        f"{home}-{away} : le nul est tentant a {cn}. Le genre de pari qui separe les audacieux des moutons.",
+    ]
+
+    # === LEGER FAVORI (ecart entre 0.3 et 1.0) ===
+    PHRASES_LEGER_FAVORI = [
+        f"{favori} leger favori mais {outsider} peut creer la surprise. Le genre de match qui rend fou.",
+        f"Avantage {favori}, mais rien n'est joue. {outsider} a les armes pour renverser la table.",
+        f"{favori} devant dans les cotes mais pas de quoi pavoiser. {outsider} est capable du meilleur comme du pire.",
+        f"Les cotes penchent vers {favori}. Mais Kingo sait que le foot se joue sur le terrain, pas sur les probabilites.",
+        f"{favori} favori sur le papier. Mais {outsider} n'a rien a perdre, et c'est ca le danger.",
+        f"Leger avantage {favori}. Le genre de match ou la mise fait toute la difference.",
+        f"{home}-{away} : un match equilibre avec un petit avantage {favori}. La cle ? La gestion de la mise.",
+        f"Match ouvert entre {home} et {away}. {favori} part devant mais tout peut arriver.",
+    ]
+
+    # === COTE ELEVEE OUTSIDER (cote > 4.5) ===
+    PHRASES_OUTSIDER = [
+        f"{outsider} a {max(ch, ca)} ! Un pari fou qui peut rapporter gros. Mais qui osera ?",
+        f"Personne ne croit en {outsider}. Et si c'etait justement le bon moment d'y croire ?",
+        f"{outsider} donne a {max(ch, ca)}. Le genre de coup qui fait basculer un classement entier.",
+        f"Les cotes de {outsider} font rever les audacieux. Kingo dit : qui ne tente rien n'a rien.",
+    ]
+
+    # Selection selon le profil du match
+    if ecart > 1.5:
+        phrases = PHRASES_GROS_FAVORI
+        if max(ch, ca) > 4.5:
+            phrases = phrases + PHRASES_OUTSIDER
+    elif ecart < 0.3:
+        phrases = PHRASES_MATCH_SERRE
+        if cn < 3.0:
+            phrases = phrases + PHRASES_NUL_PROBABLE
+    else:
+        phrases = PHRASES_LEGER_FAVORI
+        if cn < 3.0:
+            phrases = phrases + PHRASES_NUL_PROBABLE
+
+    return random.choice(phrases)
+
+
+def email_lancement_journee(utilisateur, semaine_id, matchs=None):
+    """Email d'annonce de la nouvelle journee avec analyse des matchs par Kingo"""
+    import random
     prenom = utilisateur.get('prenom') or utilisateur.get('pseudo')
-    date_j1 = get_date_j1()
-    date_j1_str = date_j1.strftime('%d/%m/%Y') if date_j1 else ''
+
+    PHRASES_KINGO_INTRO = [
+        f"Nouvelle semaine, nouvelles humiliations. Kingo est pret, et toi {prenom} ?",
+        f"La Journee {semaine_id} debarque ! Kingo a deja ses pronostics. Et toi, tu dors encore ?",
+        f"Allez {prenom}, c'est l'heure de montrer si tu merites ta place ou si tu fais juste de la figuration.",
+        f"Les matchs sont la, les cotes sont la, il ne manque que tes pronostics, {prenom}. Enfin... si tu oses.",
+        f"Journee {semaine_id} : Kingo a analyse, Kingo a pronostique, Kingo va gagner. Toi, on verra.",
+        f"C'est reparti ! {prenom}, n'oublie pas : le dernier herite des pronos du pire joueur. Motivation suffisante ?",
+        f"Nouvelle journee, nouveau carnage annonce. {prenom}, tu es prevenu(e).",
+        f"Les matchs viennent de tomber ! Kingo les a deja decortiques pendant que tu lisais cet email.",
+        f"Journee {semaine_id} au programme ! Kingo a sorti la loupe, le cafe, et ses pronostics en or.",
+        f"{prenom}, Kingo t'offre son analyse exclusive. Apres, faudra pas dire que tu ne savais pas.",
+        f"La J{semaine_id} arrive avec des matchs qui vont faire mal. Kingo a prepare le terrain pour toi.",
+        f"Kingo a etudie chaque match, chaque cote, chaque stat. Toi {prenom}, tu as fait quoi ? Rien. Comme d'habitude.",
+    ]
+
+    PHRASES_KINGO_CONCLUSION = [
+        "Voila, Kingo a fait le boulot. A toi de jouer. Ou de perdre. Comme d'habitude.",
+        "L'analyse est gratuite, les points non. Choisis bien tes mises.",
+        "Kingo a parle. Les sages ecoutent, les fous ignorent. Et les derniers du classement ? Ils n'ont meme pas lu cet email.",
+        "Maintenant tu sais tout. Si tu perds, c'est de ta faute, pas de celle de Kingo.",
+        "Tout est dit. Si apres ca tu finis dernier, il faudra serieusement te poser des questions.",
+        "Les cotes sont la, l'analyse aussi. Il ne manque que ton courage. Ou ton inconscience.",
+        "Bonne chance ! Enfin... la chance c'est pour les autres. Toi il te faut du talent.",
+        "A toi de transformer cette analyse en points. Ou en humiliation publique. Kingo regarde.",
+    ]
+
+    kingo_intro = random.choice(PHRASES_KINGO_INTRO)
+    kingo_conclusion = random.choice(PHRASES_KINGO_CONCLUSION)
+
+    # Construire les cartes match avec analyse Kingo
+    matchs_html = ""
+    if matchs:
+        for i, m in enumerate(matchs):
+            home = m.get('equipe_home', '???')
+            away = m.get('equipe_away', '???')
+            cote_h = m.get('cote_home', '-')
+            cote_n = m.get('cote_draw', '-')
+            cote_a = m.get('cote_away', '-')
+
+            date_str = ""
+            if m.get('date_match'):
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(str(m['date_match']).replace('Z', '+00:00').replace('+00:00', ''))
+                    jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+                    date_str = f"{jours[dt.weekday()]} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
+                except Exception:
+                    pass
+
+            # Analyse Kingo du match
+            analyse = _analyser_match_kingo(home, away, cote_h, cote_n, cote_a)
+
+            matchs_html += f'''
+            <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="color: #D4AF37; font-size: 11px; font-weight: bold;">MATCH {i+1}</span>
+                    <span style="color: #AAAAAA; font-size: 11px;">{date_str}</span>
+                </div>
+                <div style="text-align: center; margin: 10px 0;">
+                    <span style="color: #FFFFFF; font-size: 16px; font-weight: bold;">{home}</span>
+                    <span style="color: #D4AF37; font-size: 14px; margin: 0 10px;">VS</span>
+                    <span style="color: #FFFFFF; font-size: 16px; font-weight: bold;">{away}</span>
+                </div>
+                <div style="text-align: center; margin: 8px 0; padding: 6px 0; border-top: 1px solid #333; border-bottom: 1px solid #333;">
+                    <span style="color: #00FF00; font-size: 13px;">1: {cote_h}</span>
+                    <span style="color: #AAAAAA; font-size: 13px; margin: 0 15px;">N: {cote_n}</span>
+                    <span style="color: #FF6666; font-size: 13px;">2: {cote_a}</span>
+                </div>
+                <div style="margin-top: 8px; padding: 8px 10px; background: rgba(212, 175, 55, 0.08); border-radius: 5px;">
+                    <p style="color: #D4AF37; margin: 0; font-size: 12px; font-style: italic;">
+                        Kingo : "{analyse}"
+                    </p>
+                </div>
+            </div>
+            '''
 
     content = f'''
-    <h2>Plus que 7 jours !</h2>
+    <h2>Journee {semaine_id} - C'est parti !</h2>
     <p>Bonjour <strong>{prenom}</strong>,</p>
-    <p>La Journee 1 de la saison <strong>{get_saison_label(get_saison_actuelle())}</strong>
-    debute dans une semaine !</p>
 
     <div class="highlight-box">
-        <div class="big-text">J-7</div>
-        <p style="margin: 10px 0 0 0; color: #FFD700;">{date_j1_str}</p>
+        <div class="big-text">J{semaine_id}</div>
+        <p style="margin: 10px 0 0 0; color: #FFD700;">Les pronostics sont ouverts !</p>
     </div>
 
-    <p style="color: #ff6b6b;"><strong>Attention :</strong> Vous n'avez pas encore valide
-    vos pronostics pour la J1 !</p>
+    <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 15px 0; border-radius: 5px;">
+        <p style="color: #D4AF37; margin: 0; font-style: italic;">
+            "{kingo_intro}"
+        </p>
+        <p style="color: #AAAAAA; font-size: 11px; margin: 5px 0 0 0; text-align: right;">- Kingo</p>
+    </div>
 
-    <p>N'oubliez pas : si vous ne saisissez pas vos pronostics avant le coup d'envoi,
-    le systeme vous attribuera automatiquement les pronostics du dernier du classement.</p>
+    <h3 style="color: #D4AF37;">L'analyse de Kingo</h3>
+    {matchs_html}
+
+    <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 15px 0; border-radius: 5px;">
+        <p style="color: #D4AF37; margin: 0; font-style: italic;">
+            "{kingo_conclusion}"
+        </p>
+    </div>
+
+    <p style="color: #ff6b6b;"><strong>Attention :</strong> Si vous ne saisissez pas vos pronostics
+    avant le coup d'envoi du premier match, le systeme vous attribuera automatiquement
+    les pronostics du dernier du classement.</p>
 
     <p style="text-align: center;">
         <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
     </p>
     '''
 
-    return get_base_template(content, "Rappel J-7")
+    return get_base_template(content, f"Lancement Journee {semaine_id}")
+
+
+def email_rappel_j7(utilisateur):
+    """DEPRECATED - Redirige vers email_lancement_journee pour compatibilite"""
+    return email_lancement_journee(utilisateur, 1)
 
 
 def email_rappel_j1(utilisateur):
