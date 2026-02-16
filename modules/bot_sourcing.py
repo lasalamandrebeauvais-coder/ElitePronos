@@ -384,14 +384,24 @@ def importer_matchs_selectionnes(matchs, semaine_id, saison_id):
     """
     Importe les matchs selectionnes dans la base de donnees
     """
+    from modules.database_manager import fetch_real_odds, lookup_odds
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # Recuperer les vraies cotes
+    codes = list(set(m.get('league', 'FL1') for m in matchs))
+    odds_dict = fetch_real_odds(codes)
 
     nb_importes = 0
 
     for m in matchs:
-        # Generer des cotes equilibrees
-        cote_h, cote_n, cote_a = generer_cotes_equilibrees()
+        # Vraies cotes depuis The Odds API (fallback random)
+        real = lookup_odds(odds_dict, m['home'], m['away'])
+        if real:
+            cote_h, cote_n, cote_a = real
+        else:
+            cote_h, cote_n, cote_a = generer_cotes_equilibrees()
 
         # Inserer le match
         cursor.execute('''

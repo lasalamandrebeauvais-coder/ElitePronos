@@ -21,7 +21,6 @@ from modules.database_manager import (
     get_pronostics_effectifs,
     tous_matchs_termines,
     get_classement_general,
-    trouver_cible_vol_auto,
     get_connection
 )
 from modules.calcul_gains import (
@@ -171,7 +170,7 @@ def test_calcul_gain_match():
         score_home=2, score_away=1,
         mise=25, cote_home=1.50, cote_draw=3.50, cote_away=5.00
     )
-    expected_gain = 25 * 1.50 + 25 * 2  # mise × cote + bonus exact
+    expected_gain = 25 * 1.50 + 10  # mise × cote + bonus exact (+10 pts fixes)
     passed = is_exact == True and gain == expected_gain
     all_passed = all_passed and passed
     print_test("Score exact", passed, f"Gain: {gain} (attendu: {expected_gain})")
@@ -225,7 +224,7 @@ def test_chaine_vol(user_ids):
 
 
 def test_grand_chelem(user_ids):
-    """Test du bonus Grand Chelem"""
+    """Test du Grand Chelem (4/4 1N2 corrects = +40 budget semaine suivante)"""
     print_header("TEST: Grand Chelem")
 
     all_passed = True
@@ -235,13 +234,28 @@ def test_grand_chelem(user_ids):
 
     passed = gains['grand_chelem'] == True
     all_passed = all_passed and passed
-    print_test("Détection Grand Chelem", passed,
-               f"4/4 corrects: {gains['nb_1n2_corrects']}/4")
+    print_test("Détection Grand Chelem (4/4)", passed,
+               f"{gains['nb_1n2_corrects']}/4 corrects")
 
-    # Vérifier le bonus
-    expected_with_bonus = gains['total_gains']
-    print_test("Bonus appliqué", True,
-               f"Total avec bonus: {expected_with_bonus} pts (bonus: {BONUS_GRAND_CHELEM})")
+    # Verifier que le GC ne donne PAS de bonus au score (c'est du budget)
+    # Calcul attendu: 4 matchs avec mise 25 et scores exacts
+    # Match 900: 25 * 1.50 + 10 = 47.5
+    # Match 901: 25 * 3.20 + 10 = 90.0
+    # Match 902: 25 * 1.80 + 10 = 55.0
+    # Match 903: 25 * 2.10 + 10 = 62.5
+    # Total = 255.0
+    expected_total = 47.5 + 90.0 + 55.0 + 62.5  # 255.0
+    passed2 = gains['total_gains'] == expected_total
+    all_passed = all_passed and passed2
+    print_test("Pas de bonus au score (GC = budget)", passed2,
+               f"Total: {gains['total_gains']} pts (attendu: {expected_total})")
+
+    # L'utilisateur 2 n'a PAS de Grand Chelem (2/4)
+    gains2 = calculer_gains_semaine(user_ids[1], 99)
+    passed3 = gains2['grand_chelem'] == False
+    all_passed = all_passed and passed3
+    print_test("Pas de GC si 2/4", passed3,
+               f"{gains2['nb_1n2_corrects']}/4 corrects")
 
     return all_passed
 

@@ -10,8 +10,6 @@ from modules.database_manager import (
     get_joker_actif_semaine,
     get_pronostics_effectifs,
     tous_matchs_termines,
-    get_utilisateurs_sans_pronostics,
-    activer_vol_automatique,
     resoudre_chaine_vol
 )
 
@@ -23,7 +21,7 @@ DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', '
 # Formule: Points = (Mise × Cote) + Bonus
 
 BONUS_SCORE_EXACT = 10   # +10 pts fixes si score exact
-BONUS_GRAND_CHELEM = 40  # +40 pts appliques sur la semaine SUIVANTE
+BONUS_GRAND_CHELEM = 40  # +40 pts de BUDGET la semaine suivante (140 au lieu de 100)
 
 
 def determiner_resultat_match(score_home, score_away):
@@ -33,47 +31,6 @@ def determiner_resultat_match(score_home, score_away):
     elif score_home < score_away:
         return '2'
     return 'N'
-
-
-def a_fait_grand_chelem_semaine_precedente(utilisateur_id, semaine_id):
-    """
-    Vérifie si l'utilisateur a fait un Grand Chelem la semaine précédente.
-    Retourne True si 4/4 résultats 1N2 corrects.
-    """
-    semaine_precedente = semaine_id - 1
-    if semaine_precedente < 1:
-        return False
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Compter les pronostics 1N2 corrects de la semaine précédente
-    cursor.execute('''
-        SELECT COUNT(*)
-        FROM predictions p
-        JOIN matches m ON p.match_id = m.id
-        WHERE p.user_id = ?
-          AND m.semaine_id = ?
-          AND m.score_final_home IS NOT NULL
-          AND (
-              (p.score_prono_home > p.score_prono_away AND m.score_final_home > m.score_final_away) OR
-              (p.score_prono_home < p.score_prono_away AND m.score_final_home < m.score_final_away) OR
-              (p.score_prono_home = p.score_prono_away AND m.score_final_home = m.score_final_away)
-          )
-    ''', (utilisateur_id, semaine_precedente))
-
-    nb_corrects = cursor.fetchone()[0]
-
-    # Compter le nombre total de matchs de cette semaine
-    cursor.execute('''
-        SELECT COUNT(*) FROM matches WHERE semaine_id = ? AND score_final_home IS NOT NULL
-    ''', (semaine_precedente,))
-
-    nb_matchs = cursor.fetchone()[0]
-    conn.close()
-
-    # Grand Chelem = 4/4 corrects
-    return nb_corrects >= 4 and nb_matchs >= 4
 
 
 def calculer_gain_match(prono_home, prono_away, score_home, score_away, mise, cote_home, cote_draw, cote_away):
@@ -202,16 +159,9 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
             'is_score_exact': is_exact
         })
 
-    # Grand Chelem: 4 pronostics 1N2 corrects cette semaine
-    # Le bonus sera applique la semaine SUIVANTE
+    # Grand Chelem: 4/4 1N2 corrects sur les 4 matchs selectionnes
+    # Recompense = +40 de BUDGET la semaine suivante (pas de bonus au score)
     grand_chelem = (nb_1n2_corrects == 4 and len(pronostics) >= 4)
-
-    # Verifier si l'utilisateur a fait un Grand Chelem la semaine PRECEDENTE
-    # Si oui, appliquer le bonus +40 pts CETTE semaine
-    bonus_grand_chelem_precedent = 0
-    if a_fait_grand_chelem_semaine_precedente(utilisateur_id, semaine_id):
-        bonus_grand_chelem_precedent = BONUS_GRAND_CHELEM
-        total_gains += BONUS_GRAND_CHELEM
 
     # Appliquer le joker Points Doubles (x2)
     # IMPORTANT: Le multiplicateur est strictement personnel
@@ -226,7 +176,6 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
         'nb_1n2_corrects': nb_1n2_corrects,
         'nb_scores_exacts': nb_scores_exacts,
         'grand_chelem': grand_chelem,
-        'bonus_grand_chelem_applique': bonus_grand_chelem_precedent,
         'joker_utilise': joker['type'] if joker else None,
         'multiplicateur': multiplicateur,
         'est_vol': est_vol,
@@ -237,22 +186,9 @@ def calculer_gains_semaine(utilisateur_id, semaine_id):
 
 def traiter_oublis_semaine(semaine_id):
     """
-    Traite les utilisateurs qui ont oublié de faire leurs pronostics.
-    Active automatiquement le joker Points Volés avec le dernier du classement comme cible.
+    Legacy SQLite - les oublis sont geres par Supabase (appliquer_vol_auto_oublis).
     """
-    oublieurs = get_utilisateurs_sans_pronostics(semaine_id)
-
-    resultats = []
-    for user_id, pseudo in oublieurs:
-        success, message = activer_vol_automatique(user_id, semaine_id)
-        resultats.append({
-            'user_id': user_id,
-            'pseudo': pseudo,
-            'success': success,
-            'message': message
-        })
-
-    return resultats
+    return []
 
 
 def calculer_tous_gains_semaine(semaine_id):

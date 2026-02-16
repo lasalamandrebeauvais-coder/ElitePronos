@@ -35,5 +35,6 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           IS_OFFICIEL: ${{ secrets.IS_OFFICIEL }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           python scripts/auto_update_scores.py

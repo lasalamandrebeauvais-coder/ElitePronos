@@ -2004,6 +2004,127 @@ def get_bonus_meilleur_joueur(user_id, saison_id=None):
         return 10 + 15 * (streak - 2)
 
 
+# Mapping football-data.org → The Odds API
+ODDS_API_MAPPING = {
+    'FL1': 'soccer_france_ligue_one',
+    'PL': 'soccer_epl',
+    'PD': 'soccer_spain_la_liga',
+    'SA': 'soccer_italy_serie_a',
+    'BL1': 'soccer_germany_bundesliga',
+}
+
+
+def fetch_real_odds(championnats_codes=None):
+    """Recupere les vraies cotes depuis The Odds API.
+
+    Args:
+        championnats_codes: liste de codes football-data.org (ex: ['FL1', 'PL'])
+                           Si None, recupere tous les championnats du mapping.
+
+    Returns:
+        dict: {(home_lower, away_lower): (cote_h, cote_n, cote_a)}
+    """
+    import requests
+
+    # Recuperer la cle API
+    try:
+        import streamlit as st
+        api_key = st.secrets.get("ODDS_API_KEY", "")
+    except Exception:
+        api_key = os.getenv("ODDS_API_KEY", "")
+
+    if not api_key:
+        print("[ODDS] Pas de cle API, fallback random")
+        return {}
+
+    if championnats_codes is None:
+        championnats_codes = list(ODDS_API_MAPPING.keys())
+
+    odds_dict = {}
+
+    for code in championnats_codes:
+        odds_key = ODDS_API_MAPPING.get(code)
+        if not odds_key:
+            continue
+
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{odds_key}/odds"
+            params = {
+                'apiKey': api_key,
+                'regions': 'eu',
+                'markets': 'h2h',
+                'oddsFormat': 'decimal',
+            }
+            resp = requests.get(url, params=params, timeout=15)
+
+            if resp.status_code != 200:
+                print(f"[ODDS] Erreur {resp.status_code} pour {code}")
+                continue
+
+            events = resp.json()
+            print(f"[ODDS] {len(events)} matchs recuperes pour {code}")
+
+            for event in events:
+                home = event.get('home_team', '')
+                away = event.get('away_team', '')
+
+                # Collecter les cotes de tous les bookmakers
+                all_home, all_draw, all_away = [], [], []
+                for bookmaker in event.get('bookmakers', []):
+                    for market in bookmaker.get('markets', []):
+                        if market.get('key') != 'h2h':
+                            continue
+                        outcomes = {o['name']: o['price'] for o in market.get('outcomes', [])}
+                        if home in outcomes:
+                            all_home.append(outcomes[home])
+                        if 'Draw' in outcomes:
+                            all_draw.append(outcomes['Draw'])
+                        if away in outcomes:
+                            all_away.append(outcomes[away])
+
+                # Moyenne des cotes (plus stable)
+                if all_home and all_draw and all_away:
+                    cote_h = round(sum(all_home) / len(all_home), 2)
+                    cote_n = round(sum(all_draw) / len(all_draw), 2)
+                    cote_a = round(sum(all_away) / len(all_away), 2)
+                    odds_dict[(home.lower(), away.lower())] = (cote_h, cote_n, cote_a)
+
+        except Exception as e:
+            print(f"[ODDS] Exception pour {code}: {e}")
+            continue
+
+    print(f"[ODDS] Total: {len(odds_dict)} matchs avec cotes reelles")
+    return odds_dict
+
+
+def lookup_odds(odds_dict, equipe_home, equipe_away):
+    """Cherche les cotes d'un match dans le dict.
+
+    Matching par inclusion partielle pour gerer les differences de noms
+    entre football-data.org et The Odds API.
+
+    Returns:
+        tuple (cote_h, cote_n, cote_a) ou None si pas trouve
+    """
+    if not odds_dict:
+        return None
+
+    home_lower = equipe_home.lower()
+    away_lower = equipe_away.lower()
+
+    # Match exact
+    if (home_lower, away_lower) in odds_dict:
+        return odds_dict[(home_lower, away_lower)]
+
+    # Match par inclusion partielle
+    for (oh, oa), cotes in odds_dict.items():
+        if (oh in home_lower or home_lower in oh) and \
+           (oa in away_lower or away_lower in oa):
+            return cotes
+
+    return None
+
+
 def importer_matchs_journee_supabase(semaine_id, saison_id=None):
     """
     Importe les matchs d'une journee:
@@ -2212,6 +2333,10 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
         all_matchs_to_import.sort(key=lambda x: x['score_interet'], reverse=True)
 
         # === 4. IMPORTER DANS SUPABASE (seulement les nouveaux) ===
+        # Recuperer les vraies cotes depuis The Odds API
+        odds_codes = ['FL1'] + list(CHAMPIONNATS.keys())
+        odds_dict = fetch_real_odds(odds_codes)
+
         # Determiner les 4 meilleurs matchs (par score d'interet)
         top_4_keys = set()
         for m in all_matchs_to_import[:4]:
@@ -2228,10 +2353,14 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
                 skipped += 1
                 continue
 
-            # Cotes par defaut (a modifier manuellement)
-            cote_h = round(random.uniform(1.5, 3.5), 2)
-            cote_n = round(random.uniform(3.0, 4.0), 2)
-            cote_a = round(random.uniform(1.8, 4.0), 2)
+            # Vraies cotes depuis The Odds API (fallback random)
+            real = lookup_odds(odds_dict, m['equipe_home'], m['equipe_away'])
+            if real:
+                cote_h, cote_n, cote_a = real
+            else:
+                cote_h = round(random.uniform(1.5, 3.5), 2)
+                cote_n = round(random.uniform(3.0, 4.0), 2)
+                cote_a = round(random.uniform(1.8, 4.0), 2)
 
             # Activer les 4 meilleurs matchs par score d'interet
             is_active = (match_key in top_4_keys)

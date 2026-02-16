@@ -21,9 +21,12 @@ _DEFAULT_URL = "https://qyyfxbwyvshpuuqwrxsl.supabase.co"
 _DEFAULT_KEY = "sb_secret_v_cT_G2XV1znRhrS0cx_qw_6vZmzMKW"
 _DEFAULT_TOKEN = "bf58da6a49824f2a8742957b89ca52ee"
 
+_DEFAULT_ODDS_KEY = "0fd6c79ea51d9b57a10134ecc6027812"
+
 SUPABASE_URL = os.getenv("SUPABASE_URL") or _DEFAULT_URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY") or _DEFAULT_KEY
 FOOTBALL_API_TOKEN = os.getenv("FOOTBALL_API_TOKEN") or _DEFAULT_TOKEN
+ODDS_API_KEY = os.getenv("ODDS_API_KEY") or _DEFAULT_ODDS_KEY
 
 # Headers
 SUPABASE_HEADERS = {
@@ -36,6 +39,92 @@ SUPABASE_HEADERS = {
 FOOTBALL_HEADERS = {
     'X-Auth-Token': FOOTBALL_API_TOKEN
 }
+
+
+# Mapping football-data.org → The Odds API
+ODDS_API_MAPPING = {
+    'FL1': 'soccer_france_ligue_one',
+    'PL': 'soccer_epl',
+    'PD': 'soccer_spain_la_liga',
+    'SA': 'soccer_italy_serie_a',
+    'BL1': 'soccer_germany_bundesliga',
+}
+
+
+def fetch_real_odds(championnats_codes=None):
+    """Recupere les vraies cotes depuis The Odds API."""
+    if not ODDS_API_KEY:
+        print("[ODDS] Pas de cle API, fallback random")
+        return {}
+
+    if championnats_codes is None:
+        championnats_codes = list(ODDS_API_MAPPING.keys())
+
+    odds_dict = {}
+
+    for code in championnats_codes:
+        odds_key = ODDS_API_MAPPING.get(code)
+        if not odds_key:
+            continue
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{odds_key}/odds"
+            params = {
+                'apiKey': ODDS_API_KEY,
+                'regions': 'eu',
+                'markets': 'h2h',
+                'oddsFormat': 'decimal',
+            }
+            resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code != 200:
+                print(f"[ODDS] Erreur {resp.status_code} pour {code}")
+                continue
+
+            events = resp.json()
+            print(f"[ODDS] {len(events)} matchs recuperes pour {code}")
+
+            for event in events:
+                home = event.get('home_team', '')
+                away = event.get('away_team', '')
+                all_home, all_draw, all_away = [], [], []
+                for bookmaker in event.get('bookmakers', []):
+                    for market in bookmaker.get('markets', []):
+                        if market.get('key') != 'h2h':
+                            continue
+                        outcomes = {o['name']: o['price'] for o in market.get('outcomes', [])}
+                        if home in outcomes:
+                            all_home.append(outcomes[home])
+                        if 'Draw' in outcomes:
+                            all_draw.append(outcomes['Draw'])
+                        if away in outcomes:
+                            all_away.append(outcomes[away])
+
+                if all_home and all_draw and all_away:
+                    cote_h = round(sum(all_home) / len(all_home), 2)
+                    cote_n = round(sum(all_draw) / len(all_draw), 2)
+                    cote_a = round(sum(all_away) / len(all_away), 2)
+                    odds_dict[(home.lower(), away.lower())] = (cote_h, cote_n, cote_a)
+
+        except Exception as e:
+            print(f"[ODDS] Exception pour {code}: {e}")
+            continue
+
+    print(f"[ODDS] Total: {len(odds_dict)} matchs avec cotes reelles")
+    return odds_dict
+
+
+def lookup_odds(odds_dict, equipe_home, equipe_away):
+    """Cherche les cotes d'un match dans le dict (matching partiel)."""
+    if not odds_dict:
+        return None
+    home_lower = equipe_home.lower()
+    away_lower = equipe_away.lower()
+    if (home_lower, away_lower) in odds_dict:
+        return odds_dict[(home_lower, away_lower)]
+    for (oh, oa), cotes in odds_dict.items():
+        if (oh in home_lower or home_lower in oh) and \
+           (oa in away_lower or away_lower in oa):
+            return cotes
+    return None
 
 
 def get_saison_actuelle():
@@ -639,11 +728,20 @@ def creer_matchs_journee(semaine_id, saison_id):
     all_matchs.sort(key=lambda x: x['score'], reverse=True)
 
     # === 3. IMPORT SUPABASE ===
+    # Recuperer les vraies cotes depuis The Odds API
+    odds_codes = ['FL1'] + list(CHAMPIONNATS.keys())
+    odds_dict = fetch_real_odds(odds_codes)
+
     count = 0
     for i, m in enumerate(all_matchs):
-        cote_h = round(random.uniform(1.5, 3.5), 2)
-        cote_n = round(random.uniform(3.0, 4.0), 2)
-        cote_a = round(random.uniform(1.8, 4.0), 2)
+        # Vraies cotes depuis The Odds API (fallback random)
+        real = lookup_odds(odds_dict, m['equipe_home'], m['equipe_away'])
+        if real:
+            cote_h, cote_n, cote_a = real
+        else:
+            cote_h = round(random.uniform(1.5, 3.5), 2)
+            cote_n = round(random.uniform(3.0, 4.0), 2)
+            cote_a = round(random.uniform(1.8, 4.0), 2)
 
         # Les 4 premiers sont actifs par defaut
         is_active = (i < 4)
