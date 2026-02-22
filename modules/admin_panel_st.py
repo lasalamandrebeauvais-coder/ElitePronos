@@ -174,7 +174,7 @@ def afficher_panel_admin():
     st.markdown("---")
 
     # Onglets
-    tab1, tab2, tab3, tab4 = st.tabs(["Inscriptions en attente", "Tous les utilisateurs", "Gestion Journee", "Prospection"])
+    tab3, tab1, tab2, tab4 = st.tabs(["Gestion Journee", "Inscriptions en attente", "Tous les utilisateurs", "Prospection"])
 
     # === ONGLET 1 : INSCRIPTIONS EN ATTENTE ===
     with tab1:
