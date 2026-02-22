@@ -457,7 +457,7 @@ def email_lancement_saison(utilisateur):
         <li>4 matchs a pronostiquer chaque semaine</li>
         <li>100 points de budget a repartir</li>
         <li>2 jokers a utiliser strategiquement</li>
-        <li>Bonus Grand Chelem : +40 pts si 4/4 corrects</li>
+        <li>Grand Chelem (4/4 corrects) : +40 pts de budget la semaine suivante</li>
     </ul>
 
     <p>Que la meilleure strategie gagne !</p>
@@ -1576,8 +1576,8 @@ def envoyer_resultats_ironiques(semaine_id):
     from modules.supabase_db import get_supabase
     supabase = get_supabase()
 
-    # Recuperer les matchs de la semaine avec scores
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away') or []
+    # Recuperer les matchs ACTIFS de la semaine avec scores
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home,score_final_away') or []
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
@@ -1628,10 +1628,17 @@ def envoyer_resultats_ironiques(semaine_id):
     sorted_users = sorted(stats_joueur.items(), key=lambda x: x[1]['points'], reverse=True)
     nb_matchs = sum(1 for m in matchs if m.get('score_final_home') is not None)
 
+    # Recuperer les voleurs (exclus du GC)
+    jokers_vol_data = supabase._request('GET',
+        f'jokers_historique?semaine_id=eq.{semaine_id}&type_joker=eq.VOL&select=utilisateur_id'
+    ) or []
+    voleurs = {j['utilisateur_id'] for j in jokers_vol_data}
+
     # Construire le classement
     classement = []
     for i, (uid, stats) in enumerate(sorted_users, 1):
-        grand_chelem = stats['bons_pronos'] == nb_matchs and nb_matchs >= 4
+        # GC: 4/4 corrects sur matchs actifs, non voleur
+        grand_chelem = stats['bons_pronos'] >= 4 and nb_matchs >= 4 and uid not in voleurs
         classement.append({
             'rang': i,
             'pseudo': user_map.get(uid, 'Inconnu'),

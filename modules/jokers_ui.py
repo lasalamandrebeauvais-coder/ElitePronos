@@ -399,11 +399,3 @@ def afficher_badge_joker_actif(type_joker, cible_pseudo=None):
         """, unsafe_allow_html=True)
 
 
-def afficher_banner_grand_chelem():
-    """Affiche la bannière Grand Chelem"""
-    st.markdown("""
-    <div class="grand-chelem-banner">
-        🏆 GRAND CHELEM ! 🏆<br>
-        <small>+40 points bonus</small>
-    </div>
-    """, unsafe_allow_html=True)

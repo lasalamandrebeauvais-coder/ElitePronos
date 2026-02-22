@@ -272,6 +272,15 @@ def get_users_grand_chelem_precedente(semaine_id, saison_id):
     if len(match_ids) < 4:
         return set()
 
+    # Recuperer les voleurs de la semaine precedente (exclus du GC)
+    resp_vol = requests.get(
+        f"{SUPABASE_URL}/rest/v1/jokers_historique?semaine_id=eq.{semaine_prec}&type_joker=eq.VOL&select=utilisateur_id",
+        headers=SUPABASE_HEADERS
+    )
+    voleurs = set()
+    if resp_vol.status_code == 200 and resp_vol.json():
+        voleurs = {j['utilisateur_id'] for j in resp_vol.json()}
+
     # Recuperer toutes les predictions de ces matchs
     match_ids_str = ','.join(map(str, match_ids))
     response = requests.get(
@@ -283,11 +292,15 @@ def get_users_grand_chelem_precedente(semaine_id, saison_id):
 
     predictions = response.json()
 
-    # Compter les 1N2 corrects par user
+    # Compter les 1N2 corrects par user (exclure voleurs)
     user_corrects = {}
     for pred in predictions:
         user_id = pred['user_id']
         match_id = pred['match_id']
+
+        # Exclure les voleurs du GC
+        if user_id in voleurs:
+            continue
 
         if match_id not in matchs_dict:
             continue
@@ -305,7 +318,7 @@ def get_users_grand_chelem_precedente(semaine_id, saison_id):
         if bon_resultat:
             user_corrects[user_id] = user_corrects.get(user_id, 0) + 1
 
-    # Retourner les users avec 4/4 corrects
+    # Retourner les users avec 4/4 corrects (non voleurs)
     return {uid for uid, count in user_corrects.items() if count >= 4}
 
 
@@ -423,7 +436,7 @@ def recalculer_points_complet(semaine_id, saison_id):
 
     # Recuperer TOUTES les predictions (pas seulement points_gagnes=null)
     response = requests.get(
-        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes",
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes",
         headers=SUPABASE_HEADERS
     )
     if response.status_code != 200:
@@ -461,16 +474,21 @@ def recalculer_points_complet(semaine_id, saison_id):
             cote_draw = match.get('cote_draw') or 3.0
             cote_away = match.get('cote_away') or 2.0
 
+            mise_bonus_gc = pred.get('mise_bonus_gc', 0) or 0
+
             # Si VOL actif et cible a un prono pour ce match, utiliser les pronos de la cible
             if cible_id and match_id in cible_preds:
                 cible_pred = cible_preds[match_id]
                 prono_h = cible_pred['score_prono_home']
                 prono_a = cible_pred['score_prono_away']
+                # VOL: uniquement budget 100 de la cible
                 mise = cible_pred['mise_points'] or 25
+                is_vol = True
             else:
                 prono_h = pred['score_prono_home']
                 prono_a = pred['score_prono_away']
                 mise = pred['mise_points'] or 25
+                is_vol = False
 
             # Determiner la cote selon le prono
             if prono_h > prono_a:
@@ -489,23 +507,38 @@ def recalculer_points_complet(semaine_id, saison_id):
 
             points = 0
             is_exact = False
+            pts_bonus_gc = 0
 
             if bon_resultat:
                 points = round(mise * cote, 1)
                 if prono_h == score_h and prono_a == score_a:
                     points += BONUS_EXACT
                     is_exact = True
+                # Bonus GC (gains uniquement, pas de perte)
+                if mise_bonus_gc > 0 and not is_vol:
+                    pts_bonus_gc = round(mise_bonus_gc * cote, 1)
+                    if is_exact:
+                        pts_bonus_gc += BONUS_EXACT
             else:
                 points = -mise
+                # Bonus GC: PAS de perte si mauvais prono
+                pts_bonus_gc = 0
 
-            # Joker DOUBLE: x2 sur gains ET pertes
+            # Joker DOUBLE: x2 sur budget 100 uniquement (pas le bonus GC)
             if user_id in users_double:
                 points = points * 2
 
+            # Voleur n'a pas droit au bonus GC
+            if is_vol:
+                pts_bonus_gc = 0
+
+            # Total = points budget 100 + bonus GC
+            points_total = points + pts_bonus_gc
+
             # Mettre a jour seulement si le score a change
             old_points = pred.get('points_gagnes')
-            if old_points != points:
-                update_prediction_points(pred['id'], points, is_exact)
+            if old_points != points_total:
+                update_prediction_points(pred['id'], points_total, is_exact)
                 total_updates += 1
 
     if vol_cibles:

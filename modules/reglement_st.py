@@ -119,7 +119,7 @@ def afficher_reglement():
     st.markdown('<div class="point-texte">Si le resultat 1N2 est incorrect, le joueur <span class="valeur-rouge">perd sa mise</span> sur ce match.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">3.4 Grand Chelem</div>', unsafe_allow_html=True)
-    st.markdown('<div class="point-texte">Bonus <span class="valeur-vert">+40 POINTS</span> si 4/4 resultats corrects sur une semaine</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Si 4/4 resultats 1N2 corrects sur une semaine : <span class="valeur-vert">+40 pts de BUDGET</span> la semaine suivante (140 au lieu de 100). Les 40 pts bonus sont proteges : pas de perte si mauvais prono, non affectes par les jokers.</div>', unsafe_allow_html=True)
 
     # =====================================================
     # ARTICLE 4 : JOKERS
@@ -129,7 +129,7 @@ def afficher_reglement():
     st.markdown('<div class="point-texte">Stock par saison : <span class="valeur-or">3 jokers Points Doubles</span> + <span class="valeur-or">2 jokers Points Voles</span></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.1 Joker POINTS DOUBLES</div>', unsafe_allow_html=True)
-    st.markdown('<div class="point-texte">Multiplie par 2 TOUS les points gagnes de la semaine (bonus Grand Chelem inclus).</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Multiplie par 2 les points du budget principal (100 pts). Le bonus Grand Chelem (40 pts) n\'est pas multiplie.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.2 Joker POINTS VOLES</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Copie les pronostics d\'un adversaire choisi. Vous gagnez les memes points que lui.</div>', unsafe_allow_html=True)

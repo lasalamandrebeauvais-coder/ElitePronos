@@ -20,23 +20,24 @@ MISE_MIN = 10
 MISE_MAX = 60
 
 
-def get_budget_joueur(user_id):
-    """
-    Retourne le budget du joueur pour cette semaine.
-    100 pts par defaut, +40 si Grand Chelem la semaine precedente.
-    """
+def has_grand_chelem(user_id):
+    """Verifie si le joueur a fait un Grand Chelem la semaine precedente."""
     try:
         saison_id = get_saison_actuelle()
         journee_courante = get_journee_courante(saison_id)
-
         users_gc = get_users_grand_chelem_semaine_precedente(journee_courante, saison_id)
-        if user_id in users_gc:
-            return BUDGET_BASE + BONUS_GRAND_CHELEM
-
-        return BUDGET_BASE
+        return user_id in users_gc
     except Exception as e:
-        print(f"Erreur get_budget_joueur: {e}")
-        return BUDGET_BASE
+        print(f"Erreur has_grand_chelem: {e}")
+        return False
+
+
+def get_budget_joueur(user_id):
+    """
+    Retourne le budget principal du joueur (toujours 100).
+    Utiliser has_grand_chelem() pour savoir s'il a le bonus 40.
+    """
+    return BUDGET_BASE
 
 
 def get_matchs_semaine():
@@ -96,7 +97,7 @@ def get_pronos_existants(user_id):
 
         # Recuperer les predictions
         predictions = supabase._request('GET',
-            f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=match_id,score_prono_home,score_prono_away,mise_points'
+            f'predictions?user_id=eq.{user_id}&match_id=in.({match_ids_str})&select=match_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc'
         ) or []
 
         pronos = {}
@@ -104,7 +105,8 @@ def get_pronos_existants(user_id):
             pronos[p['match_id']] = {
                 'home': p['score_prono_home'],
                 'away': p['score_prono_away'],
-                'mise': p['mise_points']
+                'mise': p['mise_points'],
+                'mise_bonus': p.get('mise_bonus_gc', 0) or 0
             }
 
         return pronos
@@ -178,6 +180,7 @@ def sauvegarder_pronostics(user_id, pronos_data, joker_type, cible_vol_id=None, 
                 'score_prono_home': data['home'],
                 'score_prono_away': data['away'],
                 'mise_points': data['mise'],
+                'mise_bonus_gc': data.get('mise_bonus', 0),
                 'points_gagnes': 0
             }
             result = supabase._request('POST', 'predictions', pred_data)
@@ -363,9 +366,11 @@ def afficher_pronostics(user):
         st.warning("Aucun match disponible pour cette journee.")
         return
 
-    # Budget dynamique (100 ou 140 si Grand Chelem)
-    budget_total = get_budget_joueur(user['id'])
-    if budget_total > BUDGET_BASE:
+    # Verifier Grand Chelem
+    joueur_gc = has_grand_chelem(user['id'])
+    budget_total = BUDGET_BASE
+
+    if joueur_gc:
         st.markdown(f"""
         <div style="
             background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 100%);
@@ -375,7 +380,7 @@ def afficher_pronostics(user):
             margin: 5px 0;
             text-align: center;
         ">
-            <span style="color: #00FF00; font-size: 1.1em;">🏆 <b>GRAND CHELEM !</b> Budget: <b>{budget_total} pts</b> (+{budget_total - BUDGET_BASE})</span>
+            <span style="color: #00FF00; font-size: 1.1em;">🏆 <b>GRAND CHELEM !</b> Budget: <b>100 pts</b> + <b>40 pts bonus</b></span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -387,6 +392,8 @@ def afficher_pronostics(user):
             match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
             if match_id in pronos_existants:
                 p = pronos_existants[match_id]
+                mise_bonus = p.get('mise_bonus', 0)
+                bonus_txt = f' <span style="color: #FFD700;">+{mise_bonus}🏆</span>' if mise_bonus > 0 else ''
                 st.markdown(f"""
                 <div style="
                     background: #0A183D;
@@ -401,7 +408,7 @@ def afficher_pronostics(user):
                     <span style="color: #FFFFFF;">{home}</span>
                     <span style="color: #4488FF; font-weight: bold; font-size: 1.2em;">{p['home']} - {p['away']}</span>
                     <span style="color: #FFFFFF;">{away}</span>
-                    <span style="color: #00FF00; font-weight: bold;">{p['mise']} pts</span>
+                    <span style="color: #00FF00; font-weight: bold;">{p['mise']} pts{bonus_txt}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -451,8 +458,15 @@ def afficher_pronostics(user):
         st.session_state.joker_selected = "AUCUN"
     if 'joker_cible_id' not in st.session_state:
         st.session_state.joker_cible_id = None
+    if 'bonus_gc' not in st.session_state:
+        # Initialiser les mises bonus depuis les pronos existants
+        st.session_state.bonus_gc = {}
+        if pronos_existants:
+            for mid, p in pronos_existants.items():
+                st.session_state.bonus_gc[mid] = p.get('mise_bonus', 0)
 
     total_mise = 0
+    total_bonus = 0
     pronos_valides = True
 
     for i in range(0, len(matchs), 2):
@@ -465,6 +479,8 @@ def afficher_pronostics(user):
 
                 if match_id not in st.session_state.pronos:
                     st.session_state.pronos[match_id] = {'home': 0, 'away': 0, 'mise': 25}
+                if match_id not in st.session_state.bonus_gc:
+                    st.session_state.bonus_gc[match_id] = 10 if joueur_gc else 0
 
                 with col:
                     st.markdown(f"""
@@ -520,22 +536,80 @@ def afficher_pronostics(user):
 
                     total_mise += st.session_state.pronos[match_id]['mise']
 
-    # BUDGET
+    # BUDGET PRINCIPAL (100 pts)
     st.markdown("---")
-    budget_ok = total_mise == budget_total
-    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < budget_total else "#FF4444")
+    budget_ok = total_mise == BUDGET_BASE
+    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < BUDGET_BASE else "#FF4444")
 
     st.markdown(f"""
     <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
-        <div style="background: {budget_color}; width: {min(total_mise/budget_total*100, 100)}%; height: 18px; border-radius: 6px;"></div>
+        <div style="background: {budget_color}; width: {min(total_mise/BUDGET_BASE*100, 100)}%; height: 18px; border-radius: 6px;"></div>
     </div>
     <div style="text-align: center; color: {budget_color}; font-size: 0.9em;">
-        <b>{total_mise} / {budget_total} pts</b> {' OK' if budget_ok else ''}
+        <b>{total_mise} / {BUDGET_BASE} pts</b> {' OK' if budget_ok else ''}
     </div>
     """, unsafe_allow_html=True)
 
     if not budget_ok:
         pronos_valides = False
+
+    # BUDGET BONUS GC (40 pts) - visible uniquement si Grand Chelem
+    if joueur_gc:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 100%);
+            border: 1px solid #FFD700;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0 5px 0;
+        ">
+            <div style="text-align: center; color: #FFD700; font-size: 0.95em; margin-bottom: 8px;">
+                🏆 <b>BONUS GRAND CHELEM</b> - 40 pts a repartir (pas de perte si mauvais prono)
+            </div>
+        """, unsafe_allow_html=True)
+
+        gc_cols = st.columns(len(matchs))
+        for idx, match in enumerate(matchs):
+            match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
+            with gc_cols[idx]:
+                # Nom court de l'equipe
+                short_home = home[:8]
+                short_away = away[:8]
+                st.markdown(f"<div style='text-align:center; color:#AAA; font-size:0.65em;'>{short_home} v {short_away}</div>", unsafe_allow_html=True)
+                mise_gc = st.number_input(
+                    f"GC{match_id}", min_value=0, max_value=40,
+                    value=st.session_state.bonus_gc.get(match_id, 10),
+                    step=5, key=f"gc_{match_id}", label_visibility="collapsed"
+                )
+                st.session_state.bonus_gc[match_id] = mise_gc
+                total_bonus += mise_gc
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Barre budget bonus
+        bonus_ok = total_bonus == BONUS_GRAND_CHELEM
+        bonus_color = "#FFD700" if bonus_ok else ("#FF8C00" if total_bonus < BONUS_GRAND_CHELEM else "#FF4444")
+
+        st.markdown(f"""
+        <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
+            <div style="background: {bonus_color}; width: {min(total_bonus/BONUS_GRAND_CHELEM*100, 100)}%; height: 14px; border-radius: 6px;"></div>
+        </div>
+        <div style="text-align: center; color: {bonus_color}; font-size: 0.85em;">
+            <b>Bonus: {total_bonus} / {BONUS_GRAND_CHELEM} pts</b> {' OK' if bonus_ok else ''}
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Verifier min 10 par match si mise > 0
+        for match in matchs:
+            match_id = match[0]
+            mise_gc = st.session_state.bonus_gc.get(match_id, 0)
+            if mise_gc > 0 and mise_gc < 10:
+                st.warning(f"Mise bonus minimum: 10 pts par match")
+                pronos_valides = False
+                break
+
+        if not bonus_ok:
+            pronos_valides = False
 
     # JOKERS
     st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
@@ -651,8 +725,14 @@ def afficher_pronostics(user):
 
     if st.button("VALIDER MES PRONOSTICS", type="primary", use_container_width=True, disabled=not pronos_valides):
         if pronos_valides:
-            pronos_data = {mid: {'home': d['home'], 'away': d['away'], 'mise': d['mise']}
-                          for mid, d in st.session_state.pronos.items()}
+            pronos_data = {}
+            for mid, d in st.session_state.pronos.items():
+                pronos_data[mid] = {
+                    'home': d['home'],
+                    'away': d['away'],
+                    'mise': d['mise'],
+                    'mise_bonus': st.session_state.bonus_gc.get(mid, 0) if joueur_gc else 0
+                }
             cible_id = st.session_state.joker_cible_id if st.session_state.joker_selected == "VOLE" else None
             joker_ancien = st.session_state.get('joker_ancien', None)
             success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected, cible_id, joker_ancien)
@@ -660,6 +740,7 @@ def afficher_pronostics(user):
                 st.success(message)
                 st.balloons()
                 st.session_state.pronos = {}
+                st.session_state.bonus_gc = {}
                 st.session_state.joker_selected = "AUCUN"
                 st.session_state.joker_cible_id = None
                 st.session_state.joker_ancien = None

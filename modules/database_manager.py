@@ -1538,6 +1538,7 @@ def valider_resultats_journee_supabase(semaine_id, saison_id=None):
 def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
     """
     Retourne les user_ids qui ont fait un Grand Chelem (4/4 1N2 corrects) la semaine precedente.
+    Exclut les voleurs: seul le proprietaire original des pronos peut avoir le GC.
     """
     from modules.supabase_db import get_supabase
 
@@ -1548,9 +1549,9 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
     try:
         supabase = get_supabase()
 
-        # Recuperer tous les matchs termines de la semaine precedente
+        # Recuperer les matchs termines ET actifs de la semaine precedente
         matchs_prec = supabase._request('GET',
-            f'matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&select=id,score_final_home,score_final_away'
+            f'matches?semaine_id=eq.{semaine_prec}&saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,score_final_home,score_final_away'
         ) or []
 
         if len(matchs_prec) < 4:
@@ -1558,6 +1559,12 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
 
         match_ids = [m['id'] for m in matchs_prec]
         matchs_dict = {m['id']: (m['score_final_home'], m['score_final_away']) for m in matchs_prec}
+
+        # Recuperer les voleurs de la semaine precedente (exclus du GC)
+        jokers_vol = supabase._request('GET',
+            f'jokers_historique?semaine_id=eq.{semaine_prec}&type_joker=eq.VOL&select=utilisateur_id'
+        ) or []
+        voleurs = {j['utilisateur_id'] for j in jokers_vol}
 
         # Recuperer toutes les predictions de ces matchs
         predictions = supabase._request('GET',
@@ -1569,6 +1576,10 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
         for pred in predictions:
             user_id = pred['user_id']
             match_id = pred['match_id']
+
+            # Exclure les voleurs du GC
+            if user_id in voleurs:
+                continue
 
             if match_id not in matchs_dict:
                 continue
@@ -1586,7 +1597,7 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
             if bon_resultat:
                 user_corrects[user_id] = user_corrects.get(user_id, 0) + 1
 
-        # Retourner les users avec 4/4 corrects
+        # Retourner les users avec 4/4 corrects (non voleurs)
         return {uid for uid, count in user_corrects.items() if count >= 4}
 
     except Exception as e:
@@ -1594,10 +1605,12 @@ def get_users_grand_chelem_semaine_precedente(semaine_id, saison_id):
         return set()
 
 
-def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, bonus_exact=10):
+def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, bonus_exact=10, mise_bonus_gc=0):
     """
     Calcule les points pour un match donne.
     Retourne (points, is_exact)
+
+    mise_bonus_gc: mise du budget bonus Grand Chelem (pas de perte si mauvais prono)
     """
     # Determiner la cote applicable selon le prono
     if prono_h > prono_a:
@@ -1608,6 +1621,7 @@ def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, 
         cote = cote_draw
 
     points = 0
+    points_bonus_gc = 0
     is_exact = False
 
     # Verifier si bon resultat (1N2)
@@ -1623,10 +1637,17 @@ def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, 
         if prono_h == score_h and prono_a == score_a:
             points += bonus_exact
             is_exact = True
+        # Points bonus GC (meme calcul, gains uniquement)
+        if mise_bonus_gc > 0:
+            points_bonus_gc = round(mise_bonus_gc * cote, 1)
+            if is_exact:
+                points_bonus_gc += bonus_exact
     else:
-        points = -mise  # Perte de la mise
+        points = -mise  # Perte de la mise principale
+        # Bonus GC: PAS de perte si mauvais prono (0 pts)
+        points_bonus_gc = 0
 
-    return points, is_exact
+    return points, is_exact, points_bonus_gc
 
 
 def calculer_gains_supabase(semaine_id, saison_id=None):
@@ -1689,7 +1710,7 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
         # Recuperer TOUTES les predictions de la semaine (pour le VOL)
         all_predictions = supabase._request('GET',
-            f'predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes'
+            f'predictions?match_id=in.({match_ids_str})&select=id,user_id,match_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes'
         ) or []
 
         # Organiser les predictions par user et par match
@@ -1735,28 +1756,33 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
                 prono_h = pred['score_prono_home']
                 prono_a = pred['score_prono_away']
                 mise = pred['mise_points'] or 25
+                mise_bonus_gc = pred.get('mise_bonus_gc', 0) or 0
 
-                points_propres, is_exact_propres = _calculer_points_match(
-                    prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, BONUS_EXACT
+                points_propres, is_exact_propres, pts_bonus_gc = _calculer_points_match(
+                    prono_h, prono_a, score_h, score_a, mise, cote_home, cote_draw, cote_away, BONUS_EXACT, mise_bonus_gc
                 )
                 points_propres_total += points_propres
 
                 # Si joker VOL actif, utiliser les pronos de la cible
+                # VOL: uniquement sur le budget 100, PAS sur le bonus GC
                 if cible_id and cible_id in preds_by_user:
                     cible_pred = cible_preds.get(match_id)
                     if cible_pred:
                         cible_prono_h = cible_pred['score_prono_home']
                         cible_prono_a = cible_pred['score_prono_away']
+                        # VOL utilise les mises du budget 100 de la cible (PAS mise_bonus_gc)
                         cible_mise = cible_pred['mise_points'] or 25
 
-                        points_voles, is_exact_voles = _calculer_points_match(
+                        points_voles, is_exact_voles, _ = _calculer_points_match(
                             cible_prono_h, cible_prono_a, score_h, score_a, cible_mise, cote_home, cote_draw, cote_away, BONUS_EXACT
                         )
                         points_voles_total += points_voles
 
-                        # Le joueur prend les points de la cible
+                        # Le joueur prend les points voles (budget 100 uniquement)
+                        # Le bonus GC du voleur est perdu (GC = proprietaire original seulement)
                         points_final = points_voles
                         is_exact_final = is_exact_voles
+                        pts_bonus_gc = 0  # Voleur n'a pas droit au bonus GC
                     else:
                         # Pas de prono de la cible pour ce match, garder les siens
                         points_final = points_propres
@@ -1766,12 +1792,16 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
                     points_final = points_propres
                     is_exact_final = is_exact_propres
 
-                # JOKER DOUBLE: x2 sur les gains ET les pertes
+                # JOKER DOUBLE: x2 sur les gains/pertes du budget 100 uniquement
                 if user_id in users_avec_double:
                     points_final = points_final * 2
+                    # Le bonus GC n'est PAS multiplie par le Double
+
+                # Total = points budget 100 (avec Double/Vol) + bonus GC (protege)
+                points_total = points_final + pts_bonus_gc
 
                 supabase._request('PATCH', f'predictions?id=eq.{pred["id"]}', {
-                    'points_gagnes': points_final,
+                    'points_gagnes': points_total,
                     'is_score_exact': is_exact_final
                 })
                 total_updates += 1
