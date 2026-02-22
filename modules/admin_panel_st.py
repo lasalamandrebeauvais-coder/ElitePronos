@@ -386,195 +386,8 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
-        # === SECTION 1: VALIDATION DES RESULTATS ===
-        st.markdown("#### 1. Valider les Resultats")
-        st.caption("Recupere les scores officiels depuis l'API et fige les resultats de la journee.")
-
-        col_val1, col_val2, col_val3 = st.columns(3)
-
-        with col_val1:
-            if st.button("ACTUALISER SCORES", type="primary", use_container_width=True):
-                with st.spinner("Mise a jour des scores..."):
-                    from modules.database_manager import update_scores_from_api
-                    success, message = update_scores_from_api(semaine_selectionnee, saison)
-                    # Invalider le cache
-                    st.cache_data.clear()
-
-                if success:
-                    st.success(f"✅ {message}")
-                    st.rerun()
-                else:
-                    st.error(f"❌ {message}")
-
-        with col_val2:
-            if st.button("VALIDER JOURNEE", use_container_width=True):
-                with st.spinner("Recuperation des scores..."):
-                    from modules.database_manager import valider_resultats_journee_supabase, calculer_gains_supabase
-                    success, message = valider_resultats_journee_supabase(semaine_selectionnee, saison)
-
-                if success:
-                    st.success(f"✅ {message}")
-                    with st.spinner("Calcul des points..."):
-                        success_calc, msg_calc = calculer_gains_supabase(semaine_selectionnee, saison)
-                        if success_calc:
-                            st.success(f"✅ {msg_calc}")
-                        else:
-                            st.warning(f"Points: {msg_calc}")
-                else:
-                    st.error(f"❌ {message}")
-
-        with col_val3:
-            if st.button("Calendrier (reports)", use_container_width=True):
-                with st.spinner("Verification des reports..."):
-                    success, message = mettre_a_jour_calendrier_reports(saison)
-                if success:
-                    st.success(f"✅ {message}")
-                else:
-                    st.error(f"❌ {message}")
-
-        # Bouton FORCER RECALCUL (reset + recalcul complet)
-        if st.button("FORCER RECALCUL POINTS", type="secondary", use_container_width=True):
-            with st.spinner("Reset et recalcul de tous les points..."):
-                try:
-                    supabase = get_supabase()
-
-                    # Recuperer les matchs termines de cette journee
-                    matchs = supabase._request('GET',
-                        f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&score_final_home=not.is.null&select=id'
-                    ) or []
-
-                    if not matchs:
-                        st.warning("Aucun match termine pour cette journee")
-                    else:
-                        # Reset les points de toutes les predictions de ces matchs
-                        match_ids = [m['id'] for m in matchs]
-                        for mid in match_ids:
-                            supabase._request('PATCH', f'predictions?match_id=eq.{mid}', {
-                                'points_gagnes': None,
-                                'is_score_exact': None
-                            })
-
-                        # Recalculer
-                        from modules.database_manager import calculer_gains_supabase
-                        success, msg = calculer_gains_supabase(semaine_selectionnee, saison)
-
-                        st.cache_data.clear()
-
-                        if success:
-                            st.success(f"✅ Points recalcules: {msg}")
-                        else:
-                            st.error(f"❌ Erreur: {msg}")
-
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Erreur: {str(e)}")
-
-        st.markdown("---")
-
-        # === SECTION 2: EMAILS ===
-        st.markdown("#### 2. Gestion des Emails")
-
-        # Verifier le mode
-        from modules.database_manager import is_mode_officiel
-        mode = is_mode_officiel()
-        if mode:
-            st.success("**Mode: OFFICIEL** - Les emails sont envoyes reellement")
-        else:
-            st.warning("**Mode: TEST** - Les emails sont simules (non envoyes)")
-
-        # Tableau descriptif des emails
-        st.markdown("""
-        | Email | Destinataires | Contenu | Quand l'envoyer |
-        |-------|--------------|---------|-----------------|
-        | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
-        | **Tableau Pronos** | Admin uniquement | Tableau complet des pronos + cotes + mises + jokers | Apres la deadline |
-        | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
-        | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a la validation admin |
-        | **Alerte Inscription** | Admin (Baggio) | Notification nouveau joueur inscrit | Automatique a l'inscription |
-        """)
-
-        st.markdown("---")
-
-        col_email1, col_email2, col_email3 = st.columns(3)
-
-        with col_email1:
-            st.markdown("**Synthese des Paris**")
-            st.caption("Recap pronos + tendances 1N2")
-            if st.button("ENVOYER SYNTHESE PARIS", type="secondary", use_container_width=True):
-                with st.spinner("Envoi des emails de synthese..."):
-                    try:
-                        resultats = envoyer_synthese_paris(semaine_selectionnee)
-                        nb_envoyes = sum(1 for r in resultats if r['success'])
-                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
-
-                        with st.expander("Details des envois"):
-                            for r in resultats:
-                                if r['success']:
-                                    st.write(f"✓ {r['user']}: {r['message']}")
-                                else:
-                                    st.write(f"✗ {r['user']}: {r['message']}")
-                    except Exception as e:
-                        st.error(f"❌ Erreur: {str(e)}")
-
-        with col_email2:
-            st.markdown("**Tableau Pronos**")
-            st.caption("Tous les pronos (admin)")
-            if st.button("ENVOYER TABLEAU PRONOS", type="secondary", use_container_width=True):
-                with st.spinner("Envoi du tableau des pronos..."):
-                    try:
-                        resultats = envoyer_tableau_pronos_admin(semaine_selectionnee)
-                        nb_envoyes = sum(1 for r in resultats if r['success'])
-                        st.success(f"✅ {nb_envoyes} email(s) envoye(s) aux admins")
-
-                        for r in resultats:
-                            if r['success']:
-                                st.write(f"✓ {r['user']}: {r['message']}")
-                            else:
-                                st.write(f"✗ {r['user']}: {r['message']}")
-                    except Exception as e:
-                        st.error(f"❌ Erreur: {str(e)}")
-
-        with col_email3:
-            st.markdown("**Debrief Ironique**")
-            st.caption("Classement + commentaires")
-            if st.button("ENVOYER DEBRIEF IRONIQUE", type="secondary", use_container_width=True):
-                with st.spinner("Envoi du debrief ironique..."):
-                    try:
-                        resultats = envoyer_resultats_ironiques(semaine_selectionnee)
-                        nb_envoyes = sum(1 for r in resultats if r['success'])
-                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
-
-                        with st.expander("Details des envois"):
-                            for r in resultats:
-                                if r['success']:
-                                    st.write(f"✓ {r['user']}: {r['message']}")
-                                else:
-                                    st.write(f"✗ {r['user']}: {r['message']}")
-                    except Exception as e:
-                        st.error(f"❌ Erreur: {str(e)}")
-
-        # Bouton test email
-        st.markdown("---")
-        if st.button("TESTER ENVOI EMAIL (admin)", use_container_width=True):
-            with st.spinner("Test d'envoi..."):
-                try:
-                    from modules.notifier_st import send_email, get_base_template
-                    test_html = get_base_template(
-                        "<h2>Test Email</h2><p>Si vous recevez cet email, la configuration SMTP fonctionne.</p>",
-                        "Test"
-                    )
-                    success, msg = send_email("elite.pronos.2@gmail.com", "Elite Pronos - Test Email", test_html)
-                    if success:
-                        st.success(f"✅ {msg}")
-                    else:
-                        st.error(f"❌ {msg}")
-                except Exception as e:
-                    st.error(f"❌ Erreur: {str(e)}")
-
-        st.markdown("---")
-
-        # === SECTION 3: GESTION DES MATCHS ===
-        st.markdown("#### 3. Selection des Matchs de la Journee")
+        # === SECTION 1: SELECTION DES MATCHS ===
+        st.markdown("#### 1. Selection des Matchs de la Journee")
         st.caption("Activez les matchs sur lesquels les joueurs pourront pronostiquer.")
 
         # Reinitialiser Supabase pour cette section (evite UnboundLocalError)
@@ -719,6 +532,193 @@ def afficher_panel_admin():
                     st.rerun()
             else:
                 st.info("Aucun match actif pour modifier les cotes.")
+
+        st.markdown("---")
+
+        # === SECTION 2: EMAILS ===
+        st.markdown("#### 2. Gestion des Emails")
+
+        # Verifier le mode
+        from modules.database_manager import is_mode_officiel
+        mode = is_mode_officiel()
+        if mode:
+            st.success("**Mode: OFFICIEL** - Les emails sont envoyes reellement")
+        else:
+            st.warning("**Mode: TEST** - Les emails sont simules (non envoyes)")
+
+        # Tableau descriptif des emails
+        st.markdown("""
+        | Email | Destinataires | Contenu | Quand l'envoyer |
+        |-------|--------------|---------|-----------------|
+        | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
+        | **Tableau Pronos** | Admin uniquement | Tableau complet des pronos + cotes + mises + jokers | Apres la deadline |
+        | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
+        | **Bienvenue** | Nouvel inscrit | Message de bienvenue + regles du jeu | Automatique a la validation admin |
+        | **Alerte Inscription** | Admin (Baggio) | Notification nouveau joueur inscrit | Automatique a l'inscription |
+        """)
+
+        st.markdown("---")
+
+        col_email1, col_email2, col_email3 = st.columns(3)
+
+        with col_email1:
+            st.markdown("**Synthese des Paris**")
+            st.caption("Recap pronos + tendances 1N2")
+            if st.button("ENVOYER SYNTHESE PARIS", type="secondary", use_container_width=True):
+                with st.spinner("Envoi des emails de synthese..."):
+                    try:
+                        resultats = envoyer_synthese_paris(semaine_selectionnee)
+                        nb_envoyes = sum(1 for r in resultats if r['success'])
+                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
+
+                        with st.expander("Details des envois"):
+                            for r in resultats:
+                                if r['success']:
+                                    st.write(f"✓ {r['user']}: {r['message']}")
+                                else:
+                                    st.write(f"✗ {r['user']}: {r['message']}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        with col_email2:
+            st.markdown("**Tableau Pronos**")
+            st.caption("Tous les pronos (admin)")
+            if st.button("ENVOYER TABLEAU PRONOS", type="secondary", use_container_width=True):
+                with st.spinner("Envoi du tableau des pronos..."):
+                    try:
+                        resultats = envoyer_tableau_pronos_admin(semaine_selectionnee)
+                        nb_envoyes = sum(1 for r in resultats if r['success'])
+                        st.success(f"✅ {nb_envoyes} email(s) envoye(s) aux admins")
+
+                        for r in resultats:
+                            if r['success']:
+                                st.write(f"✓ {r['user']}: {r['message']}")
+                            else:
+                                st.write(f"✗ {r['user']}: {r['message']}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        with col_email3:
+            st.markdown("**Debrief Ironique**")
+            st.caption("Classement + commentaires")
+            if st.button("ENVOYER DEBRIEF IRONIQUE", type="secondary", use_container_width=True):
+                with st.spinner("Envoi du debrief ironique..."):
+                    try:
+                        resultats = envoyer_resultats_ironiques(semaine_selectionnee)
+                        nb_envoyes = sum(1 for r in resultats if r['success'])
+                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
+
+                        with st.expander("Details des envois"):
+                            for r in resultats:
+                                if r['success']:
+                                    st.write(f"✓ {r['user']}: {r['message']}")
+                                else:
+                                    st.write(f"✗ {r['user']}: {r['message']}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)}")
+
+        # Bouton test email
+        st.markdown("---")
+        if st.button("TESTER ENVOI EMAIL (admin)", use_container_width=True):
+            with st.spinner("Test d'envoi..."):
+                try:
+                    from modules.notifier_st import send_email, get_base_template
+                    test_html = get_base_template(
+                        "<h2>Test Email</h2><p>Si vous recevez cet email, la configuration SMTP fonctionne.</p>",
+                        "Test"
+                    )
+                    success, msg = send_email("elite.pronos.2@gmail.com", "Elite Pronos - Test Email", test_html)
+                    if success:
+                        st.success(f"✅ {msg}")
+                    else:
+                        st.error(f"❌ {msg}")
+                except Exception as e:
+                    st.error(f"❌ Erreur: {str(e)}")
+
+        st.markdown("---")
+
+        # === SECTION 3: VALIDATION DES RESULTATS ===
+        st.markdown("#### 3. Valider les Resultats")
+        st.caption("Recupere les scores officiels depuis l'API et fige les resultats de la journee.")
+
+        col_val1, col_val2, col_val3 = st.columns(3)
+
+        with col_val1:
+            if st.button("ACTUALISER SCORES", type="primary", use_container_width=True):
+                with st.spinner("Mise a jour des scores..."):
+                    from modules.database_manager import update_scores_from_api
+                    success, message = update_scores_from_api(semaine_selectionnee, saison)
+                    # Invalider le cache
+                    st.cache_data.clear()
+
+                if success:
+                    st.success(f"✅ {message}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {message}")
+
+        with col_val2:
+            if st.button("VALIDER JOURNEE", use_container_width=True):
+                with st.spinner("Recuperation des scores..."):
+                    from modules.database_manager import valider_resultats_journee_supabase, calculer_gains_supabase
+                    success, message = valider_resultats_journee_supabase(semaine_selectionnee, saison)
+
+                if success:
+                    st.success(f"✅ {message}")
+                    with st.spinner("Calcul des points..."):
+                        success_calc, msg_calc = calculer_gains_supabase(semaine_selectionnee, saison)
+                        if success_calc:
+                            st.success(f"✅ {msg_calc}")
+                        else:
+                            st.warning(f"Points: {msg_calc}")
+                else:
+                    st.error(f"❌ {message}")
+
+        with col_val3:
+            if st.button("Calendrier (reports)", use_container_width=True):
+                with st.spinner("Verification des reports..."):
+                    success, message = mettre_a_jour_calendrier_reports(saison)
+                if success:
+                    st.success(f"✅ {message}")
+                else:
+                    st.error(f"❌ {message}")
+
+        # Bouton FORCER RECALCUL (reset + recalcul complet)
+        if st.button("FORCER RECALCUL POINTS", type="secondary", use_container_width=True):
+            with st.spinner("Reset et recalcul de tous les points..."):
+                try:
+                    supabase = get_supabase()
+
+                    # Recuperer les matchs termines de cette journee
+                    matchs = supabase._request('GET',
+                        f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&score_final_home=not.is.null&select=id'
+                    ) or []
+
+                    if not matchs:
+                        st.warning("Aucun match termine pour cette journee")
+                    else:
+                        # Reset les points de toutes les predictions de ces matchs
+                        match_ids = [m['id'] for m in matchs]
+                        for mid in match_ids:
+                            supabase._request('PATCH', f'predictions?match_id=eq.{mid}', {
+                                'points_gagnes': None,
+                                'is_score_exact': None
+                            })
+
+                        # Recalculer
+                        from modules.database_manager import calculer_gains_supabase
+                        success, msg = calculer_gains_supabase(semaine_selectionnee, saison)
+
+                        st.cache_data.clear()
+
+                        if success:
+                            st.success(f"✅ Points recalcules: {msg}")
+                        else:
+                            st.error(f"❌ Erreur: {msg}")
+
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erreur: {str(e)}")
 
         # === MODIFICATION MANUELLE DES SCORES ===
         with st.expander("Modifier les scores des matchs (Manuel)"):
