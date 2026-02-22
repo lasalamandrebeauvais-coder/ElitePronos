@@ -9,6 +9,15 @@ from datetime import datetime, timedelta
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
 
+
+def _get_football_api_token():
+    """Recupere le token football-data.org depuis les secrets."""
+    try:
+        import streamlit as st
+        return st.secrets.get("FOOTBALL_API_TOKEN", os.getenv("FOOTBALL_API_TOKEN", ""))
+    except Exception:
+        return os.getenv("FOOTBALL_API_TOKEN", "")
+
 # Creer le dossier database s'il n'existe pas
 DB_DIR = os.path.dirname(DB_PATH)
 if not os.path.exists(DB_DIR):
@@ -1308,7 +1317,7 @@ def mettre_a_jour_calendrier_reports(saison_id=None):
     try:
         import requests
 
-        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        API_TOKEN = _get_football_api_token()
         headers = {'X-Auth-Token': API_TOKEN}
 
         url = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}'
@@ -1367,7 +1376,7 @@ def valider_resultats_journee(semaine_id, saison_id=None):
     try:
         import requests
 
-        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        API_TOKEN = _get_football_api_token()
         headers = {'X-Auth-Token': API_TOKEN}
 
         conn = get_connection()
@@ -1474,7 +1483,7 @@ def valider_resultats_journee_supabase(semaine_id, saison_id=None):
         import requests
         supabase = get_supabase()
 
-        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        API_TOKEN = _get_football_api_token()
         headers = {'X-Auth-Token': API_TOKEN}
 
         # Recuperer les matchs de la journee depuis Supabase
@@ -1821,7 +1830,7 @@ def update_scores_from_api(semaine_id, saison_id=None):
 
     try:
         supabase = get_supabase()
-        API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+        API_TOKEN = _get_football_api_token()
         headers = {'X-Auth-Token': API_TOKEN}
 
         # Recuperer les matchs de la journee depuis Supabase (avec date_match)
@@ -2145,7 +2154,7 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
         saison_id = get_saison_actuelle()
 
     # === CONFIGURATION ===
-    API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+    API_TOKEN = _get_football_api_token()
     headers = {'X-Auth-Token': API_TOKEN}
 
     # Championnats etrangers a scanner

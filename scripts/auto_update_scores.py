@@ -16,17 +16,11 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
-# Configuration Supabase (fallback si secret GitHub vide)
-_DEFAULT_URL = "https://qyyfxbwyvshpuuqwrxsl.supabase.co"
-_DEFAULT_KEY = "sb_secret_v_cT_G2XV1znRhrS0cx_qw_6vZmzMKW"
-_DEFAULT_TOKEN = "bf58da6a49824f2a8742957b89ca52ee"
-
-_DEFAULT_ODDS_KEY = "0fd6c79ea51d9b57a10134ecc6027812"
-
-SUPABASE_URL = os.getenv("SUPABASE_URL") or _DEFAULT_URL
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") or _DEFAULT_KEY
-FOOTBALL_API_TOKEN = os.getenv("FOOTBALL_API_TOKEN") or _DEFAULT_TOKEN
-ODDS_API_KEY = os.getenv("ODDS_API_KEY") or _DEFAULT_ODDS_KEY
+# Configuration depuis les secrets GitHub Actions (pas de hardcode)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+FOOTBALL_API_TOKEN = os.getenv("FOOTBALL_API_TOKEN", "")
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 
 # Headers
 SUPABASE_HEADERS = {

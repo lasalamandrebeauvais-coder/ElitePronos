@@ -6,9 +6,9 @@
 import requests
 import os
 
-# Configuration par defaut
-DEFAULT_SUPABASE_URL = "https://qyyfxbwyvshpuuqwrxsl.supabase.co"
-DEFAULT_SUPABASE_KEY = "sb_secret_v_cT_G2XV1znRhrS0cx_qw_6vZmzMKW"
+# Configuration par defaut (lue depuis les secrets, pas de hardcode)
+DEFAULT_SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+DEFAULT_SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 class SupabaseClient:
     """Client Supabase utilisant l'API REST"""

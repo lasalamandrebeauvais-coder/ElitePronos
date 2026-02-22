@@ -16,8 +16,15 @@ from datetime import datetime, timedelta
 # Chemin vers la base de donnees
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'pronos_expert.db')
 
-# Cle API Football-Data
-API_TOKEN = 'bf58da6a49824f2a8742957b89ca52ee'
+# Cle API Football-Data (depuis secrets)
+def _get_api_token():
+    try:
+        import streamlit as st
+        return st.secrets.get("FOOTBALL_API_TOKEN", os.getenv("FOOTBALL_API_TOKEN", ""))
+    except Exception:
+        return os.getenv("FOOTBALL_API_TOKEN", "")
+
+API_TOKEN = _get_api_token()
 
 # Contrainte: ecart maximum entre cotes domicile et exterieur
 MAX_ECART_COTES = 2.5
