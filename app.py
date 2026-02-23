@@ -485,6 +485,12 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    .stDeployButton {display: none !important;}
+    [data-testid="stToolbar"] {display: none !important;}
+    [data-testid="manage-app-button"] {display: none !important;}
+    .viewerBadge_container__r5tak {display: none !important;}
+    [data-testid="stDecoration"] {display: none !important;}
+    #stDecoration {display: none !important;}
 
     /* ===== MOBILE RESPONSIVE ===== */
 

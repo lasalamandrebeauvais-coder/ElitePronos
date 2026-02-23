@@ -5,3 +5,7 @@ backgroundColor = "#001529"
 secondaryBackgroundColor = "#002040"
 textColor = "#FFFFFF"
 font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
