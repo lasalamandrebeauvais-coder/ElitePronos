@@ -605,8 +605,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Titre principal
-st.title("ELITE PRONOS")
+# Mascotte + Titre principal
+_kingo_title_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
+_kt_col1, _kt_col2 = st.columns([1, 5])
+with _kt_col1:
+    if os.path.exists(_kingo_title_path):
+        try:
+            from PIL import Image as _PILImage
+            st.image(_PILImage.open(_kingo_title_path), width=90)
+        except Exception:
+            pass
+with _kt_col2:
+    st.title("ELITE PRONOS")
 
 # Initialiser la session state pour la navigation
 if 'page' not in st.session_state:
@@ -711,35 +721,63 @@ else:
             synthese = get_synthese_accueil(saison_id, journee_courante)
             message_kingo = synthese['commentaire']
 
-            # Afficher Kingo avec mascotte (message a gauche, Kingo a droite plus grand)
-            kingo_col1, kingo_col2 = st.columns([4, 1])
-            with kingo_col1:
-                    st.markdown(f"""
+            # Afficher bloc Kingo style journal / news
+            from datetime import datetime as _dt_now
+            _date_str = _dt_now.now().strftime("%d/%m/%Y")
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1a2e 100%);
+                border: 2px solid #D4AF37;
+                border-radius: 12px;
+                padding: 0;
+                margin: 10px 0 15px 0;
+                overflow: hidden;
+            ">
+                <!-- Bandeau titre journal -->
+                <div style="
+                    background: linear-gradient(90deg, #D4AF37 0%, #B8960C 100%);
+                    padding: 8px 18px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span style="color: #000; font-size: 1.1em; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
+                        KINGO NEWS
+                    </span>
+                    <span style="color: #000; font-size: 0.75em; font-weight: 600;">
+                        Journee {journee_courante} &mdash; {_date_str}
+                    </span>
+                </div>
+                <!-- Contenu article -->
+                <div style="padding: 18px 20px 15px 20px;">
                     <div style="
-                        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                        border: 2px solid #D4AF37;
-                        border-radius: 10px;
-                        padding: 15px;
+                        color: #D4AF37;
+                        font-size: 1.15em;
+                        font-weight: 800;
+                        margin-bottom: 6px;
+                        letter-spacing: 0.5px;
                     ">
-                        <div style="color: #D4AF37; font-size: 1em; font-weight: bold; margin-bottom: 3px;">
-                            👑 KINGO - Synthese J{journee_courante}
-                        </div>
-                        <div style="color: #AAAAAA; font-size: 0.75em; font-style: italic; margin-bottom: 8px;">
-                            Le roi des pronostics, celui que tout le monde veut detroner
-                        </div>
-                        <div style="color: #FFFFFF; font-size: 0.9em;">{message_kingo}</div>
+                        Synthese J{journee_courante}
                     </div>
-                    """, unsafe_allow_html=True)
-
-            with kingo_col2:
-                kingo_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
-                if os.path.exists(kingo_path):
-                    try:
-                        from PIL import Image
-                        kingo_img = Image.open(kingo_path)
-                        st.image(kingo_img, width=120)
-                    except Exception:
-                        pass
+                    <div style="
+                        color: #8b949e;
+                        font-size: 0.8em;
+                        font-style: italic;
+                        margin-bottom: 12px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #30363d;
+                    ">
+                        Par Kingo, le roi des pronostics
+                    </div>
+                    <div style="
+                        color: #e6edf3;
+                        font-size: 1.05em;
+                        line-height: 1.7;
+                        text-align: justify;
+                    ">{message_kingo}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # === BANDEAU MVP DE LA SEMAINE PRECEDENTE ===
             if journee_courante > 1:

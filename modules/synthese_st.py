@@ -3,9 +3,7 @@ Module Synthese pour Elite Pronos
 Genere une synthese des paris de la semaine avec stats et ironie
 Version Supabase avec debrief fin de journee
 """
-import os
 import random
-from datetime import datetime
 import streamlit as st
 
 # Import Supabase
@@ -129,13 +127,14 @@ def get_stats_semaine(saison_id, semaine_id):
 
 def generer_commentaire_ironique(stats):
     """
-    Genere un commentaire ironique base sur les stats
-    AVANT DEADLINE: Kingo reste evasif (pas de noms, pas de details)
-    APRES DEADLINE: Kingo peut reveler les infos
+    Genere un commentaire specifique base sur les stats reelles.
+    AVANT DEADLINE: Kingo reste evasif (pas de noms, pas de details sur les joueurs)
+    APRES DEADLINE: Kingo peut reveler les infos joueurs
+    Les % de votes sont toujours OK (anonymes).
     """
     commentaires = []
 
-    # Deadline passee = au moins 1 match termine ou en cours
+    # Deadline passee = au moins 1 match termine
     deadline_passee = stats.get('matchs_termines', 0) > 0
 
     # Commentaire sur le nombre de joueurs
@@ -143,143 +142,220 @@ def generer_commentaire_ironique(stats):
     if nb == 0:
         return "Personne n'a encore joue cette semaine. Vous attendez quoi ? Que les matchs se jouent sans vous ?"
     elif nb == 1:
-        commentaires.append(f"Un seul brave a ose jouer pour l'instant. Les autres ont peur ou quoi ?")
+        commentaires.append("Un seul brave a ose jouer pour l'instant. Les autres ont peur ou quoi ?")
     elif nb < 5:
         commentaires.append(f"Seulement {nb} joueurs ont fait leurs pronos. Les absents ont toujours tort !")
+
+    # Trouver le match le plus polarise (votes les plus extremes)
+    match_unanime = None
+    max_pct = 0
+    match_serre = None
+    min_ecart = 100
+
+    for m in stats['matchs']:
+        pcts = [m['pct_home'], m['pct_away'], m['pct_nul']]
+        top_pct = max(pcts)
+        ecart = top_pct - sorted(pcts)[-2] if len(pcts) > 1 else 100
+
+        if top_pct > max_pct:
+            max_pct = top_pct
+            match_unanime = m
+        if ecart < min_ecart:
+            min_ecart = ecart
+            match_serre = m
+
+    # Commentaire sur les votes - specifique aux vrais matchs
+    if match_unanime and max_pct >= 65:
+        m = match_unanime
+        if m['pct_home'] >= 65:
+            commentaires.append(
+                f"**{m['pct_home']}%** misent sur {m['home']} contre {m['away']}. "
+                f"Unanimite ou piege ?"
+            )
+        elif m['pct_away'] >= 65:
+            commentaires.append(
+                f"**{m['pct_away']}%** croient en {m['away']} face a {m['home']}. "
+                f"Le favori va-t-il trembler ?"
+            )
+        elif m['pct_nul'] >= 40:
+            commentaires.append(
+                f"**{m['pct_nul']}%** parient sur le nul pour {m['home']}-{m['away']}. "
+                f"Match ferme en vue ?"
+            )
+    elif match_serre and min_ecart <= 15:
+        m = match_serre
+        commentaires.append(
+            f"{m['home']}-{m['away']} divise les pronostiqueurs : "
+            f"{m['pct_home']}% / {m['pct_nul']}% / {m['pct_away']}%. Qui a raison ?"
+        )
 
     # Commentaire sur les grosses mises
     if stats['grosses_mises']:
         if deadline_passee:
-            # APRES DEADLINE: on peut reveler
             gros = stats['grosses_mises'][0]
-            phrases_mises = [
-                f"**{gros['pseudo']}** a mise gros ({gros['mise']} pts) sur {gros['match']}. Confiance ou folie ?",
-                f"**{gros['pseudo']}** avait sorti l'artillerie lourde avec {gros['mise']} pts !",
-                f"**{gros['pseudo']}** n'avait pas froid aux yeux : {gros['mise']} pts d'un coup !",
-            ]
+            commentaires.append(
+                f"**{gros['pseudo']}** a mise gros ({gros['mise']} pts) "
+                f"sur {gros['match']}. Confiance ou folie ?"
+            )
         else:
-            # AVANT DEADLINE: rester evasif
-            phrases_mises = [
-                "Quelqu'un a sorti l'artillerie lourde cette semaine... Mais qui ?",
-                "Une grosse mise a ete placee. Le suspense reste entier !",
-                "Certains n'ont pas froid aux yeux avec leurs mises... A suivre !",
-                "Des paris audacieux ont ete enregistres. Je ne dirai rien de plus !",
-            ]
-        commentaires.append(random.choice(phrases_mises))
+            nb_gros = len(stats['grosses_mises'])
+            if nb_gros == 1:
+                commentaires.append(
+                    "Quelqu'un a sorti l'artillerie lourde cette semaine... Mais qui ?"
+                )
+            else:
+                commentaires.append(
+                    f"{nb_gros} joueurs ont place des mises a 40+ pts. Ca va chauffer !"
+                )
 
     # Commentaire sur les jokers
     if stats['jokers']:
         joker = stats['jokers'][0]
         if deadline_passee:
-            # APRES DEADLINE: on peut reveler
-            if joker['type'] == 'DOUBLE':
-                phrases_joker = [
-                    f"**{joker['pseudo']}** a joue son joker Points Doubles. Ca passe ou ca casse !",
-                    f"Joker Points Doubles pour **{joker['pseudo']}** ! La pression etait maximale...",
-                ]
-            else:
-                phrases_joker = [
-                    f"**{joker['pseudo']}** a utilise le vol de pronostics. Strategie ou desespoir ?",
-                    f"**{joker['pseudo']}** avait sorti le joker Vol !",
-                ]
+            type_label = "Points Doubles" if joker['type'] == 'DOUBLE' else "Vol de pronostics"
+            commentaires.append(
+                f"**{joker['pseudo']}** a joue son joker {type_label}. "
+                f"Ca passe ou ca casse !"
+            )
         else:
-            # AVANT DEADLINE: rester evasif
             nb_jokers = len(stats['jokers'])
             if nb_jokers == 1:
-                phrases_joker = [
-                    "Un joker a ete active cette semaine... Lequel et par qui ? Mystere !",
-                    "Quelqu'un a decide de jouer son joker. La tension monte !",
-                    "Un joueur a sorti son arme secrete. Je garde le secret !",
-                ]
+                commentaires.append(
+                    "Un joker a ete active cette semaine... Lequel et par qui ? Mystere !"
+                )
             else:
-                phrases_joker = [
-                    f"{nb_jokers} jokers actives cette semaine ! Ca va chauffer...",
-                    f"Plusieurs jokers en jeu ! Les strategies se devoilent...",
-                ]
-        commentaires.append(random.choice(phrases_joker))
+                commentaires.append(
+                    f"{nb_jokers} jokers actives cette semaine ! Les strategies se devoilent..."
+                )
 
-    # Commentaire sur les votes (anonyme, OK avant et apres deadline)
-    for m in stats['matchs']:
-        if m['pct_home'] >= 70:
-            phrases = [
-                f"**{m['pct_home']}%** voient {m['home']} gagner. Unanimite ou piege ?",
-                f"Tout le monde ({m['pct_home']}%) mise sur {m['home']}. Attention au retournement !",
-            ]
-            commentaires.append(random.choice(phrases))
-            break
-        elif m['pct_away'] >= 70:
-            phrases = [
-                f"**{m['pct_away']}%** croient en {m['away']}. L'outsider devient favori !",
-                f"{m['away']} a la cote ({m['pct_away']}%). Le favori va-t-il trembler ?",
-            ]
-            commentaires.append(random.choice(phrases))
-            break
-        elif m['pct_nul'] >= 40:
-            commentaires.append(f"Match serre ? {m['pct_nul']}% parient sur le nul pour {m['home']} vs {m['away']}.")
-            break
-
-    # Si pas assez de commentaires, ajouter un generique
+    # Si pas assez de commentaires, mentionner un match a venir
     if len(commentaires) < 2:
-        if deadline_passee:
-            generiques = [
-                "Les jeux sont faits, les resultats tombent !",
-                "Les pronostics ont ete reveles. Qui avait raison ?",
-                "Le verdict est en cours...",
-            ]
+        matchs_a_venir = [m for m in stats['matchs'] if not m.get('termine')]
+        if matchs_a_venir:
+            m = matchs_a_venir[0]
+            commentaires.append(
+                f"A suivre : {m['home']} vs {m['away']}. Faites vos jeux !"
+            )
+        elif deadline_passee:
+            commentaires.append("Les resultats tombent, qui avait raison ?")
         else:
-            generiques = [
-                "Que le meilleur pronostiqueur gagne !",
-                "Les pronos sont faits, le suspense reste entier...",
-                "La tension monte avant le coup d'envoi...",
-                "Chacun garde ses secrets pour l'instant !",
-            ]
-        commentaires.append(random.choice(generiques))
+            commentaires.append("Que le meilleur pronostiqueur gagne !")
 
     return " ".join(commentaires[:3])
 
 
-def generer_debrief_fin_journee(stats, classement_journee):
+def generer_debrief_fin_journee(stats, classement_journee, jokers_enrichis=None):
     """
-    Genere un debrief ironique quand tous les matchs sont termines
-    classement_journee: liste de dict {'pseudo', 'points_journee'}
+    Genere un debrief specifique quand tous les matchs sont termines.
+    Ligne 1: fait marquant match (surprise, festival de buts)
+    Ligne 2: fait marquant joueur (grand chelem, score exact, champion, joker, dernier)
     """
     if stats['matchs_termines'] < stats['total_matchs']:
         return None  # Pas encore fini
 
     debrief = []
+    jokers_enrichis = jokers_enrichis or []
 
-    # Trouver le meilleur de la journee
+    # === LIGNE 1 : Fait marquant match ===
+    # Trouver le match le plus surprenant
+    match_surprise = None
+    min_pct_correct = 100
+    match_buts = None
+    max_buts = 0
+
+    for m in stats['matchs']:
+        if not m.get('termine'):
+            continue
+        sh, sa = m['score_home'], m['score_away']
+        total_buts = (sh or 0) + (sa or 0)
+
+        # Determiner le resultat reel et le % qui l'avait predit
+        if sh > sa:
+            pct_correct = m['pct_home']
+        elif sa > sh:
+            pct_correct = m['pct_away']
+        else:
+            pct_correct = m['pct_nul']
+
+        if pct_correct < min_pct_correct:
+            min_pct_correct = pct_correct
+            match_surprise = m
+
+        if total_buts > max_buts:
+            max_buts = total_buts
+            match_buts = m
+
+    if match_surprise and min_pct_correct <= 30:
+        sh, sa = match_surprise['score_home'], match_surprise['score_away']
+        if sh > sa:
+            gagnant = match_surprise['home']
+        elif sa > sh:
+            gagnant = match_surprise['away']
+        else:
+            gagnant = "le nul"
+        debrief.append(
+            f"Surprise : {gagnant} l'emporte ({sh}-{sa}), "
+            f"seulement {min_pct_correct}% y croyaient !"
+        )
+    elif match_buts and max_buts >= 5:
+        m = match_buts
+        debrief.append(
+            f"Festival de buts sur {m['home']}-{m['away']} "
+            f"({m['score_home']}-{m['score_away']}) !"
+        )
+    elif match_surprise:
+        m = match_surprise
+        debrief.append(
+            f"{m['home']} {m['score_home']}-{m['score_away']} {m['away']}, "
+            f"match serre comme les pronos."
+        )
+
+    # === LIGNE 2 : Fait marquant joueur (par priorite) ===
     if classement_journee:
         meilleur = classement_journee[0]
         pire = classement_journee[-1] if len(classement_journee) > 1 else None
 
-        phrases_meilleur = [
-            f"**{meilleur['pseudo']}** domine cette J avec **{meilleur['points_journee']} pts** ! Chapeau !",
-            f"Le roi de la journee : **{meilleur['pseudo']}** ({meilleur['points_journee']} pts). Les autres prennent note.",
-            f"**{meilleur['pseudo']}** ecrase tout avec {meilleur['points_journee']} pts cette semaine !",
-        ]
-        debrief.append(random.choice(phrases_meilleur))
+        # 1. Grand Chelem
+        grand_chelem = next((j for j in classement_journee if j.get('grand_chelem')), None)
+        if grand_chelem:
+            nb = stats['total_matchs']
+            debrief.append(
+                f"**{grand_chelem['pseudo']}** signe un Grand Chelem "
+                f"({nb}/{nb}), tous les pronos bons !"
+            )
+        # 2. Score exact
+        elif any(j.get('scores_exacts', 0) > 0 for j in classement_journee):
+            joueur_exact = next(j for j in classement_journee if j.get('scores_exacts', 0) > 0)
+            match_name = joueur_exact.get('score_exact_matchs', [''])[0]
+            if joueur_exact['scores_exacts'] > 1:
+                debrief.append(
+                    f"**{joueur_exact['pseudo']}** a tape {joueur_exact['scores_exacts']} "
+                    f"scores exacts ! Visionnaire."
+                )
+            else:
+                debrief.append(
+                    f"**{joueur_exact['pseudo']}** a tape le score exact "
+                    f"sur {match_name} !"
+                )
+        # 3. Joker double reussi
+        elif any(j.get('reussi') and j.get('type') == 'DOUBLE' for j in jokers_enrichis):
+            joker_ok = next(j for j in jokers_enrichis if j.get('reussi') and j.get('type') == 'DOUBLE')
+            debrief.append(
+                f"**{joker_ok['pseudo']}** a double la mise et ca a paye "
+                f"({joker_ok['points']} pts) !"
+            )
+        # 4. Champion de la journee
+        elif meilleur:
+            debrief.append(
+                f"**{meilleur['pseudo']}** domine avec "
+                f"**{meilleur['points_journee']} pts** cette journee !"
+            )
 
-        if pire and pire['points_journee'] < 0:
-            phrases_pire = [
-                f"Aie, **{pire['pseudo']}** finit dans le rouge ({pire['points_journee']} pts). Ca fait mal !",
-                f"**{pire['pseudo']}** a souffert cette semaine ({pire['points_journee']} pts). La prochaine sera meilleure ?",
-            ]
-            debrief.append(random.choice(phrases_pire))
-
-    # Compter les scores exacts
-    nb_exacts = 0
-    for m in stats['matchs']:
-        if m.get('termine'):
-            nb_exacts += sum(1 for p in m.get('gros_parieurs', []) if p)  # Simplification
-
-    # Message de conclusion
-    conclusions = [
-        "Rendez-vous la semaine prochaine pour de nouvelles emotions !",
-        "C'est termine pour cette journee. A la prochaine !",
-        "Les jeux sont faits. On se retrouve a la prochaine journee !",
-    ]
-    debrief.append(random.choice(conclusions))
+        # Bonus : dernier dans le rouge
+        if pire and pire['points_journee'] < 0 and len(debrief) < 3:
+            debrief.append(
+                f"**{pire['pseudo']}** ferme la marche a {pire['points_journee']} pts."
+            )
 
     return " ".join(debrief)
 
@@ -364,24 +440,59 @@ def get_synthese_accueil(saison_id, semaine_id):
         match_ids_str = ','.join(map(str, match_ids))
 
         predictions = supabase._request('GET',
-            f'predictions?match_id=in.({match_ids_str})&select=user_id,points_gagnes,utilisateurs(pseudo)'
+            f'predictions?match_id=in.({match_ids_str})&select=user_id,points_gagnes,is_score_exact,match_id,utilisateurs(pseudo)'
         ) or []
 
-        # Agreger par joueur
+        total_matchs = len(matchs)
+
+        # Agreger par joueur avec stats detaillees
         joueurs_pts = {}
         for p in predictions:
             uid = p['user_id']
             pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
             if uid not in joueurs_pts:
-                joueurs_pts[uid] = {'pseudo': pseudo, 'points_journee': 0}
-            joueurs_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
+                joueurs_pts[uid] = {
+                    'pseudo': pseudo,
+                    'points_journee': 0,
+                    'scores_exacts': 0,
+                    'bons_pronos': 0,
+                    'score_exact_matchs': []
+                }
+            pts = p.get('points_gagnes') or 0
+            joueurs_pts[uid]['points_journee'] += pts
+            if p.get('is_score_exact'):
+                joueurs_pts[uid]['scores_exacts'] += 1
+                # Trouver le match correspondant pour le nom
+                mid = p.get('match_id')
+                for m in matchs:
+                    if m['id'] == mid:
+                        joueurs_pts[uid]['score_exact_matchs'].append(
+                            f"{m['equipe_home']} vs {m['equipe_away']}"
+                        )
+                        break
+            if pts > 0:
+                joueurs_pts[uid]['bons_pronos'] += 1
 
-        # Arrondir les points pour l'affichage
+        # Arrondir les points et detecter grand chelem
         for v in joueurs_pts.values():
             v['points_journee'] = round(v['points_journee'], 2)
+            v['grand_chelem'] = v['bons_pronos'] == total_matchs and total_matchs > 0
+
+        # Croiser jokers avec resultats
+        jokers_enrichis = []
+        for j in stats['jokers']:
+            pseudo = j['pseudo']
+            # Trouver les points du joueur
+            joueur_data = next((v for v in joueurs_pts.values() if v['pseudo'] == pseudo), None)
+            pts = joueur_data['points_journee'] if joueur_data else 0
+            jokers_enrichis.append({
+                **j,
+                'points': pts,
+                'reussi': pts > 0
+            })
 
         classement = sorted(joueurs_pts.values(), key=lambda x: x['points_journee'], reverse=True)
-        debrief = generer_debrief_fin_journee(stats, classement)
+        debrief = generer_debrief_fin_journee(stats, classement, jokers_enrichis)
         commentaire = debrief if debrief else generer_commentaire_ironique(stats)
     else:
         commentaire = generer_commentaire_ironique(stats)
