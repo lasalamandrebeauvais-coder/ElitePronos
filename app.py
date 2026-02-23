@@ -917,8 +917,22 @@ else:
                 mes_pronos_accueil = [(p['matches']['id'], p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points']) for p in predictions_data if p.get('matches') and p['matches'].get('semaine_id') == journee_courante]
 
                 if mes_pronos_accueil:
+                    _total_mise = sum(m[5] or 0 for m in mes_pronos_accueil)
+                    _budget_total = 100
+                    _reste = _budget_total - _total_mise
+                    _couleur_reste = "#00FF00" if _reste >= 0 else "#FF4444"
+
                     st.markdown(f"""<div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #4488FF; border-radius: 10px; padding: 12px; margin: 10px 0;">
-                        <div style="color: #4488FF; font-size: 0.85em; margin-bottom: 8px; text-align: center; font-weight: bold;">⚽ MES PRONOSTICS DE LA JOURNÉE</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color: #4488FF; font-size: 0.85em; font-weight: bold;">⚽ MES PRONOSTICS DE LA JOURNÉE</span>
+                            <span style="font-size: 0.8em;">
+                                <span style="color: #AAAAAA;">Budget :</span>
+                                <span style="color: #FFD700; font-weight: bold;">{_total_mise}</span>
+                                <span style="color: #AAAAAA;">/</span>
+                                <span style="color: #AAAAAA;">{_budget_total}</span>
+                                <span style="color: {_couleur_reste}; font-size: 0.85em; margin-left: 4px;">({_reste} restant)</span>
+                            </span>
+                        </div>
                     """, unsafe_allow_html=True)
 
                     for match_id, home, away, score_h, score_a, mise in mes_pronos_accueil:
