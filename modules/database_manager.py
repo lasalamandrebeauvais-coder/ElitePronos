@@ -1524,8 +1524,7 @@ def valider_resultats_journee_supabase(semaine_id, saison_id=None):
                 score_h, score_a = scores_api[(home, away)]
                 supabase._request('PATCH', f'matches?id=eq.{match_id}', {
                     'score_final_home': score_h,
-                    'score_final_away': score_a,
-                    'is_active': False
+                    'score_final_away': score_a
                 })
                 updates += 1
 
