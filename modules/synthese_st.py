@@ -111,7 +111,7 @@ def get_stats_semaine(saison_id, semaine_id):
 
     # Recuperer les jokers utilises cette semaine
     jokers = supabase._request('GET',
-        f'jokers_historique?semaine_id=eq.{semaine_id}&select=*,utilisateurs(pseudo)'
+        f'jokers_historique?semaine_id=eq.{semaine_id}&select=*,utilisateurs!utilisateur_id(pseudo)'
     ) or []
 
     seen = set()

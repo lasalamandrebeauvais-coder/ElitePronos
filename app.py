@@ -1391,10 +1391,7 @@ else:
                             st.warning(f"Erreur chargement recap: {e}")
 
         except Exception as e:
-            import traceback
-            tb = traceback.format_exc()
             st.error(f"Erreur de lecture Supabase: {e}")
-            st.code(tb, language="python")
 
         # Bouton Tableau de bord en bas
         st.markdown("---")

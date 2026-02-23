@@ -37,8 +37,8 @@ class SupabaseClient:
         url = f"{self.url}/rest/v1/{endpoint}"
         response = requests.request(method, url, headers=self.headers, json=data, params=params)
 
-        if response.status_code >= 400:
-            print(f"Erreur Supabase: {response.status_code} - {response.text}")
+        if response.status_code < 200 or response.status_code >= 300:
+            print(f"Erreur Supabase: {response.status_code} - {response.text[:300]}")
             return None
 
         try:
