@@ -440,7 +440,7 @@ def afficher_dashboard(user):
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
     with metric_col1:
-        st.metric("Total Points", f"{stats['total_points']:.0f}")
+        st.metric("Total Points", f"{stats['total_points']:.2f}")
 
     with metric_col2:
         st.metric("Scores Exacts", stats['scores_exacts'])

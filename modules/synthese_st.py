@@ -378,7 +378,7 @@ def get_synthese_accueil(saison_id, semaine_id):
 
         # Arrondir les points pour l'affichage
         for v in joueurs_pts.values():
-            v['points_journee'] = int(round(v['points_journee']))
+            v['points_journee'] = round(v['points_journee'], 2)
 
         classement = sorted(joueurs_pts.values(), key=lambda x: x['points_journee'], reverse=True)
         debrief = generer_debrief_fin_journee(stats, classement)
@@ -436,7 +436,7 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
 
     # Arrondir les points pour l'affichage
     for v in rivaux_pts.values():
-        v['points_journee'] = int(round(v['points_journee']))
+        v['points_journee'] = round(v['points_journee'], 2)
 
     if not rivaux_pts:
         return None

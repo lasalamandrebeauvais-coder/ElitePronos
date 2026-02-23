@@ -221,7 +221,7 @@ def afficher_profil(user):
     col_s1, col_s2, col_s3 = st.columns(3)
 
     with col_s1:
-        st.metric("Total Points", f"{total_points:.0f}")
+        st.metric("Total Points", f"{total_points:.2f}")
 
     with col_s2:
         st.metric("Scores Exacts", scores_exacts)

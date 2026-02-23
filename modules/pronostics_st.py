@@ -451,170 +451,9 @@ def afficher_pronostics(user):
             st.rerun()
         return
 
-    # MODE SAISIE
-    if 'pronos' not in st.session_state or not st.session_state.pronos:
-        st.session_state.pronos = pronos_existants if pronos_existants else {}
-    if 'joker_selected' not in st.session_state:
-        st.session_state.joker_selected = "AUCUN"
-    if 'joker_cible_id' not in st.session_state:
-        st.session_state.joker_cible_id = None
-    if 'bonus_gc' not in st.session_state:
-        # Initialiser les mises bonus depuis les pronos existants
-        st.session_state.bonus_gc = {}
-        if pronos_existants:
-            for mid, p in pronos_existants.items():
-                st.session_state.bonus_gc[mid] = p.get('mise_bonus', 0)
+    # MODE SAISIE (st.form - aucun rerun tant que le joueur n'a pas clique Valider)
 
-    total_mise = 0
-    total_bonus = 0
-    pronos_valides = True
-
-    for i in range(0, len(matchs), 2):
-        cols = st.columns(2)
-
-        for j, col in enumerate(cols):
-            if i + j < len(matchs):
-                match = matchs[i + j]
-                match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
-
-                if match_id not in st.session_state.pronos:
-                    st.session_state.pronos[match_id] = {'home': 0, 'away': 0, 'mise': 25}
-                if match_id not in st.session_state.bonus_gc:
-                    st.session_state.bonus_gc[match_id] = 10 if joueur_gc else 0
-
-                with col:
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #0A183D 0%, #001529 100%);
-                        border: 1px solid #D4AF37;
-                        border-radius: 10px;
-                        padding: 10px;
-                        margin-bottom: 5px;
-                    ">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="flex: 1; text-align: center;">
-                                <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{home}</div>
-                                <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_h:.2f}</div>
-                            </div>
-                            <div style="color: #D4AF37; font-weight: bold; padding: 0 5px;">VS</div>
-                            <div style="flex: 1; text-align: center;">
-                                <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{away}</div>
-                                <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_a:.2f}</div>
-                            </div>
-                        </div>
-                        <div style="text-align: center; color: #FF0000; font-size: 0.8em; margin-top: 3px;">
-                            N: {cote_n:.2f}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    sc1, sc2, sc3 = st.columns([1, 0.5, 1])
-                    with sc1:
-                        score_home = st.number_input(
-                            f"H{match_id}", min_value=0, max_value=9,
-                            value=st.session_state.pronos[match_id]['home'],
-                            key=f"h_{match_id}", label_visibility="collapsed"
-                        )
-                        st.session_state.pronos[match_id]['home'] = score_home
-                    with sc2:
-                        st.markdown("<div style='text-align:center; padding-top:5px; color:#0066FF; font-size:1.5em; font-weight:bold;'>-</div>", unsafe_allow_html=True)
-                    with sc3:
-                        score_away = st.number_input(
-                            f"A{match_id}", min_value=0, max_value=9,
-                            value=st.session_state.pronos[match_id]['away'],
-                            key=f"a_{match_id}", label_visibility="collapsed"
-                        )
-                        st.session_state.pronos[match_id]['away'] = score_away
-
-                    mise = st.number_input(
-                        f"M{match_id}", min_value=MISE_MIN, max_value=MISE_MAX,
-                        value=st.session_state.pronos[match_id]['mise'],
-                        step=5, key=f"m_{match_id}", label_visibility="collapsed"
-                    )
-                    st.session_state.pronos[match_id]['mise'] = mise
-                    st.markdown(f"<div style='text-align:center; color:#00FF00; font-size: 1em; font-weight: bold;'>{mise} pts</div>", unsafe_allow_html=True)
-
-                    total_mise += st.session_state.pronos[match_id]['mise']
-
-    # BUDGET PRINCIPAL (100 pts)
-    st.markdown("---")
-    budget_ok = total_mise == BUDGET_BASE
-    budget_color = "#00FF00" if budget_ok else ("#FFD700" if total_mise < BUDGET_BASE else "#FF4444")
-
-    st.markdown(f"""
-    <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
-        <div style="background: {budget_color}; width: {min(total_mise/BUDGET_BASE*100, 100)}%; height: 18px; border-radius: 6px;"></div>
-    </div>
-    <div style="text-align: center; color: {budget_color}; font-size: 0.9em;">
-        <b>{total_mise} / {BUDGET_BASE} pts</b> {' OK' if budget_ok else ''}
-    </div>
-    """, unsafe_allow_html=True)
-
-    if not budget_ok:
-        pronos_valides = False
-
-    # BUDGET BONUS GC (40 pts) - visible uniquement si Grand Chelem
-    if joueur_gc:
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 100%);
-            border: 1px solid #FFD700;
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px 0 5px 0;
-        ">
-            <div style="text-align: center; color: #FFD700; font-size: 0.95em; margin-bottom: 8px;">
-                🏆 <b>BONUS GRAND CHELEM</b> - 40 pts a repartir (pas de perte si mauvais prono)
-            </div>
-        """, unsafe_allow_html=True)
-
-        gc_cols = st.columns(len(matchs))
-        for idx, match in enumerate(matchs):
-            match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
-            with gc_cols[idx]:
-                # Nom court de l'equipe
-                short_home = home[:8]
-                short_away = away[:8]
-                st.markdown(f"<div style='text-align:center; color:#AAA; font-size:0.65em;'>{short_home} v {short_away}</div>", unsafe_allow_html=True)
-                mise_gc = st.number_input(
-                    f"GC{match_id}", min_value=0, max_value=40,
-                    value=st.session_state.bonus_gc.get(match_id, 10),
-                    step=5, key=f"gc_{match_id}", label_visibility="collapsed"
-                )
-                st.session_state.bonus_gc[match_id] = mise_gc
-                total_bonus += mise_gc
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # Barre budget bonus
-        bonus_ok = total_bonus == BONUS_GRAND_CHELEM
-        bonus_color = "#FFD700" if bonus_ok else ("#FF8C00" if total_bonus < BONUS_GRAND_CHELEM else "#FF4444")
-
-        st.markdown(f"""
-        <div style="background: #1a1a2e; border-radius: 8px; padding: 2px; margin: 5px 0;">
-            <div style="background: {bonus_color}; width: {min(total_bonus/BONUS_GRAND_CHELEM*100, 100)}%; height: 14px; border-radius: 6px;"></div>
-        </div>
-        <div style="text-align: center; color: {bonus_color}; font-size: 0.85em;">
-            <b>Bonus: {total_bonus} / {BONUS_GRAND_CHELEM} pts</b> {' OK' if bonus_ok else ''}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Verifier min 10 par match si mise > 0
-        for match in matchs:
-            match_id = match[0]
-            mise_gc = st.session_state.bonus_gc.get(match_id, 0)
-            if mise_gc > 0 and mise_gc < 10:
-                st.warning(f"Mise bonus minimum: 10 pts par match")
-                pronos_valides = False
-                break
-
-        if not bonus_ok:
-            pronos_valides = False
-
-    # JOKERS
-    st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-
-    # Recuperer le stock de jokers et verifier si deja utilise cette semaine
+    # --- Chargement des donnees AVANT le form ---
     supabase = get_supabase()
     saison_id = get_saison_actuelle()
     stock = supabase.get_stock_jokers(user['id'], saison_id)
@@ -624,127 +463,253 @@ def afficher_pronostics(user):
     stock_doubles = stock.get('joker_double', 0) if stock else 0
     stock_voles = stock.get('joker_vol', 0) if stock else 0
 
-    # Verifier si un joker a deja ete utilise cette semaine
     joker_actuel = get_joker_semaine(user['id'])
 
-    # Si joker deja utilise, initialiser le state avec le joker actuel
-    if joker_actuel and 'joker_init_done' not in st.session_state:
-        if joker_actuel['type'] == 'DOUBLE':
-            st.session_state.joker_selected = "DOUBLE"
-            stock_doubles += 1  # Ajouter 1 car on peut le reutiliser
-        elif joker_actuel['type'] == 'VOL':
-            st.session_state.joker_selected = "VOLE"
-            st.session_state.joker_cible_id = joker_actuel['cible_id']
-            stock_voles += 1  # Ajouter 1 car on peut le reutiliser
-        st.session_state.joker_init_done = True
-    elif joker_actuel:
-        # Ajuster le stock pour l'affichage (le joker actuel peut etre change)
+    # Ajuster le stock : le joker actuel peut etre change/retire
+    if joker_actuel:
         if joker_actuel['type'] == 'DOUBLE':
             stock_doubles += 1
         elif joker_actuel['type'] == 'VOL':
             stock_voles += 1
 
-    # Stocker l'ancien joker pour la mise a jour
-    st.session_state.joker_ancien = joker_actuel
+    # Autres joueurs pour cible VOL
+    autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
+    autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
+    joueur_pseudos = [j['pseudo'] for j in autres_joueurs]
+    joueur_ids = [j['id'] for j in autres_joueurs]
 
-    st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+    # Defaults jokers
+    default_double = bool(joker_actuel and joker_actuel['type'] == 'DOUBLE')
+    default_vole = bool(joker_actuel and joker_actuel['type'] == 'VOL')
+    default_cible_index = 0
+    if default_vole and joker_actuel.get('cible_id') in joueur_ids:
+        default_cible_index = joueur_ids.index(joker_actuel['cible_id'])
 
-    if joker_actuel:
-        joker_label = "Points Doubles" if joker_actuel['type'] == 'DOUBLE' else "Points Voles"
-        st.markdown(f"<div style='text-align:center; color:#FFD700; font-size:0.75em; margin-bottom:5px;'>Joker actuel: {joker_label} (modifiable)</div>", unsafe_allow_html=True)
+    # --- FORMULAIRE ---
+    with st.form("form_pronostics"):
 
-    jk1, jk2 = st.columns(2)
-    with jk1:
-        can_use_double = stock_doubles > 0
-        joker_double = st.checkbox(
-            f"⚡ Points Doubles ({stock_doubles}/3)",
-            value=(st.session_state.joker_selected == "DOUBLE"),
-            key="chk_joker_double",
-            disabled=not can_use_double
-        )
-        if joker_double and can_use_double:
-            st.session_state.joker_selected = "DOUBLE"
-        elif st.session_state.joker_selected == "DOUBLE" and not joker_double:
-            st.session_state.joker_selected = "AUCUN"
+        # Rappel budget statique
+        budget_txt = f"Budget : **{BUDGET_BASE} pts** a repartir (min {MISE_MIN}, max {MISE_MAX} par match)"
+        if joueur_gc:
+            budget_txt += f" + **{BONUS_GRAND_CHELEM} pts bonus** Grand Chelem"
+        st.markdown(budget_txt)
 
-    with jk2:
-        can_use_vole = stock_voles > 0
-        joker_vole = st.checkbox(
-            f"🎯 Points Voles ({stock_voles}/2)",
-            value=(st.session_state.joker_selected == "VOLE"),
-            key="chk_joker_vole",
-            disabled=not can_use_vole
-        )
-        if joker_vole and can_use_vole:
-            st.session_state.joker_selected = "VOLE"
-        elif st.session_state.joker_selected == "VOLE" and not joker_vole:
-            st.session_state.joker_selected = "AUCUN"
-            st.session_state.joker_cible_id = None
+        # Boucle matchs (scores + mises)
+        for i in range(0, len(matchs), 2):
+            cols = st.columns(2)
 
-    if joker_double and joker_vole:
-        st.warning("Un seul joker a la fois!")
-        pronos_valides = False
+            for j, col in enumerate(cols):
+                if i + j < len(matchs):
+                    match = matchs[i + j]
+                    match_id, championnat, home, away, cote_h, cote_n, cote_a, date_match = match
 
-    # Selection de la cible pour le joker VOLE
-    if st.session_state.joker_selected == "VOLE":
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align:center; color:#FF6B6B; font-size:0.85em;'>🎯 Choisissez le joueur a voler :</div>", unsafe_allow_html=True)
+                    existing = pronos_existants.get(match_id, {})
+                    default_home = existing.get('home', 0)
+                    default_away = existing.get('away', 0)
+                    default_mise = existing.get('mise', 25)
 
-        # Recuperer les autres joueurs actifs
-        autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
-        autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
+                    with col:
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #0A183D 0%, #001529 100%);
+                            border: 1px solid #D4AF37;
+                            border-radius: 10px;
+                            padding: 10px;
+                            margin-bottom: 5px;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{home}</div>
+                                    <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_h:.2f}</div>
+                                </div>
+                                <div style="color: #D4AF37; font-weight: bold; padding: 0 5px;">VS</div>
+                                <div style="flex: 1; text-align: center;">
+                                    <div style="color: #FFFFFF; font-weight: bold; font-size: 0.9em;">{away}</div>
+                                    <div style="color: #FF0000; font-size: 0.9em; font-weight: bold;">{cote_a:.2f}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: center; color: #FF0000; font-size: 0.8em; margin-top: 3px;">
+                                N: {cote_n:.2f}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-        if autres_joueurs:
-            options = {j['id']: j['pseudo'] for j in autres_joueurs}
-            joueur_ids = list(options.keys())
-            joueur_pseudos = list(options.values())
+                        sc1, sc2, sc3 = st.columns([1, 0.5, 1])
+                        with sc1:
+                            st.number_input(
+                                f"H{match_id}", min_value=0, max_value=9,
+                                value=default_home,
+                                key=f"h_{match_id}", label_visibility="collapsed"
+                            )
+                        with sc2:
+                            st.markdown("<div style='text-align:center; padding-top:5px; color:#0066FF; font-size:1.5em; font-weight:bold;'>-</div>", unsafe_allow_html=True)
+                        with sc3:
+                            st.number_input(
+                                f"A{match_id}", min_value=0, max_value=9,
+                                value=default_away,
+                                key=f"a_{match_id}", label_visibility="collapsed"
+                            )
 
-            # Trouver l'index actuel
-            current_index = 0
-            if st.session_state.joker_cible_id in joueur_ids:
-                current_index = joueur_ids.index(st.session_state.joker_cible_id)
+                        st.number_input(
+                            f"M{match_id}", min_value=MISE_MIN, max_value=MISE_MAX,
+                            value=default_mise,
+                            step=5, key=f"m_{match_id}", label_visibility="collapsed"
+                        )
 
-            cible_pseudo = st.selectbox(
-                "Joueur cible",
-                joueur_pseudos,
-                index=current_index,
-                key="select_cible_vol",
-                label_visibility="collapsed"
+        # BUDGET BONUS GC (40 pts)
+        if joueur_gc:
+            st.markdown("---")
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #1a2e1a 100%);
+                border: 1px solid #FFD700;
+                border-radius: 10px;
+                padding: 10px;
+                margin: 5px 0;
+            ">
+                <div style="text-align: center; color: #FFD700; font-size: 0.95em;">
+                    🏆 <b>BONUS GRAND CHELEM</b> - 40 pts a repartir (pas de perte si mauvais prono)
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            gc_cols = st.columns(len(matchs))
+            for idx, match in enumerate(matchs):
+                match_id = match[0]
+                home, away = match[2], match[3]
+                existing_gc = pronos_existants.get(match_id, {}).get('mise_bonus', 10)
+                with gc_cols[idx]:
+                    short_home = home[:8]
+                    short_away = away[:8]
+                    st.markdown(f"<div style='text-align:center; color:#AAA; font-size:0.65em;'>{short_home} v {short_away}</div>", unsafe_allow_html=True)
+                    st.number_input(
+                        f"GC{match_id}", min_value=0, max_value=40,
+                        value=existing_gc,
+                        step=5, key=f"gc_{match_id}", label_visibility="collapsed"
+                    )
+
+        # JOKERS
+        st.markdown("---")
+        st.markdown("<div style='text-align:center; color:#AAAAAA; font-size:0.8em;'>Joker (optionnel)</div>", unsafe_allow_html=True)
+
+        if joker_actuel:
+            joker_label = "Points Doubles" if joker_actuel['type'] == 'DOUBLE' else "Points Voles"
+            st.markdown(f"<div style='text-align:center; color:#FFD700; font-size:0.75em; margin-bottom:5px;'>Joker actuel: {joker_label} (modifiable)</div>", unsafe_allow_html=True)
+
+        jk1, jk2 = st.columns(2)
+        with jk1:
+            st.checkbox(
+                f"⚡ Points Doubles ({stock_doubles}/3)",
+                value=default_double,
+                key="chk_joker_double",
+                disabled=(stock_doubles <= 0)
             )
-            st.session_state.joker_cible_id = joueur_ids[joueur_pseudos.index(cible_pseudo)]
+        with jk2:
+            st.checkbox(
+                f"🎯 Points Voles ({stock_voles}/2)",
+                value=default_vole,
+                key="chk_joker_vole",
+                disabled=(stock_voles <= 0)
+            )
+
+        # Cible VOL - toujours affichee (pas de rerun conditionnel dans un form)
+        if autres_joueurs:
+            st.selectbox(
+                "🎯 Cible du vol *(ignore si Points Voles non coche)*",
+                joueur_pseudos,
+                index=default_cible_index,
+                key="select_cible_vol"
+            )
         else:
-                st.warning("Aucun autre joueur disponible")
-                pronos_valides = False
+            st.markdown("<div style='color:#FF6B6B; font-size:0.8em;'>Aucun autre joueur disponible pour le vol</div>", unsafe_allow_html=True)
 
-    # VALIDATION
-    st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        # Bouton unique de validation
+        submitted = st.form_submit_button("VALIDER MES PRONOSTICS", type="primary", use_container_width=True)
 
-    if st.session_state.joker_selected != "AUCUN":
-        joker_label = "Points Doubles" if st.session_state.joker_selected == "DOUBLE" else "Points Voles"
-        st.markdown(f"<div style='text-align:center; color:#FFD700; font-size:0.9em;'>Joker actif: <b>{joker_label}</b></div>", unsafe_allow_html=True)
+    # --- HORS DU FORM : traitement post-submit ---
+    if submitted:
+        # Lire toutes les valeurs depuis session_state (mises a jour par le form)
+        total_mise = 0
+        total_bonus = 0
+        pronos_data = {}
+        for match in matchs:
+            match_id = match[0]
+            h = st.session_state.get(f"h_{match_id}", 0)
+            a = st.session_state.get(f"a_{match_id}", 0)
+            m = st.session_state.get(f"m_{match_id}", 25)
+            pronos_data[match_id] = {'home': h, 'away': a, 'mise': m, 'mise_bonus': 0}
+            total_mise += m
 
-    if st.button("VALIDER MES PRONOSTICS", type="primary", use_container_width=True, disabled=not pronos_valides):
-        if pronos_valides:
-            pronos_data = {}
-            for mid, d in st.session_state.pronos.items():
-                pronos_data[mid] = {
-                    'home': d['home'],
-                    'away': d['away'],
-                    'mise': d['mise'],
-                    'mise_bonus': st.session_state.bonus_gc.get(mid, 0) if joueur_gc else 0
-                }
-            cible_id = st.session_state.joker_cible_id if st.session_state.joker_selected == "VOLE" else None
-            joker_ancien = st.session_state.get('joker_ancien', None)
-            success, message = sauvegarder_pronostics(user['id'], pronos_data, st.session_state.joker_selected, cible_id, joker_ancien)
+        errors = []
+
+        # Valider budget principal
+        if total_mise != BUDGET_BASE:
+            errors.append(f"Budget incorrect : {total_mise} / {BUDGET_BASE} pts (doit faire exactement {BUDGET_BASE})")
+
+        # Valider budget bonus GC
+        if joueur_gc:
+            for match in matchs:
+                match_id = match[0]
+                gc_val = st.session_state.get(f"gc_{match_id}", 0)
+                pronos_data[match_id]['mise_bonus'] = gc_val
+                total_bonus += gc_val
+                if gc_val > 0 and gc_val < 10:
+                    errors.append("Mise bonus minimum : 10 pts par match")
+                    break
+            if total_bonus != BONUS_GRAND_CHELEM:
+                errors.append(f"Bonus GC incorrect : {total_bonus} / {BONUS_GRAND_CHELEM} pts (doit faire exactement {BONUS_GRAND_CHELEM})")
+
+        # Valider jokers
+        chk_double = st.session_state.get("chk_joker_double", False)
+        chk_vole = st.session_state.get("chk_joker_vole", False)
+
+        if chk_double and chk_vole:
+            errors.append("Un seul joker a la fois !")
+
+        joker_type = "AUCUN"
+        cible_id = None
+        if chk_double and not chk_vole:
+            if stock_doubles > 0:
+                joker_type = "DOUBLE"
+            else:
+                errors.append("Stock de jokers Points Doubles epuise")
+        elif chk_vole and not chk_double:
+            if stock_voles > 0:
+                joker_type = "VOLE"
+                selected_pseudo = st.session_state.get("select_cible_vol")
+                if selected_pseudo and selected_pseudo in joueur_pseudos:
+                    cible_id = joueur_ids[joueur_pseudos.index(selected_pseudo)]
+                if not cible_id:
+                    errors.append("Selectionnez une cible pour le vol")
+            else:
+                errors.append("Stock de jokers Points Voles epuise")
+
+        # Afficher erreurs ou sauvegarder
+        if errors:
+            for e in errors:
+                st.error(e)
+        else:
+            success, message = sauvegarder_pronostics(
+                user['id'], pronos_data, joker_type, cible_id, joker_actuel
+            )
             if success:
                 st.success(message)
                 st.balloons()
-                st.session_state.pronos = {}
-                st.session_state.bonus_gc = {}
-                st.session_state.joker_selected = "AUCUN"
-                st.session_state.joker_cible_id = None
-                st.session_state.joker_ancien = None
-                st.session_state.joker_init_done = False
+                # Nettoyer le session_state lie au form
+                for match in matchs:
+                    mid = match[0]
+                    for prefix in ['h_', 'a_', 'm_', 'gc_']:
+                        st.session_state.pop(f"{prefix}{mid}", None)
+                st.session_state.pop('chk_joker_double', None)
+                st.session_state.pop('chk_joker_vole', None)
+                st.session_state.pop('select_cible_vol', None)
+                st.session_state.pop('pronos', None)
+                st.session_state.pop('bonus_gc', None)
+                st.session_state.pop('joker_selected', None)
+                st.session_state.pop('joker_cible_id', None)
+                st.session_state.pop('joker_ancien', None)
+                st.session_state.pop('joker_init_done', None)
                 st.session_state.mode_edition_pronos = False
+                st.rerun()
             else:
                 st.error(message)

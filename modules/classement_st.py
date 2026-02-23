@@ -123,7 +123,7 @@ def get_classement_general_complet():
             classement.append({
                 'user_id': uid,
                 'pseudo': user['pseudo'],
-                'points': round(stats['points']),
+                'points': round(stats['points'], 2),
                 'bons_pronos': stats['bons'],
                 'scores_exacts': stats['exacts'],
                 'grand_chelem': gc_par_joueur.get(uid, 0),

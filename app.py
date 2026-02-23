@@ -1130,7 +1130,7 @@ else:
                                 if uid not in joueurs_dict:
                                     joueurs_dict[uid] = {'pseudo': pseudo, 'total': 0}
                                 joueurs_dict[uid]['total'] += p.get('points_gagnes') or 0
-                            joueurs_journee = [(uid, data['pseudo'], int(round(data['total']))) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
+                            joueurs_journee = [(uid, data['pseudo'], round(data['total'], 2)) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
 
                             # Bloc MES PRONOSTICS (cache 15s)
                             _my_preds = get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str)
@@ -1141,7 +1141,7 @@ else:
                                 jt = my_joker[0].get('type_joker', '')
                                 my_joker_icon = "⚡" if jt == "DOUBLE" else "🎯" if jt == "VOL" else ""
 
-                            my_total = int(round(sum(p.get('points_gagnes') or 0 for p in my_pronos)))
+                            my_total = round(sum(p.get('points_gagnes') or 0 for p in my_pronos), 2)
                             my_color = "#00FF00" if my_total >= 0 else "#FF4444"
 
                             html_me = f'<div style="background:linear-gradient(135deg,#001529 0%,#002040 100%);border:2px solid #00BFFF;border-radius:10px;padding:12px;margin:10px 0;">'
@@ -1154,7 +1154,7 @@ else:
                                     continue
                                 m_p = p['matches']
                                 ph, pa, mise = p['score_prono_home'], p['score_prono_away'], p['mise_points']
-                                pts = int(round(p.get('points_gagnes') or 0))
+                                pts = round(p.get('points_gagnes') or 0, 2)
                                 sh, sa = m_p.get('score_final_home'), m_p.get('score_final_away')
                                 if sh is not None:
                                     icon_me = "🎯" if (ph == sh and pa == sa) else "✅" if ((ph > pa and sh > sa) or (ph < pa and sh < sa) or (ph == pa and sh == sa)) else "❌"
@@ -1236,7 +1236,7 @@ else:
                                     else:
                                         icon, score_display = "⏳", "-"
                                     cote_r = c_h if ph > pa else c_a if ph < pa else c_n
-                                    pts = int(round(pts_gagnes)) if pts_gagnes else 0
+                                    pts = round(pts_gagnes, 2) if pts_gagnes else 0
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                     joker_display = joker_icon
                                     st.markdown(f"""<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">

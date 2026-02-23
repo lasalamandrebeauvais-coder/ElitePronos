@@ -385,7 +385,7 @@ def calculer_points(match, users_double):
         is_exact = False
 
         if bon_resultat:
-            points = round(mise * cote, 1)
+            points = round(mise * cote, 2)
             if prono_h == score_h and prono_a == score_a:
                 points += BONUS_EXACT
                 is_exact = True
@@ -510,13 +510,13 @@ def recalculer_points_complet(semaine_id, saison_id):
             pts_bonus_gc = 0
 
             if bon_resultat:
-                points = round(mise * cote, 1)
+                points = round(mise * cote, 2)
                 if prono_h == score_h and prono_a == score_a:
                     points += BONUS_EXACT
                     is_exact = True
                 # Bonus GC (gains uniquement, pas de perte)
                 if mise_bonus_gc > 0 and not is_vol:
-                    pts_bonus_gc = round(mise_bonus_gc * cote, 1)
+                    pts_bonus_gc = round(mise_bonus_gc * cote, 2)
                     if is_exact:
                         pts_bonus_gc += BONUS_EXACT
             else:

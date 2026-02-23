@@ -1631,14 +1631,14 @@ def _calculer_points_match(prono_h, prono_a, score_h, score_a, mise, cote_home, 
     )
 
     if bon_resultat:
-        points = round(mise * cote, 1)
+        points = round(mise * cote, 2)
         # Bonus score exact
         if prono_h == score_h and prono_a == score_a:
             points += bonus_exact
             is_exact = True
         # Points bonus GC (meme calcul, gains uniquement)
         if mise_bonus_gc > 0:
-            points_bonus_gc = round(mise_bonus_gc * cote, 1)
+            points_bonus_gc = round(mise_bonus_gc * cote, 2)
             if is_exact:
                 points_bonus_gc += bonus_exact
     else:
