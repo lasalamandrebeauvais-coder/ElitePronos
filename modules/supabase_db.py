@@ -285,7 +285,7 @@ class SupabaseClient:
                 'id': user['id'],
                 'pseudo': user['pseudo'],
                 'prenom': user.get('prenom', ''),
-                'points': stats['points'],
+                'points': round(stats['points'], 2),
                 'bons_pronos': stats['bons'],
                 'scores_exacts': stats['exacts']
             })
@@ -326,7 +326,7 @@ class SupabaseClient:
             stats = user_stats.get(user['id'], {'points': 0, 'exacts': 0, 'nb': 0})
             classement.append({
                 'pseudo': user['pseudo'],
-                'points': stats['points'],
+                'points': round(stats['points'], 2),
                 'scores_exacts': stats['exacts'],
                 'nb_pronos': stats['nb']
             })

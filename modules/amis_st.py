@@ -131,7 +131,7 @@ def afficher_amis(user):
 
         with col_pts:
             pts_color = "#00FF00" if joueur['points'] >= 0 else "#FF4444"
-            st.markdown(f'<span style="color: {pts_color}; font-weight: bold;">{joueur["points"]} pts</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color: {pts_color}; font-weight: bold;">{round(joueur["points"], 2)} pts</span>', unsafe_allow_html=True)
 
     # Bouton de validation
     st.markdown("---")
@@ -221,7 +221,7 @@ def afficher_amis(user):
                     {rival['pseudo']}
                 </span>
                 <span style="flex: 1; text-align: center; color: {pts_color}; font-weight: bold;">
-                    {rival['points']}
+                    {round(rival['points'], 2)}
                 </span>
                 <span style="flex: 1; text-align: center; color: #00FF00;">
                     {rival['bons_pronos']}
