@@ -376,6 +376,10 @@ def get_synthese_accueil(saison_id, semaine_id):
                 joueurs_pts[uid] = {'pseudo': pseudo, 'points_journee': 0}
             joueurs_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
 
+        # Arrondir les points pour l'affichage
+        for v in joueurs_pts.values():
+            v['points_journee'] = round(v['points_journee'], 1)
+
         classement = sorted(joueurs_pts.values(), key=lambda x: x['points_journee'], reverse=True)
         debrief = generer_debrief_fin_journee(stats, classement)
         commentaire = debrief if debrief else generer_commentaire_ironique(stats)
@@ -429,6 +433,10 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
         if uid not in rivaux_pts:
             rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0}
         rivaux_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
+
+    # Arrondir les points pour l'affichage
+    for v in rivaux_pts.values():
+        v['points_journee'] = round(v['points_journee'], 1)
 
     if not rivaux_pts:
         return None
