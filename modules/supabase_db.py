@@ -42,9 +42,15 @@ class SupabaseClient:
             return None
 
         try:
-            return response.json()
-        except:
-            return response.text
+            result = response.json()
+            # Ne jamais retourner un str - les appelants attendent list/dict/None
+            if isinstance(result, str):
+                print(f"Supabase: reponse string inattendue: {result[:200]}")
+                return None
+            return result
+        except Exception:
+            print(f"Supabase: JSON parse error: {response.text[:200]}")
+            return None
 
     # ============================================
     # UTILISATEURS
