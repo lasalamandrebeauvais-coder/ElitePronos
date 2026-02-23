@@ -50,49 +50,69 @@ def get_classement_general_complet():
         jokers_dict = {j['utilisateur_id']: j for j in all_jokers}
 
         # 5. Calculer les Grand Chelems par joueur (4/4 corrects par semaine)
+        # Utiliser 2 requetes separees au lieu d'une jointure (plus fiable avec l'API REST)
         saison_id = get_saison_actuelle()
-        all_preds_gc = client._request('GET',
-            f'predictions?saison_id=eq.{saison_id}&select=user_id,match_id,score_prono_home,score_prono_away,matches(id,semaine_id,score_final_home,score_final_away,is_active)'
-        ) or []
 
-        # Recuperer les voleurs par semaine (exclus du GC)
-        all_jokers_vol = client._request('GET',
-            f'jokers_historique?saison_id=eq.{saison_id}&type_joker=eq.VOL&select=utilisateur_id,semaine_id'
-        ) or []
-        voleurs_par_semaine = {}
-        for jv in all_jokers_vol:
-            sid = jv['semaine_id']
-            if sid not in voleurs_par_semaine:
-                voleurs_par_semaine[sid] = set()
-            voleurs_par_semaine[sid].add(jv['utilisateur_id'])
+        # Recuperer tous les matchs actifs termines
+        all_matchs_gc = client._request('GET',
+            f'matches?saison_id=eq.{saison_id}&score_final_home=not.is.null&is_active=eq.true&select=id,semaine_id,score_final_home,score_final_away'
+        )
+        if not isinstance(all_matchs_gc, list):
+            all_matchs_gc = []
+        matchs_gc_dict = {m['id']: m for m in all_matchs_gc}
 
-        # Compter 1N2 corrects par (user, semaine) sur matchs actifs termines
-        user_semaine_corrects = {}
-        for p in all_preds_gc:
-            m = p.get('matches')
-            if not m or m.get('score_final_home') is None or not m.get('is_active'):
-                continue
-            uid = p['user_id']
-            sid = m['semaine_id']
-
-            # Exclure voleurs
-            if uid in voleurs_par_semaine.get(sid, set()):
-                continue
-
-            prono_h, prono_a = p['score_prono_home'], p['score_prono_away']
-            score_h, score_a = m['score_final_home'], m['score_final_away']
-            bon = ((prono_h > prono_a and score_h > score_a) or
-                   (prono_h < prono_a and score_h < score_a) or
-                   (prono_h == prono_a and score_h == score_a))
-            if bon:
-                key = (uid, sid)
-                user_semaine_corrects[key] = user_semaine_corrects.get(key, 0) + 1
-
-        # Compter les GC par joueur (semaines avec 4/4)
+        # Recuperer toutes les predictions de la saison
+        gc_match_ids = [m['id'] for m in all_matchs_gc]
         gc_par_joueur = {}
-        for (uid, sid), count in user_semaine_corrects.items():
-            if count >= 4:
-                gc_par_joueur[uid] = gc_par_joueur.get(uid, 0) + 1
+
+        if gc_match_ids:
+            gc_match_ids_str = ','.join(map(str, gc_match_ids))
+            all_preds_gc = client._request('GET',
+                f'predictions?match_id=in.({gc_match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away'
+            )
+            if not isinstance(all_preds_gc, list):
+                all_preds_gc = []
+
+            # Recuperer les voleurs par semaine (exclus du GC)
+            all_jokers_vol = client._request('GET',
+                f'jokers_historique?saison_id=eq.{saison_id}&type_joker=eq.VOL&select=utilisateur_id,semaine_id'
+            )
+            if not isinstance(all_jokers_vol, list):
+                all_jokers_vol = []
+            voleurs_par_semaine = {}
+            for jv in all_jokers_vol:
+                sid = jv['semaine_id']
+                if sid not in voleurs_par_semaine:
+                    voleurs_par_semaine[sid] = set()
+                voleurs_par_semaine[sid].add(jv['utilisateur_id'])
+
+            # Compter 1N2 corrects par (user, semaine) sur matchs actifs termines
+            user_semaine_corrects = {}
+            for p in all_preds_gc:
+                mid = p['match_id']
+                m = matchs_gc_dict.get(mid)
+                if not m:
+                    continue
+                uid = p['user_id']
+                sid = m['semaine_id']
+
+                # Exclure voleurs
+                if uid in voleurs_par_semaine.get(sid, set()):
+                    continue
+
+                prono_h, prono_a = p['score_prono_home'], p['score_prono_away']
+                score_h, score_a = m['score_final_home'], m['score_final_away']
+                bon = ((prono_h > prono_a and score_h > score_a) or
+                       (prono_h < prono_a and score_h < score_a) or
+                       (prono_h == prono_a and score_h == score_a))
+                if bon:
+                    key = (uid, sid)
+                    user_semaine_corrects[key] = user_semaine_corrects.get(key, 0) + 1
+
+            # Compter les GC par joueur (semaines avec 4/4)
+            for (uid, sid), count in user_semaine_corrects.items():
+                if count >= 4:
+                    gc_par_joueur[uid] = gc_par_joueur.get(uid, 0) + 1
 
         classement = []
         for user in utilisateurs:
