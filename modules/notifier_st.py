@@ -986,41 +986,27 @@ def _analyser_match_kingo(home, away, cote_h, cote_n, cote_a):
     return random.choice(phrases)
 
 
-def email_lancement_journee(utilisateur, semaine_id, matchs=None, deadline=None):
-    """Email d'annonce de la nouvelle journee avec analyse des matchs par Kingo"""
+def email_lancement_journee(utilisateur, semaine_id, matchs=None, deadline_dt=None):
+    """Email d'annonce de la nouvelle journee : 4 matchs + cotes + deadline + commentaire Kingo"""
     import random
+    from datetime import datetime
+
     prenom = utilisateur.get('prenom') or utilisateur.get('pseudo')
 
-    PHRASES_KINGO_INTRO = [
-        f"Nouvelle semaine, nouvelles humiliations. Kingo est pret, et toi {prenom} ?",
-        f"La Journee {semaine_id} debarque ! Kingo a deja ses pronostics. Et toi, tu dors encore ?",
+    PHRASES_KINGO = [
+        f"Nouvelle semaine, nouvelles humiliations. Kingo a deja ses pronostics. Et toi {prenom}, tu dors encore ?",
+        f"J{semaine_id} : Kingo a analyse, Kingo a pronostique, Kingo va gagner. Toi {prenom}, on verra.",
         f"Allez {prenom}, c'est l'heure de montrer si tu merites ta place ou si tu fais juste de la figuration.",
-        f"Les matchs sont la, les cotes sont la, il ne manque que tes pronostics, {prenom}. Enfin... si tu oses.",
-        f"Journee {semaine_id} : Kingo a analyse, Kingo a pronostique, Kingo va gagner. Toi, on verra.",
-        f"C'est reparti ! {prenom}, n'oublie pas : le dernier herite des pronos du pire joueur. Motivation suffisante ?",
-        f"Nouvelle journee, nouveau carnage annonce. {prenom}, tu es prevenu(e).",
-        f"Les matchs viennent de tomber ! Kingo les a deja decortiques pendant que tu lisais cet email.",
-        f"Journee {semaine_id} au programme ! Kingo a sorti la loupe, le cafe, et ses pronostics en or.",
-        f"{prenom}, Kingo t'offre son analyse exclusive. Apres, faudra pas dire que tu ne savais pas.",
-        f"La J{semaine_id} arrive avec des matchs qui vont faire mal. Kingo a prepare le terrain pour toi.",
-        f"Kingo a etudie chaque match, chaque cote, chaque stat. Toi {prenom}, tu as fait quoi ? Rien. Comme d'habitude.",
+        f"Les matchs sont la, les cotes sont la, il ne manque que tes pronostics {prenom}. Enfin... si tu oses.",
+        f"C'est reparti {prenom} ! N'oublie pas : le dernier herite des pronos de Kingo. Motivation suffisante ?",
+        f"Nouvelle journee, nouveau carnage annonce. {prenom}, tu es prevenu(e). Kingo regarde.",
+        f"J{semaine_id} au programme ! Kingo a sorti la loupe, le cafe, et ses pronostics en or. Toi ?",
+        f"{prenom}, les matchs viennent de tomber. Kingo les a deja decortiques. A toi de jouer.",
     ]
 
-    PHRASES_KINGO_CONCLUSION = [
-        "Voila, Kingo a fait le boulot. A toi de jouer. Ou de perdre. Comme d'habitude.",
-        "L'analyse est gratuite, les points non. Choisis bien tes mises.",
-        "Kingo a parle. Les sages ecoutent, les fous ignorent. Et les derniers du classement ? Ils n'ont meme pas lu cet email.",
-        "Maintenant tu sais tout. Si tu perds, c'est de ta faute, pas de celle de Kingo.",
-        "Tout est dit. Si apres ca tu finis dernier, il faudra serieusement te poser des questions.",
-        "Les cotes sont la, l'analyse aussi. Il ne manque que ton courage. Ou ton inconscience.",
-        "Bonne chance ! Enfin... la chance c'est pour les autres. Toi il te faut du talent.",
-        "A toi de transformer cette analyse en points. Ou en humiliation publique. Kingo regarde.",
-    ]
+    kingo_comment = random.choice(PHRASES_KINGO)
 
-    kingo_intro = random.choice(PHRASES_KINGO_INTRO)
-    kingo_conclusion = random.choice(PHRASES_KINGO_CONCLUSION)
-
-    # Construire les cartes match avec analyse Kingo
+    # Cartes match : equipes + cotes + date/heure
     matchs_html = ""
     if matchs:
         for i, m in enumerate(matchs):
@@ -1033,89 +1019,94 @@ def email_lancement_journee(utilisateur, semaine_id, matchs=None, deadline=None)
             date_str = ""
             if m.get('date_match'):
                 try:
-                    from datetime import datetime
-                    dt = datetime.fromisoformat(str(m['date_match']).replace('Z', '+00:00').replace('+00:00', ''))
+                    dt = datetime.fromisoformat(str(m['date_match']).replace('Z', '').replace('+00:00', ''))
                     jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-                    date_str = f"{jours[dt.weekday()]} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
+                    date_str = f"{jours[dt.weekday()]} {dt.day:02d}/{dt.month:02d} — {dt.hour}h{dt.minute:02d}"
                 except Exception:
                     pass
 
-            # Analyse Kingo du match
-            analyse = _analyser_match_kingo(home, away, cote_h, cote_n, cote_a)
-
             matchs_html += f'''
-            <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 12px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="color: #D4AF37; font-size: 11px; font-weight: bold;">MATCH {i+1}</span>
-                    <span style="color: #AAAAAA; font-size: 11px;">{date_str}</span>
+            <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="color: #D4AF37; font-size: 11px; font-weight: bold; letter-spacing: 1px;">MATCH {i+1}</span>
+                    <span style="color: #888; font-size: 11px;">{date_str}</span>
                 </div>
-                <div style="text-align: center; margin: 10px 0;">
-                    <span style="color: #FFFFFF; font-size: 16px; font-weight: bold;">{home}</span>
-                    <span style="color: #D4AF37; font-size: 14px; margin: 0 10px;">VS</span>
-                    <span style="color: #FFFFFF; font-size: 16px; font-weight: bold;">{away}</span>
+                <div style="text-align: center; padding: 8px 0;">
+                    <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">{home}</div>
+                    <div style="color: #D4AF37; font-size: 13px; margin: 6px 0;">VS</div>
+                    <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">{away}</div>
                 </div>
-                <div style="text-align: center; margin: 8px 0; padding: 6px 0; border-top: 1px solid #333; border-bottom: 1px solid #333;">
-                    <span style="color: #00FF00; font-size: 13px;">1: {cote_h}</span>
-                    <span style="color: #AAAAAA; font-size: 13px; margin: 0 15px;">N: {cote_n}</span>
-                    <span style="color: #FF6666; font-size: 13px;">2: {cote_a}</span>
-                </div>
-                <div style="margin-top: 8px; padding: 8px 10px; background: rgba(212, 175, 55, 0.08); border-radius: 5px;">
-                    <p style="color: #D4AF37; margin: 0; font-size: 12px; font-style: italic;">
-                        Kingo : "{analyse}"
-                    </p>
+                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333;">
+                    <div style="text-align: center;">
+                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Domicile</div>
+                        <div style="color: #00CC66; font-size: 16px; font-weight: bold;">{cote_h}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Nul</div>
+                        <div style="color: #FFD700; font-size: 16px; font-weight: bold;">{cote_n}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Exterieur</div>
+                        <div style="color: #FF6666; font-size: 16px; font-weight: bold;">{cote_a}</div>
+                    </div>
                 </div>
             </div>
             '''
 
-    # Bloc deadline
+    # Bloc deadline avec temps restant
     deadline_html = ""
-    if deadline:
+    if deadline_dt:
+        try:
+            jours_fr = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+            date_label = f"{jours_fr[deadline_dt.weekday()]} {deadline_dt.day:02d}/{deadline_dt.month:02d} a {deadline_dt.hour}h{deadline_dt.minute:02d}"
+
+            delta = deadline_dt - datetime.now()
+            total_sec = int(delta.total_seconds())
+            if total_sec > 0:
+                jours_r = total_sec // 86400
+                heures_r = (total_sec % 86400) // 3600
+                if jours_r > 0:
+                    restant = f"dans {jours_r}j {heures_r}h"
+                else:
+                    minutes_r = (total_sec % 3600) // 60
+                    restant = f"dans {heures_r}h{minutes_r:02d}"
+            else:
+                restant = "deadline depassee"
+        except Exception:
+            date_label = str(deadline_dt)
+            restant = ""
+
         deadline_html = f'''
         <div style="background: linear-gradient(135deg, #3d0000 0%, #5c0000 100%); border: 2px solid #FF4444; border-radius: 10px; padding: 18px; margin: 20px 0; text-align: center;">
-            <div style="font-size: 22px; margin-bottom: 6px;">⏰</div>
-            <div style="color: #FF4444; font-weight: bold; font-size: 13px; letter-spacing: 1px; margin-bottom: 4px;">DEADLINE</div>
-            <div style="color: #FFFFFF; font-size: 20px; font-weight: bold;">{deadline}</div>
-            <div style="color: #AAAAAA; font-size: 11px; margin-top: 6px;">Pronostics a valider AVANT cette heure</div>
+            <div style="font-size: 24px; margin-bottom: 6px;">⏰</div>
+            <div style="color: #FF4444; font-weight: bold; font-size: 12px; letter-spacing: 2px; margin-bottom: 6px;">DEADLINE</div>
+            <div style="color: #FFFFFF; font-size: 20px; font-weight: bold; margin-bottom: 4px;">{date_label}</div>
+            <div style="color: #FFAAAA; font-size: 14px; font-weight: bold;">{restant}</div>
         </div>
         '''
 
     content = f'''
-    <h2>Journee {semaine_id} - C'est parti !</h2>
+    <h2>Journee {semaine_id} — Les pronostics sont ouverts !</h2>
     <p>Bonjour <strong>{prenom}</strong>,</p>
-
-    <div class="highlight-box">
-        <div class="big-text">J{semaine_id}</div>
-        <p style="margin: 10px 0 0 0; color: #FFD700;">Les pronostics sont ouverts !</p>
-    </div>
 
     {deadline_html}
 
-    <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 15px 0; border-radius: 5px;">
-        <p style="color: #D4AF37; margin: 0; font-style: italic;">
-            "{kingo_intro}"
-        </p>
-        <p style="color: #AAAAAA; font-size: 11px; margin: 5px 0 0 0; text-align: right;">- Kingo</p>
-    </div>
-
-    <h3 style="color: #D4AF37;">L'analyse de Kingo</h3>
+    <h3 style="color: #D4AF37; margin-top: 25px;">⚽ Les 4 matchs de la J{semaine_id}</h3>
     {matchs_html}
 
-    <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 15px 0; border-radius: 5px;">
-        <p style="color: #D4AF37; margin: 0; font-style: italic;">
-            "{kingo_conclusion}"
-        </p>
+    <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 20px 0; border-radius: 5px;">
+        <p style="color: #D4AF37; margin: 0; font-style: italic;">"{kingo_comment}"</p>
+        <p style="color: #888; font-size: 11px; margin: 5px 0 0 0; text-align: right;">— Kingo 🤖</p>
     </div>
 
-    <p style="color: #ff6b6b;"><strong>Attention :</strong> Si vous ne saisissez pas vos pronostics
-    avant la deadline, le systeme vous attribuera automatiquement les pronostics de Kingo
-    (joker VOL consomme) — ou une penalite de -100 pts si vous n'avez plus de joker.</p>
+    <p style="color: #ff6b6b; margin-top: 20px;"><strong>⚠️ Attention :</strong> Si vous ne saisissez pas vos pronostics avant la deadline, le systeme vous attribuera automatiquement les pronostics de Kingo (joker VOL consomme) — ou une penalite de <strong>-100 pts</strong> si vous n'avez plus de joker.</p>
 
-    <p style="text-align: center;">
-        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Poser mes pronostics</a>
+    <p style="text-align: center; margin-top: 25px;">
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button" style="font-size: 16px; padding: 14px 32px;">🎯 Poser mes pronostics</a>
     </p>
     '''
 
-    return get_base_template(content, f"Lancement Journee {semaine_id}")
+    return get_base_template(content, f"J{semaine_id} — Posez vos pronostics !")
 
 
 def email_rappel_j7(utilisateur):
@@ -1178,14 +1169,12 @@ def envoyer_lancement_journee(semaine_id):
         return [], "Aucun match actif pour cette semaine"
 
     # Calculer la deadline = 1h avant le 1er match
-    deadline_str = "1h avant le 1er match"
+    deadline_dt = None
     try:
         premiere_date = matchs[0].get('date_match')
         if premiere_date:
             dt = datetime.fromisoformat(str(premiere_date).replace('Z', '').replace('+00:00', ''))
             deadline_dt = dt - timedelta(hours=1)
-            jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-            deadline_str = f"{jours[deadline_dt.weekday()]} {deadline_dt.day:02d}/{deadline_dt.month:02d} a {deadline_dt.hour}h{deadline_dt.minute:02d}"
     except Exception:
         pass
 
@@ -1194,10 +1183,10 @@ def envoyer_lancement_journee(semaine_id):
     resultats = []
 
     for user in utilisateurs:
-        html = email_lancement_journee(user, semaine_id, matchs, deadline_str)
+        html = email_lancement_journee(user, semaine_id, matchs, deadline_dt)
         success, msg = send_email(
             user['email'],
-            f"Elite Pronos - J{semaine_id} : Posez vos pronostics !",
+            f"Elite Pronos — J{semaine_id} : Posez vos pronostics !",
             html
         )
         resultats.append({'user': user['pseudo'], 'success': success, 'message': msg})
