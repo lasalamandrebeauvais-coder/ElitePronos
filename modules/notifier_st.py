@@ -1026,28 +1026,28 @@ def email_lancement_journee(utilisateur, semaine_id, matchs=None, deadline_dt=No
                     pass
 
             matchs_html += f'''
-            <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 10px 0;">
+            <div style="background: #f0f4ff; border: 2px solid #D4AF37; border-radius: 10px; padding: 15px; margin: 10px 0;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <span style="color: #D4AF37; font-size: 11px; font-weight: bold; letter-spacing: 1px;">MATCH {i+1}</span>
-                    <span style="color: #888; font-size: 11px;">{date_str}</span>
+                    <span style="color: #B8960C; font-size: 11px; font-weight: bold; letter-spacing: 1px;">MATCH {i+1}</span>
+                    <span style="color: #445; font-size: 11px;">{date_str}</span>
                 </div>
                 <div style="text-align: center; padding: 8px 0;">
-                    <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">{home}</div>
-                    <div style="color: #D4AF37; font-size: 13px; margin: 6px 0;">VS</div>
-                    <div style="color: #FFFFFF; font-size: 15px; font-weight: bold;">{away}</div>
+                    <div style="color: #0d1b3e; font-size: 15px; font-weight: bold;">{home}</div>
+                    <div style="color: #B8960C; font-size: 13px; font-weight: bold; margin: 6px 0;">VS</div>
+                    <div style="color: #0d1b3e; font-size: 15px; font-weight: bold;">{away}</div>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333;">
+                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #d0d8f0;">
                     <div style="text-align: center;">
-                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Domicile</div>
-                        <div style="color: #00CC66; font-size: 16px; font-weight: bold;">{cote_h}</div>
+                        <div style="color: #445; font-size: 10px; margin-bottom: 3px;">Domicile</div>
+                        <div style="color: #007a3d; font-size: 16px; font-weight: bold;">{cote_h}</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Nul</div>
-                        <div style="color: #FFD700; font-size: 16px; font-weight: bold;">{cote_n}</div>
+                        <div style="color: #445; font-size: 10px; margin-bottom: 3px;">Nul</div>
+                        <div style="color: #B8960C; font-size: 16px; font-weight: bold;">{cote_n}</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="color: #888; font-size: 10px; margin-bottom: 3px;">Exterieur</div>
-                        <div style="color: #FF6666; font-size: 16px; font-weight: bold;">{cote_a}</div>
+                        <div style="color: #445; font-size: 10px; margin-bottom: 3px;">Exterieur</div>
+                        <div style="color: #cc2200; font-size: 16px; font-weight: bold;">{cote_a}</div>
                     </div>
                 </div>
             </div>
