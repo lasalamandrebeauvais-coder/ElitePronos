@@ -451,6 +451,14 @@ def afficher_panel_admin():
                 from modules.kingo_bot import kingo_pronostique_semaine
                 if kingo_pronostique_semaine(semaine_selectionnee, saison, force=True):
                     st.success("👑 Kingo a fait ses pronostics sur les matchs actifs!")
+                    # Envoyer l'email nouvelle journee a tous les joueurs
+                    with st.spinner("Envoi des emails nouvelle journee..."):
+                        try:
+                            resultats, _ = envoyer_lancement_journee(semaine_selectionnee)
+                            nb_ok = sum(1 for r in resultats if r['success'])
+                            st.success(f"📧 Email nouvelle journee envoye a {nb_ok}/{len(resultats)} joueur(s)")
+                        except Exception as e:
+                            st.warning(f"⚠️ Pronostics OK mais erreur email: {str(e)}")
                 else:
                     st.warning("Kingo n'a pas pu pronostiquer.")
                 st.rerun()
