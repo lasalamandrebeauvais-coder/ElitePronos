@@ -764,8 +764,8 @@ def get_kingo_user_id():
 def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
     """
     Pour tous les joueurs qui ont oublie leurs pronos:
-    - Consomme 1 joker VOL
-    - Copie les pronos de Kingo
+    - Si joker VOL disponible : consomme 1 joker VOL, copie les pronos de Kingo
+    - Si plus de joker VOL : penalite de -25 pts par match manquant (max -100)
 
     A appeler juste apres la deadline (avant le 1er match).
     Retourne la liste des joueurs traites.
@@ -891,13 +891,31 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
                         'action': 'VOL_AUTO_KINGO'
                     })
                 else:
-                    # Plus de joker VOL = 0 points (pas de copie, pas de predictions)
+                    # Plus de joker VOL = penalite -25 pts par match manquant (max -100)
+                    # Inserer des predictions penalite avec points_gagnes pre-fixes
+                    # calcul_gains_semaine les skippera car points_gagnes != None
+                    nb_inserted = 0
+                    for match_id in match_ids:
+                        existing = supabase._request('GET',
+                            f'predictions?user_id=eq.{user_id}&match_id=eq.{match_id}&select=id'
+                        ) or []
+                        if not existing:
+                            supabase._request('POST', 'predictions', {
+                                'user_id': user_id,
+                                'match_id': match_id,
+                                'saison_id': saison_id,
+                                'score_prono_home': 0,
+                                'score_prono_away': 0,
+                                'mise_points': 25,
+                                'points_gagnes': -25
+                            })
+                            nb_inserted += 1
                     traites.append({
                         'user_id': user_id,
                         'pseudo': pseudo,
                         'pronos_manquants': nb_matchs - nb_pronos,
                         'jokers_restants': 0,
-                        'action': 'ZERO_POINTS'
+                        'action': f'PENALITE_{nb_inserted * 25}'
                     })
 
         return traites, f"{len(traites)} joueur(s) traite(s)"
@@ -1662,7 +1680,7 @@ def calculer_gains_supabase(semaine_id, saison_id=None):
 
     AUTO-VOL:
     - Si un joueur a oublie ses pronos et a un joker VOL, il vole Kingo automatiquement
-    - Si pas de joker VOL, il a 0 points
+    - Si pas de joker VOL, il a -100 points (penalite)
     """
     from modules.supabase_db import get_supabase
 

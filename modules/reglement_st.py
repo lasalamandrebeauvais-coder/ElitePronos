@@ -135,7 +135,7 @@ def afficher_reglement():
     st.markdown('<div class="point-texte">Copie les pronostics d\'un adversaire choisi. Vous gagnez les memes points que lui.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.3 Oubli de pronostics</div>', unsafe_allow_html=True)
-    st.markdown('<div class="point-texte">1 joker 🃏 Points Voles <span class="valeur-or">automatiquement utilise</span> sur le dernier du classement.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">1 joker 🃏 Points Voles <span class="valeur-or">automatiquement utilise</span> sur le dernier du classement. Si plus aucun joker disponible : <span class="valeur-rouge">penalite de -100 points</span> pour la semaine.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.4 Regles</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Un seul joker par semaine, a activer AVANT la deadline, non annulable, perdu en fin de saison.</div>', unsafe_allow_html=True)
