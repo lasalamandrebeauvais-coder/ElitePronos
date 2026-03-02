@@ -1468,19 +1468,17 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
         </div>
         '''
 
-    # Defis reussis
+    # Triple defi accompli (3/3)
     defis_list = highlights.get('defis', [])
     if defis_list:
-        noms_defis = {1: '💰 200+ points', 2: '🎯 2 scores exacts', 3: '🎲 All-in gagnant'}
         lignes_defis = ""
         for d in defis_list:
-            label = noms_defis.get(d.get('defi_numero', 0), d.get('defi', '?'))
-            lignes_defis += f'<div style="color:#ccc; font-size:13px; margin:4px 0;">@<strong>{d["pseudo"]}</strong> — {label} → <span style="color:#FFD700;">+1 🃏 Joker VOL</span></div>'
+            lignes_defis += f'<div style="color:#ccc; font-size:13px; margin:4px 0;">🏆 @<strong>{d["pseudo"]}</strong> a reussi les 3 defis → <span style="color:#FFD700;">+1 🃏 Joker VOL</span></div>'
         highlights_html += f'''
         <div style="background: #0a0a1a; border: 1px solid #FFD700; border-radius: 10px; padding: 15px; margin: 10px 0;">
             <div style="margin-bottom: 10px;">
                 <span style="font-size: 20px;">🎯</span>
-                <span style="color: #FFD700; font-weight: bold; margin-left: 8px;">Defis de la semaine</span>
+                <span style="color: #FFD700; font-weight: bold; margin-left: 8px;">Triple Defi accompli !</span>
             </div>
             {lignes_defis}
         </div>

@@ -930,8 +930,9 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
 
 def attribuer_jokers_defis(semaine_id, saison_id=None):
     """
-    Pour chaque defi reussi cette semaine (non encore recompense),
-    attribue +1 joker VOL au joueur et enregistre dans defis_recompenses.
+    Si un joueur reussit les 3 defis dans la meme semaine,
+    il remporte +1 joker VOL (defi_numero=0 dans defis_recompenses).
+    Sans doublon : une seule attribution par joueur par semaine.
     Retourne la liste des attributions effectuees.
     """
     from modules.supabase_db import get_supabase
@@ -979,54 +980,52 @@ def attribuer_jokers_defis(semaine_id, saison_id=None):
                 'points_gagnes': pts
             })
 
-        # Recuperer les defis deja recompenses cette semaine
+        # Recuperer les joueurs deja recompenses cette semaine (defi_numero=0)
         deja_recompenses = supabase._request('GET',
-            f'defis_recompenses?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=user_id,defi_numero'
+            f'defis_recompenses?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&defi_numero=eq.0&select=user_id'
         ) or []
-        deja_set = {(r['user_id'], r['defi_numero']) for r in deja_recompenses}
+        deja_set = {r['user_id'] for r in deja_recompenses}
 
         for user in users:
             uid = user['id']
             pseudo = user['pseudo']
             s = stats.get(uid, {'total': 0, 'nb_exacts': 0, 'details': []})
 
-            defis_ok = {
-                1: s['total'] >= 200,
-                2: s['nb_exacts'] >= 2,
-                3: any(d['mise'] >= 40 and d['points_gagnes'] > 0 for d in s['details'])
-            }
+            # Les 3 defis doivent tous etre reussis
+            defi1_ok = s['total'] >= 200
+            defi2_ok = s['nb_exacts'] >= 2
+            defi3_ok = any(d['mise'] >= 40 and d['points_gagnes'] > 0 for d in s['details'])
 
-            for defi_num, reussi in defis_ok.items():
-                if not reussi:
-                    continue
-                if (uid, defi_num) in deja_set:
-                    continue  # Deja recompense
+            if not (defi1_ok and defi2_ok and defi3_ok):
+                continue  # Pas le triple
 
-                # Enregistrer la recompense
-                supabase._request('POST', 'defis_recompenses', {
-                    'user_id': uid,
-                    'semaine_id': semaine_id,
-                    'saison_id': saison_id,
-                    'defi_numero': defi_num
-                })
+            if uid in deja_set:
+                continue  # Deja recompense cette semaine
 
-                # Attribuer +1 joker VOL
-                stock = supabase._request('GET',
-                    f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}&select=joker_vol'
-                ) or []
-                jokers_vol_actuel = stock[0].get('joker_vol', 0) if stock else 0
-                supabase._request('PATCH',
-                    f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}',
-                    {'joker_vol': jokers_vol_actuel + 1}
-                )
+            # Enregistrer la recompense (defi_numero=0 = triple accompli)
+            supabase._request('POST', 'defis_recompenses', {
+                'user_id': uid,
+                'semaine_id': semaine_id,
+                'saison_id': saison_id,
+                'defi_numero': 0
+            })
 
-                noms_defis = {1: '200+ points', 2: '2 scores exacts', 3: 'All-in gagnant'}
-                attributions.append({
-                    'pseudo': pseudo,
-                    'defi': noms_defis[defi_num],
-                    'defi_numero': defi_num,
-                    'jokers_vol_nouveau': jokers_vol_actuel + 1
-                })
+            # Attribuer +1 joker VOL
+            stock = supabase._request('GET',
+                f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}&select=joker_vol'
+            ) or []
+            jokers_vol_actuel = stock[0].get('joker_vol', 0) if stock else 0
+            supabase._request('PATCH',
+                f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}',
+                {'joker_vol': jokers_vol_actuel + 1}
+            )
+
+            attributions.append({
+                'pseudo': pseudo,
+                'defi': 'Triple (3/3 defis)',
+                'defi_numero': 0,
+                'jokers_vol_nouveau': jokers_vol_actuel + 1
+            })
 
         return attributions, f"{len(attributions)} joker(s) VOL attribue(s)"
 

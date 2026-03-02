@@ -325,20 +325,21 @@ def afficher_challenges(user):
             }
         ]
 
+        # Triple accompli = les 3 defis reussis
+        triple_ok = defi1_ok and defi2_ok and defi3_ok
+        joker_triple_attribue = (semaine_defis, 0) in recompenses
+
         # Afficher les 3 cartes de defis
         cols = st.columns(3)
         for i, defi in enumerate(defis):
             with cols[i]:
-                joker_attribue = (semaine_defis, defi['num']) in recompenses
                 if defi['reussi']:
                     status_icon = "✅"
                     border_color = "#00FF00"
                     bg_gradient = "linear-gradient(135deg,#002520,#003530)"
                     status_text = "Reussi !"
                     status_color = "#00FF00"
-                    joker_badge = '<div style="color:#FFD700;font-size:0.75em;margin-top:6px;">🃏 +1 Joker VOL' + (' attribue !' if joker_attribue else ' a venir') + '</div>'
                 else:
-                    joker_badge = '<div style="color:#444;font-size:0.7em;margin-top:6px;">🃏 +1 Joker VOL si reussi</div>'
                     has_data = len(pts_data['details']) > 0
                     if has_data:
                         status_icon = "❌"
@@ -354,15 +355,37 @@ def afficher_challenges(user):
                         status_color = "#888"
 
                 st.markdown(f"""
-                <div style="background:{bg_gradient};border:2px solid {border_color};border-radius:12px;padding:15px;text-align:center;min-height:195px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="background:{bg_gradient};border:2px solid {border_color};border-radius:12px;padding:15px;text-align:center;min-height:180px;display:flex;flex-direction:column;justify-content:center;">
                     <div style="font-size:2em;">{defi['icon']}</div>
                     <div style="color:#FFD700;font-weight:bold;font-size:0.85em;margin:8px 0;">{defi['titre']}</div>
                     <div style="color:#888;font-size:0.7em;margin-bottom:8px;">{defi['desc']}</div>
                     <div style="font-size:1.3em;margin:5px 0;">{status_icon}</div>
                     <div style="color:{status_color};font-size:0.75em;font-weight:bold;">{status_text}</div>
-                    {joker_badge}
                 </div>
                 """, unsafe_allow_html=True)
+
+        # Bandeau triple : affiché sous les 3 cartes
+        if triple_ok:
+            if joker_triple_attribue:
+                msg_triple = "🃏 Joker VOL attribue !"
+                color_triple = "#FFD700"
+            else:
+                msg_triple = "🃏 +1 Joker VOL a venir (en attente attribution admin)"
+                color_triple = "#aaa"
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#1a2500,#2a3800);border:2px solid #FFD700;border-radius:10px;padding:12px;text-align:center;margin-top:10px;">
+                <span style="font-size:1.3em;">🏆</span>
+                <span style="color:#FFD700;font-weight:bold;margin:0 8px;">TRIPLE ACCOMPLI !</span>
+                <span style="color:{color_triple};font-size:0.85em;">{msg_triple}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            nb_ok = sum([defi1_ok, defi2_ok, defi3_ok])
+            st.markdown(f"""
+            <div style="background:#111;border:1px solid #333;border-radius:10px;padding:10px;text-align:center;margin-top:10px;">
+                <span style="color:#888;font-size:0.8em;">Reussis {nb_ok}/3 defis — Completez les 3 pour gagner <strong style="color:#FFD700;">+1 🃏 Joker VOL</strong></span>
+            </div>
+            """, unsafe_allow_html=True)
 
         # Historique des defis (journees precedentes, deja en memoire)
         if journee_courante > 1:
