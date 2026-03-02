@@ -1295,12 +1295,12 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
     commentaire_html = ""
     if commentaire_bot:
         commentaire_html = f'''
-        <div style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+        <div style="background: #e8d5f5; border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
             <div style="display: flex; align-items: flex-start;">
                 <div style="font-size: 32px; margin-right: 15px;">🤖</div>
                 <div>
-                    <div style="color: #c084fc; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Debrief</div>
-                    <p style="color: #f0e6ff; margin: 0; line-height: 1.8; font-style: italic;">{commentaire_bot}</p>
+                    <div style="color: #6a0dad; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Debrief</div>
+                    <p style="color: #1a1a3e; margin: 0; line-height: 1.8; font-style: italic;">{commentaire_bot}</p>
                 </div>
             </div>
         </div>
