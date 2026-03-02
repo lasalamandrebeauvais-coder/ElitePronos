@@ -986,7 +986,7 @@ def _analyser_match_kingo(home, away, cote_h, cote_n, cote_a):
     return random.choice(phrases)
 
 
-def email_lancement_journee(utilisateur, semaine_id, matchs=None):
+def email_lancement_journee(utilisateur, semaine_id, matchs=None, deadline=None):
     """Email d'annonce de la nouvelle journee avec analyse des matchs par Kingo"""
     import random
     prenom = utilisateur.get('prenom') or utilisateur.get('pseudo')
@@ -1067,6 +1067,18 @@ def email_lancement_journee(utilisateur, semaine_id, matchs=None):
             </div>
             '''
 
+    # Bloc deadline
+    deadline_html = ""
+    if deadline:
+        deadline_html = f'''
+        <div style="background: linear-gradient(135deg, #3d0000 0%, #5c0000 100%); border: 2px solid #FF4444; border-radius: 10px; padding: 18px; margin: 20px 0; text-align: center;">
+            <div style="font-size: 22px; margin-bottom: 6px;">⏰</div>
+            <div style="color: #FF4444; font-weight: bold; font-size: 13px; letter-spacing: 1px; margin-bottom: 4px;">DEADLINE</div>
+            <div style="color: #FFFFFF; font-size: 20px; font-weight: bold;">{deadline}</div>
+            <div style="color: #AAAAAA; font-size: 11px; margin-top: 6px;">Pronostics a valider AVANT cette heure</div>
+        </div>
+        '''
+
     content = f'''
     <h2>Journee {semaine_id} - C'est parti !</h2>
     <p>Bonjour <strong>{prenom}</strong>,</p>
@@ -1075,6 +1087,8 @@ def email_lancement_journee(utilisateur, semaine_id, matchs=None):
         <div class="big-text">J{semaine_id}</div>
         <p style="margin: 10px 0 0 0; color: #FFD700;">Les pronostics sont ouverts !</p>
     </div>
+
+    {deadline_html}
 
     <div style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #D4AF37; padding: 12px 15px; margin: 15px 0; border-radius: 5px;">
         <p style="color: #D4AF37; margin: 0; font-style: italic;">
@@ -1093,11 +1107,11 @@ def email_lancement_journee(utilisateur, semaine_id, matchs=None):
     </div>
 
     <p style="color: #ff6b6b;"><strong>Attention :</strong> Si vous ne saisissez pas vos pronostics
-    avant le coup d'envoi du premier match, le systeme vous attribuera automatiquement
-    les pronostics du dernier du classement.</p>
+    avant la deadline, le systeme vous attribuera automatiquement les pronostics de Kingo
+    (joker VOL consomme) — ou une penalite de -100 pts si vous n'avez plus de joker.</p>
 
     <p style="text-align: center;">
-        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Poser mes pronostics</a>
     </p>
     '''
 
@@ -1139,6 +1153,56 @@ def email_rappel_j1(utilisateur):
     '''
 
     return get_base_template(content, "Dernier Rappel")
+
+
+# ============================================
+# ENVOI NOUVELLE JOURNEE (TOUS LES JOUEURS)
+# ============================================
+
+def envoyer_lancement_journee(semaine_id):
+    """
+    Envoie l'email d'annonce de la nouvelle journee a tous les joueurs actifs.
+    Affiche les 4 matchs actifs avec l'analyse Kingo + la deadline (1h avant le 1er match).
+    """
+    from modules.supabase_db import get_supabase
+    from datetime import datetime, timedelta
+
+    supabase = get_supabase()
+
+    # Recuperer les matchs actifs de la semaine, tries par date
+    matchs = supabase._request('GET',
+        f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,date_match,cote_home,cote_draw,cote_away&order=date_match'
+    ) or []
+
+    if not matchs:
+        return [], "Aucun match actif pour cette semaine"
+
+    # Calculer la deadline = 1h avant le 1er match
+    deadline_str = "1h avant le 1er match"
+    try:
+        premiere_date = matchs[0].get('date_match')
+        if premiere_date:
+            dt = datetime.fromisoformat(str(premiere_date).replace('Z', '').replace('+00:00', ''))
+            deadline_dt = dt - timedelta(hours=1)
+            jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+            deadline_str = f"{jours[deadline_dt.weekday()]} {deadline_dt.day:02d}/{deadline_dt.month:02d} a {deadline_dt.hour}h{deadline_dt.minute:02d}"
+    except Exception:
+        pass
+
+    # Envoyer a tous les utilisateurs actifs
+    utilisateurs = get_utilisateurs_emails()
+    resultats = []
+
+    for user in utilisateurs:
+        html = email_lancement_journee(user, semaine_id, matchs, deadline_str)
+        success, msg = send_email(
+            user['email'],
+            f"Elite Pronos - J{semaine_id} : Posez vos pronostics !",
+            html
+        )
+        resultats.append({'user': user['pseudo'], 'success': success, 'message': msg})
+
+    return resultats, f"{len(resultats)} email(s) envoye(s)"
 
 
 # ============================================

@@ -25,7 +25,8 @@ from modules.notifier_st import (
     envoyer_resultats_ironiques,
     envoyer_email_bienvenue,
     envoyer_email_prospection,
-    envoyer_tableau_pronos_admin
+    envoyer_tableau_pronos_admin,
+    envoyer_lancement_journee
 )
 
 
@@ -550,6 +551,7 @@ def afficher_panel_admin():
         st.markdown("""
         | Email | Destinataires | Contenu | Quand l'envoyer |
         |-------|--------------|---------|-----------------|
+        | **Nouvelle Journee** | Tous les joueurs | 4 matchs + cotes + analyse Kingo + deadline | Quand les matchs de la semaine sont selectionnes |
         | **Synthese Paris** | Tous les joueurs | Recap des pronos de chacun + tendances 1N2 + jokers actifs | Apres la deadline (avant le 1er match) |
         | **Tableau Pronos** | Admin uniquement | Tableau complet des pronos + cotes + mises + jokers | Apres la deadline |
         | **Debrief Ironique** | Tous les joueurs | Classement de la semaine + commentaires humoristiques | Apres le dernier match (points calcules) |
@@ -559,7 +561,22 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
-        col_email1, col_email2, col_email3 = st.columns(3)
+        col_email0, col_email1, col_email2, col_email3 = st.columns(4)
+
+        with col_email0:
+            st.markdown("**Nouvelle Journee**")
+            st.caption("4 matchs + deadline")
+            if st.button("ENVOYER NOUVELLE JOURNEE", type="primary", use_container_width=True):
+                with st.spinner("Envoi des emails nouvelle journee..."):
+                    try:
+                        resultats, msg = envoyer_lancement_journee(semaine_selectionnee)
+                        nb_envoyes = sum(1 for r in resultats if r['success'])
+                        st.success(f"✅ {nb_envoyes}/{len(resultats)} email(s) envoye(s)")
+                        with st.expander("Details"):
+                            for r in resultats:
+                                st.write(f"{'✓' if r['success'] else '✗'} {r['user']}: {r['message']}")
+                    except Exception as e:
+                        st.error(f"❌ Erreur: {str(e)})")
 
         with col_email1:
             st.markdown("**Synthese des Paris**")
