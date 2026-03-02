@@ -1280,25 +1280,27 @@ def email_synthese_paris(semaine_id, jokers_actifs=None, stats_matchs=None, comm
     return get_base_template(content, "Synthese des Paris")
 
 
-def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot=""):
+def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot="", highlights=None):
     """
     Email de resultats avec debrief ironique du bot
     classement: liste de dicts {pseudo, points, rang, bons_pronos, scores_exacts, grand_chelem}
     matchs_resultats: liste de dicts {equipe_home, equipe_away, score_final_home, score_final_away}
     commentaire_bot: debrief ironique genere par Kingo
+    highlights: dict {grand_chelem, jokers, plus_gros_score, meilleure_remontee, plus_grosse_chute}
     """
-    total_joueurs = len(classement)
+    if highlights is None:
+        highlights = {}
 
     # === COMMENTAIRE DU BOT ===
     commentaire_html = ""
     if commentaire_bot:
         commentaire_html = f'''
-        <div style="background: rgba(155, 89, 182, 0.1); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+        <div style="background: rgba(155, 89, 182, 0.25); border: 1px solid #9b59b6; border-radius: 10px; padding: 20px; margin: 20px 0;">
             <div style="display: flex; align-items: flex-start;">
                 <div style="font-size: 32px; margin-right: 15px;">🤖</div>
                 <div>
-                    <div style="color: #9b59b6; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Debrief</div>
-                    <p style="color: #cccccc; margin: 0; line-height: 1.8; font-style: italic;">{commentaire_bot}</p>
+                    <div style="color: #c084fc; font-weight: bold; font-size: 14px; margin-bottom: 8px;">Kingo - Le Debrief</div>
+                    <p style="color: #f0e6ff; margin: 0; line-height: 1.8; font-style: italic;">{commentaire_bot}</p>
                 </div>
             </div>
         </div>
@@ -1312,7 +1314,7 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
             matchs_items += f'''
             <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: #1a1a2e; border-radius: 8px;">
                 <div style="flex: 1; text-align: right; color: #ccc; font-size: 13px;">{m['equipe_home']}</div>
-                <div style="margin: 0 15px; padding: 5px 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 5px; color: #0a0a1a; font-weight: bold; font-size: 16px;">{m['score_final_home']} - {m['score_final_away']}</div>
+                <div style="margin: 0 15px; padding: 5px 15px; background: linear-gradient(135deg, #1a3a5c 0%, #0d2a45 100%); border: 1px solid #D4AF37; border-radius: 5px; color: #ffffff; font-weight: bold; font-size: 16px;">{m['score_final_home']} - {m['score_final_away']}</div>
                 <div style="flex: 1; text-align: left; color: #ccc; font-size: 13px;">{m['equipe_away']}</div>
             </div>
             '''
@@ -1323,65 +1325,108 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
         </div>
         '''
 
-    # === CLASSEMENT ===
-    classement_html = ""
-    for joueur in classement:
-        rang = joueur.get('rang', '?')
-        pseudo = joueur.get('pseudo', 'Inconnu')
-        points = joueur.get('points', 0)
-        bons = joueur.get('bons_pronos', 0)
-        se = joueur.get('scores_exacts', 0)
+    # === HIGHLIGHTS ===
+    highlights_html = ""
 
-        # Couleur selon le rang
-        if rang == 1:
-            rang_style = "background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #0a0a1a;"
-        elif rang == total_joueurs:
-            rang_style = "background: #8B0000; color: #fff;"
-        elif rang <= 3:
-            rang_style = "background: #C0C0C0; color: #0a0a1a;"
-        else:
-            rang_style = "background: #333; color: #fff;"
+    # Grand Chelem
+    gc_joueurs = highlights.get('grand_chelem', [])
+    if gc_joueurs:
+        noms_gc = ", ".join(f"<strong>@{j['pseudo']}</strong>" for j in gc_joueurs)
+        highlights_html += f'''
+        <div style="background: linear-gradient(135deg, #1a1200 0%, #2a2000 100%); border: 2px solid #FFD700; border-radius: 10px; padding: 15px; margin: 10px 0; text-align: center;">
+            <div style="font-size: 28px; margin-bottom: 6px;">🏆</div>
+            <div style="color: #FFD700; font-weight: bold; font-size: 15px; margin-bottom: 4px;">GRAND CHELEM !</div>
+            <div style="color: #fff; font-size: 13px;">{noms_gc} — 4/4 corrects cette semaine !</div>
+        </div>
+        '''
 
-        # Badges
-        badges = ""
-        if joueur.get('grand_chelem'):
-            badges += ' <span style="background: #FFD700; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 10px;">GRAND CHELEM</span>'
-        if se > 0:
-            badges += f' <span style="background: #27ae60; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 10px;">{se} SE</span>'
+    # Jokers
+    jokers = highlights.get('jokers', [])
+    for joker in jokers:
+        pseudo = joker.get('pseudo', '?')
+        type_j = joker.get('type_joker', '')
+        pts_joueur = joker.get('points_semaine', 0)
+        pts_color = "#00FF00" if pts_joueur > 0 else "#FF4444"
+        pts_sign = "+" if pts_joueur > 0 else ""
 
-        # Stats sous le pseudo
-        stats_line = f"{bons}/4 corrects"
-        if se > 0:
-            stats_line += f" dont {se} score(s) exact(s)"
-
-        classement_html += f'''
-        <div style="display: flex; align-items: center; padding: 15px; margin: 10px 0; background: #1a1a2e; border-radius: 10px; border: 1px solid #333;">
-            <div style="{rang_style} width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 15px; flex-shrink: 0;">{rang}</div>
-            <div style="flex: 1;">
-                <div style="color: #FFD700; font-weight: bold;">@{pseudo}{badges}</div>
-                <div style="color: #888; font-size: 12px; margin-top: 4px;">{stats_line}</div>
+        if type_j == 'double':
+            highlights_html += f'''
+            <div style="background: #0a0a1a; border: 1px solid #FFD700; border-radius: 10px; padding: 12px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <span style="font-size: 20px;">⚡</span>
+                    <span style="color: #FFD700; font-weight: bold; margin-left: 8px;">Joker DOUBLE</span>
+                    <span style="color: #ccc; font-size: 13px; margin-left: 6px;">@{pseudo}</span>
+                </div>
+                <div style="color: {pts_color}; font-weight: bold; font-size: 15px;">{pts_sign}{round(pts_joueur, 1)} pts</div>
             </div>
-            <div style="text-align: right; flex-shrink: 0;">
-                <div style="color: #fff; font-size: 18px; font-weight: bold;">{points} pts</div>
+            '''
+        elif type_j == 'vol':
+            cible = joker.get('cible_pseudo', '?')
+            highlights_html += f'''
+            <div style="background: #0a0a1a; border: 1px solid #9b59b6; border-radius: 10px; padding: 12px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <span style="font-size: 20px;">🃏</span>
+                    <span style="color: #9b59b6; font-weight: bold; margin-left: 8px;">Joker VOL</span>
+                    <span style="color: #ccc; font-size: 13px; margin-left: 6px;">@{pseudo} a vole @{cible}</span>
+                </div>
+                <div style="color: {pts_color}; font-weight: bold; font-size: 15px;">{pts_sign}{round(pts_joueur, 1)} pts</div>
             </div>
+            '''
+
+    # Plus gros score
+    top = highlights.get('plus_gros_score')
+    if top:
+        highlights_html += f'''
+        <div style="background: #0a0a1a; border: 1px solid #27ae60; border-radius: 10px; padding: 12px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="font-size: 20px;">🥇</span>
+                <span style="color: #27ae60; font-weight: bold; margin-left: 8px;">Plus gros score</span>
+                <span style="color: #ccc; font-size: 13px; margin-left: 6px;">@{top['pseudo']} — {top['bons_pronos']}/4 corrects</span>
+            </div>
+            <div style="color: #00FF00; font-weight: bold; font-size: 15px;">+{round(top['points'], 1)} pts</div>
+        </div>
+        '''
+
+    # Meilleure remontee
+    remontee = highlights.get('meilleure_remontee')
+    if remontee and remontee['delta'] > 0:
+        highlights_html += f'''
+        <div style="background: #0a0a1a; border: 1px solid #3498db; border-radius: 10px; padding: 12px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="font-size: 20px;">📈</span>
+                <span style="color: #3498db; font-weight: bold; margin-left: 8px;">Meilleure remontee</span>
+                <span style="color: #ccc; font-size: 13px; margin-left: 6px;">@{remontee['pseudo']}</span>
+            </div>
+            <div style="color: #3498db; font-weight: bold; font-size: 15px;">#{remontee['rang_avant']} → #{remontee['rang_apres']} <span style="color: #00FF00;">(+{remontee['delta']})</span></div>
+        </div>
+        '''
+
+    # Plus grosse chute
+    chute = highlights.get('plus_grosse_chute')
+    if chute and chute['delta'] < 0:
+        highlights_html += f'''
+        <div style="background: #0a0a1a; border: 1px solid #e74c3c; border-radius: 10px; padding: 12px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="font-size: 20px;">📉</span>
+                <span style="color: #e74c3c; font-weight: bold; margin-left: 8px;">Plus grosse chute</span>
+                <span style="color: #ccc; font-size: 13px; margin-left: 6px;">@{chute['pseudo']}</span>
+            </div>
+            <div style="color: #e74c3c; font-weight: bold; font-size: 15px;">#{chute['rang_avant']} → #{chute['rang_apres']} <span style="color: #FF4444;">({chute['delta']})</span></div>
         </div>
         '''
 
     content = f'''
     <h2>Resultats Semaine {semaine_id}</h2>
-    <p>Les matchs sont termines ! Voici qui a brille... et qui s'est plante.</p>
+    <p>Les matchs sont termines ! Voici le verdict.</p>
 
     {commentaire_html}
 
     {matchs_html}
 
-    <div style="margin: 25px 0;">
-        <h3 style="color: #FFD700; margin: 0 0 15px 0; font-size: 16px;">🏆 Classement de la Semaine</h3>
-        {classement_html}
-    </div>
+    {highlights_html}
 
-    <p style="text-align: center;">
-        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Se connecter</a>
+    <p style="text-align: center; margin-top: 25px;">
+        <a href="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/" class="button">Voir le classement complet</a>
     </p>
 
     <p style="color: #AAAAAA; font-size: 12px; text-align: center;">
@@ -1761,8 +1806,8 @@ def envoyer_resultats_ironiques(semaine_id):
     # Recuperer les predictions avec details
     predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes') or []
 
-    # Recuperer les jokers
-    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker') or []
+    # Recuperer les jokers (avec cible pour VOL)
+    jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker,cible_vol_id') or []
     jokers_actifs = [{'pseudo': user_map.get(j['utilisateur_id'], 'Inconnu'), 'type_joker': j['type_joker'].lower()} for j in jokers_data]
 
     # Calculer les stats par joueur
@@ -1821,6 +1866,89 @@ def envoyer_resultats_ironiques(semaine_id):
     # Matchs avec resultats pour affichage
     matchs_resultats = [m for m in matchs if m.get('score_final_home') is not None]
 
+    # === HIGHLIGHTS ===
+
+    # 1) Grand Chelem
+    gc_joueurs = [{'pseudo': c['pseudo']} for c in classement if c.get('grand_chelem')]
+
+    # 2) Plus gros score de la semaine
+    plus_gros_score = None
+    if sorted_users:
+        top_uid, top_stats = sorted_users[0]
+        plus_gros_score = {
+            'pseudo': user_map.get(top_uid, 'Inconnu'),
+            'points': top_stats['points'],
+            'bons_pronos': top_stats['bons_pronos']
+        }
+
+    # 3) Jokers enrichis avec cible_pseudo et points_semaine
+    jokers_highlights = []
+    for j in jokers_data:
+        uid = j['utilisateur_id']
+        type_j = j['type_joker'].lower()
+        pts_joueur = stats_joueur.get(uid, {}).get('points', 0)
+        joker_info = {
+            'pseudo': user_map.get(uid, 'Inconnu'),
+            'type_joker': type_j,
+            'points_semaine': pts_joueur
+        }
+        if type_j == 'vol':
+            cible_id = j.get('cible_vol_id')
+            joker_info['cible_pseudo'] = user_map.get(cible_id, '?') if cible_id else '?'
+        jokers_highlights.append(joker_info)
+
+    # 4) Rang avant / apres pour remontees et chutes
+    meilleure_remontee = None
+    plus_grosse_chute = None
+    try:
+        all_preds = supabase._request('GET',
+            'predictions?select=user_id,points_gagnes,matches(semaine_id)'
+        ) or []
+        before_pts = {}
+        after_pts = {}
+        for p in all_preds:
+            uid = p['user_id']
+            pts = p.get('points_gagnes') or 0
+            s_id = (p.get('matches') or {}).get('semaine_id')
+            if s_id is not None:
+                after_pts[uid] = after_pts.get(uid, 0) + pts
+                if s_id < semaine_id:
+                    before_pts[uid] = before_pts.get(uid, 0) + pts
+
+        before_rank = sorted(after_pts.keys(), key=lambda u: before_pts.get(u, 0), reverse=True)
+        before_pos = {uid: i + 1 for i, uid in enumerate(before_rank)}
+        after_rank_sorted = sorted(after_pts.items(), key=lambda x: x[1], reverse=True)
+        after_pos = {uid: i + 1 for i, (uid, _) in enumerate(after_rank_sorted)}
+
+        rank_changes = []
+        for uid in after_pos:
+            avant = before_pos.get(uid, len(after_pos))
+            apres = after_pos[uid]
+            delta = avant - apres  # positif = remonté
+            rank_changes.append({
+                'pseudo': user_map.get(uid, 'Inconnu'),
+                'rang_avant': avant,
+                'rang_apres': apres,
+                'delta': delta
+            })
+
+        remontees = [r for r in rank_changes if r['delta'] > 0]
+        chutes = [r for r in rank_changes if r['delta'] < 0]
+        if remontees:
+            meilleure_remontee = max(remontees, key=lambda x: x['delta'])
+        if chutes:
+            plus_grosse_chute = min(chutes, key=lambda x: x['delta'])
+    except Exception as e:
+        print(f"Erreur calcul rang changes: {e}")
+
+    highlights = {
+        'grand_chelem': gc_joueurs,
+        'jokers': jokers_highlights,
+        'plus_gros_score': plus_gros_score,
+        'meilleure_remontee': meilleure_remontee,
+        'plus_grosse_chute': plus_grosse_chute
+    }
+
     # Generer le debrief ironique
     commentaire_bot = _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs)
 
@@ -1828,7 +1956,7 @@ def envoyer_resultats_ironiques(semaine_id):
     utilisateurs = get_utilisateurs_emails()
     resultats = []
 
-    html = email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot)
+    html = email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot, highlights)
 
     for user in utilisateurs:
         success, msg = send_email(
