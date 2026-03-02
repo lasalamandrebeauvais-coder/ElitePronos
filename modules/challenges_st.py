@@ -11,6 +11,16 @@ from modules.database_manager import (
 )
 
 
+@st.cache_data(ttl=60)
+def _get_defis_recompenses(user_id, saison_id):
+    """Retourne l'ensemble des (semaine_id, defi_numero) deja recompenses pour ce joueur."""
+    supabase = get_supabase()
+    rows = supabase._request('GET',
+        f'defis_recompenses?user_id=eq.{user_id}&saison_id=eq.{saison_id}&select=semaine_id,defi_numero'
+    ) or []
+    return {(r['semaine_id'], r['defi_numero']) for r in rows}
+
+
 @st.cache_data(ttl=30)
 def _get_all_points_by_user_journee(user_ids, saison_id):
     """
@@ -268,11 +278,15 @@ def afficher_challenges(user):
     # ================================================================
     with tab_defis:
         st.markdown("### Defis hebdomadaires")
-        st.caption("3 defis a relever chaque semaine - pour le plaisir !")
+        st.caption("3 defis a relever chaque semaine — chaque defi reussi rapporte **+1 🃏 Joker VOL** !")
 
         # Semaine courante
         semaine_defis = journee_courante
         pts_data = pts(current_user_id, semaine_defis)
+        saison_id = get_saison_actuelle()
+
+        # Defis deja recompenses pour ce joueur
+        recompenses = _get_defis_recompenses(current_user_id, saison_id)
 
         # Defi 1 : 200+ points
         defi1_ok = pts_data['total'] >= 200
@@ -286,6 +300,7 @@ def afficher_challenges(user):
 
         defis = [
             {
+                'num': 1,
                 'icon': '💰',
                 'titre': '200+ points',
                 'desc': f'Obtenir 200 points ou plus sur la J{semaine_defis}',
@@ -293,6 +308,7 @@ def afficher_challenges(user):
                 'progress': f"{pts_data['total']}/200 pts"
             },
             {
+                'num': 2,
                 'icon': '🎯',
                 'titre': '2 scores exacts',
                 'desc': f'Trouver 2 scores exacts sur la J{semaine_defis}',
@@ -300,6 +316,7 @@ def afficher_challenges(user):
                 'progress': f"{pts_data['nb_exacts']}/2 exacts"
             },
             {
+                'num': 3,
                 'icon': '🎲',
                 'titre': 'All-in gagnant',
                 'desc': f'Miser 40+ pts sur un match et gagner (J{semaine_defis})',
@@ -312,13 +329,16 @@ def afficher_challenges(user):
         cols = st.columns(3)
         for i, defi in enumerate(defis):
             with cols[i]:
+                joker_attribue = (semaine_defis, defi['num']) in recompenses
                 if defi['reussi']:
                     status_icon = "✅"
                     border_color = "#00FF00"
                     bg_gradient = "linear-gradient(135deg,#002520,#003530)"
                     status_text = "Reussi !"
                     status_color = "#00FF00"
+                    joker_badge = '<div style="color:#FFD700;font-size:0.75em;margin-top:6px;">🃏 +1 Joker VOL' + (' attribue !' if joker_attribue else ' a venir') + '</div>'
                 else:
+                    joker_badge = '<div style="color:#444;font-size:0.7em;margin-top:6px;">🃏 +1 Joker VOL si reussi</div>'
                     has_data = len(pts_data['details']) > 0
                     if has_data:
                         status_icon = "❌"
@@ -334,12 +354,13 @@ def afficher_challenges(user):
                         status_color = "#888"
 
                 st.markdown(f"""
-                <div style="background:{bg_gradient};border:2px solid {border_color};border-radius:12px;padding:15px;text-align:center;min-height:180px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="background:{bg_gradient};border:2px solid {border_color};border-radius:12px;padding:15px;text-align:center;min-height:195px;display:flex;flex-direction:column;justify-content:center;">
                     <div style="font-size:2em;">{defi['icon']}</div>
                     <div style="color:#FFD700;font-weight:bold;font-size:0.85em;margin:8px 0;">{defi['titre']}</div>
                     <div style="color:#888;font-size:0.7em;margin-bottom:8px;">{defi['desc']}</div>
                     <div style="font-size:1.3em;margin:5px 0;">{status_icon}</div>
                     <div style="color:{status_color};font-size:0.75em;font-weight:bold;">{status_text}</div>
+                    {joker_badge}
                 </div>
                 """, unsafe_allow_html=True)
 

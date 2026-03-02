@@ -925,6 +925,116 @@ def appliquer_vol_auto_oublis(semaine_id, saison_id=None):
 
 
 # ============================================
+# DEFIS HEBDOMADAIRES — ATTRIBUTION JOKERS VOL
+# ============================================
+
+def attribuer_jokers_defis(semaine_id, saison_id=None):
+    """
+    Pour chaque defi reussi cette semaine (non encore recompense),
+    attribue +1 joker VOL au joueur et enregistre dans defis_recompenses.
+    Retourne la liste des attributions effectuees.
+    """
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    supabase = get_supabase()
+    attributions = []
+
+    try:
+        # Recuperer les matchs actifs de la semaine
+        matchs = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&is_active=eq.true&select=id'
+        ) or []
+        match_ids = [m['id'] for m in matchs]
+        if not match_ids:
+            return [], "Aucun match actif pour cette semaine"
+
+        match_ids_str = ','.join(map(str, match_ids))
+
+        # Recuperer tous les utilisateurs actifs (sauf Kingo)
+        kingo_id = get_kingo_user_id()
+        users = supabase._request('GET',
+            f'utilisateurs?statut=eq.Actif&id=neq.{kingo_id}&select=id,pseudo'
+        ) or []
+
+        # Recuperer toutes les predictions de la semaine avec details
+        preds = supabase._request('GET',
+            f'predictions?match_id=in.({match_ids_str})&select=user_id,mise_points,points_gagnes,is_score_exact'
+        ) or []
+
+        # Agréger par joueur
+        stats = {}
+        for p in preds:
+            uid = p['user_id']
+            if uid not in stats:
+                stats[uid] = {'total': 0, 'nb_exacts': 0, 'details': []}
+            pts = p.get('points_gagnes') or 0
+            stats[uid]['total'] += pts
+            if p.get('is_score_exact'):
+                stats[uid]['nb_exacts'] += 1
+            stats[uid]['details'].append({
+                'mise': p.get('mise_points') or 0,
+                'points_gagnes': pts
+            })
+
+        # Recuperer les defis deja recompenses cette semaine
+        deja_recompenses = supabase._request('GET',
+            f'defis_recompenses?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=user_id,defi_numero'
+        ) or []
+        deja_set = {(r['user_id'], r['defi_numero']) for r in deja_recompenses}
+
+        for user in users:
+            uid = user['id']
+            pseudo = user['pseudo']
+            s = stats.get(uid, {'total': 0, 'nb_exacts': 0, 'details': []})
+
+            defis_ok = {
+                1: s['total'] >= 200,
+                2: s['nb_exacts'] >= 2,
+                3: any(d['mise'] >= 40 and d['points_gagnes'] > 0 for d in s['details'])
+            }
+
+            for defi_num, reussi in defis_ok.items():
+                if not reussi:
+                    continue
+                if (uid, defi_num) in deja_set:
+                    continue  # Deja recompense
+
+                # Enregistrer la recompense
+                supabase._request('POST', 'defis_recompenses', {
+                    'user_id': uid,
+                    'semaine_id': semaine_id,
+                    'saison_id': saison_id,
+                    'defi_numero': defi_num
+                })
+
+                # Attribuer +1 joker VOL
+                stock = supabase._request('GET',
+                    f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}&select=joker_vol'
+                ) or []
+                jokers_vol_actuel = stock[0].get('joker_vol', 0) if stock else 0
+                supabase._request('PATCH',
+                    f'stock_jokers?utilisateur_id=eq.{uid}&saison_id=eq.{saison_id}',
+                    {'joker_vol': jokers_vol_actuel + 1}
+                )
+
+                noms_defis = {1: '200+ points', 2: '2 scores exacts', 3: 'All-in gagnant'}
+                attributions.append({
+                    'pseudo': pseudo,
+                    'defi': noms_defis[defi_num],
+                    'defi_numero': defi_num,
+                    'jokers_vol_nouveau': jokers_vol_actuel + 1
+                })
+
+        return attributions, f"{len(attributions)} joker(s) VOL attribue(s)"
+
+    except Exception as e:
+        return [], str(e)
+
+
+# ============================================
 # UTILITAIRES
 # ============================================
 

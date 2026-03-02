@@ -662,6 +662,25 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
+        # === SECTION 2b : ATTRIBUTION JOKERS DEFIS ===
+        st.markdown("#### Attribution Jokers — Defis hebdomadaires")
+        st.caption("A lancer apres le calcul des points. Attribue +1 joker VOL par defi reussi (sans doublon).")
+        if st.button("🃏 ATTRIBUER JOKERS DEFIS", use_container_width=True):
+            with st.spinner("Calcul des defis et attribution des jokers..."):
+                try:
+                    from modules.database_manager import attribuer_jokers_defis
+                    attributions, msg = attribuer_jokers_defis(semaine_selectionnee, saison)
+                    if attributions:
+                        st.success(f"✅ {msg}")
+                        for a in attributions:
+                            st.write(f"🃏 {a['pseudo']} — Defi '{a['defi']}' → +1 joker VOL (stock : {a['jokers_vol_nouveau']})")
+                    else:
+                        st.info(f"Aucun nouveau joker a attribuer ({msg})")
+                except Exception as e:
+                    st.error(f"❌ Erreur: {str(e)}")
+
+        st.markdown("---")
+
         # === SECTION 3: VALIDATION DES RESULTATS ===
         st.markdown("#### 3. Valider les Resultats")
         st.caption("Recupere les scores officiels depuis l'API et fige les resultats de la journee.")
