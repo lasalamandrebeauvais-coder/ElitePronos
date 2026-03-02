@@ -126,16 +126,16 @@ def afficher_reglement():
     # =====================================================
     st.markdown('<div class="article-titre">Article 4 - Les Jokers</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="point-texte">Stock par saison : <span class="valeur-or">3 jokers Points Doubles</span> + <span class="valeur-or">2 jokers Points Voles</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Stock par saison : <span class="valeur-or">⚡ 3 jokers Points Doubles</span> + <span class="valeur-or">🃏 2 jokers Points Voles</span></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="point-titre">4.1 Joker POINTS DOUBLES</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">4.1 ⚡ Joker POINTS DOUBLES</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Multiplie par 2 les points du budget principal (100 pts). Le bonus Grand Chelem (40 pts) n\'est pas multiplie.</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="point-titre">4.2 Joker POINTS VOLES</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-titre">4.2 🃏 Joker POINTS VOLES</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Copie les pronostics d\'un adversaire choisi. Vous gagnez les memes points que lui.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.3 Oubli de pronostics</div>', unsafe_allow_html=True)
-    st.markdown('<div class="point-texte">1 joker Points Voles <span class="valeur-or">automatiquement utilise</span> sur le dernier du classement.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">1 joker 🃏 Points Voles <span class="valeur-or">automatiquement utilise</span> sur le dernier du classement.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="point-titre">4.4 Regles</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Un seul joker par semaine, a activer AVANT la deadline, non annulable, perdu en fin de saison.</div>', unsafe_allow_html=True)

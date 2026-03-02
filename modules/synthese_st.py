@@ -533,7 +533,7 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
     rivaux_ids_str = ','.join(map(str, rivaux_ids))
 
     predictions = supabase._request('GET',
-        f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,utilisateurs(pseudo)'
+        f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,mise_bonus_gc,utilisateurs(pseudo)'
     ) or []
 
     # Agreger par rival
@@ -542,8 +542,9 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
         uid = p['user_id']
         pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
         if uid not in rivaux_pts:
-            rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0}
+            rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0, 'bonus_gc': 0}
         rivaux_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
+        rivaux_pts[uid]['bonus_gc'] += p.get('mise_bonus_gc') or 0
 
     # Arrondir les points pour l'affichage
     for v in rivaux_pts.values():
@@ -555,6 +556,9 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
     # Trier par points
     classement_rivaux = sorted(rivaux_pts.values(), key=lambda x: x['points_journee'], reverse=True)
 
+    # Joueurs avec bonus GC actif
+    gc_joueurs = [v['pseudo'] for v in rivaux_pts.values() if v['bonus_gc'] > 0]
+
     # Generer le message
     meilleur = classement_rivaux[0]
     messages = [
@@ -562,8 +566,19 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
         f"**{meilleur['pseudo']}** est en tete de tes rivaux ({meilleur['points_journee']} pts). Tu le laisses filer ?",
         f"Attention, **{meilleur['pseudo']}** fait {meilleur['points_journee']} pts ! Tes rivaux n'attendent pas.",
     ]
+    message = random.choice(messages)
+
+    # Kingo commente le bonus GC si present
+    if gc_joueurs:
+        noms_gc = ', '.join(f'**{p}**' for p in gc_joueurs)
+        gc_phrases = [
+            f" Et attention : {noms_gc} joue avec le bonus Grand Chelem cette semaine. 40 pts de budget en plus... ca peut faire mal !",
+            f" A noter : {noms_gc} a le bonus Grand Chelem actif (+40 pts de budget). Le danger vient de partout.",
+            f" {noms_gc} profite de son Grand Chelem avec 40 pts supplementaires. Ce n'est pas le moment de relacher !",
+        ]
+        message += random.choice(gc_phrases)
 
     return {
-        'message': random.choice(messages),
+        'message': message,
         'classement': classement_rivaux
     }

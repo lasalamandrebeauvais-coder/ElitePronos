@@ -380,7 +380,7 @@ def afficher_dashboard(user):
     with col3:
         # Afficher uniquement les jokers restants (sans les gris)
         doubles_icons = "⚡ " * stats['jokers_doubles'] if stats['jokers_doubles'] > 0 else "0"
-        voles_icons = "🎯 " * stats['jokers_voles'] if stats['jokers_voles'] > 0 else "0"
+        voles_icons = "🃏 " * stats['jokers_voles'] if stats['jokers_voles'] > 0 else "0"
 
         st.markdown(f"""
         <div class="stat-box">
@@ -391,7 +391,7 @@ def afficher_dashboard(user):
             <div style="font-size: 1.5em; margin: 5px 0;">
                 <span style="color: #FFD700;">{voles_icons.strip()}</span>
             </div>
-            <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles ({stats['jokers_doubles']}/3) | 🎯 Voles ({stats['jokers_voles']}/2)</div>
+            <div style="color: #AAAAAA; font-size: 0.7em;">⚡ Doubles ({stats['jokers_doubles']}/3) | 🃏 Voles ({stats['jokers_voles']}/2)</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -467,7 +467,7 @@ def afficher_dashboard(user):
         if type_joker == 'DOUBLE':
             st.info("⚡ **Points Doubles** joue cette semaine")
         elif type_joker == 'VOL':
-            st.info("🎯 **Points Voles** joue cette semaine")
+            st.info("🃏 **Points Voles** joue cette semaine")
 
     # Recuperer et afficher les pronostics
     from modules.pronostics_st import get_pronos_existants, get_matchs_semaine

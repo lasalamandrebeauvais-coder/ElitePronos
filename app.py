@@ -1141,7 +1141,7 @@ else:
                                 jokers_html = '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #444;">'
                                 jokers_html += '<span style="color: #FFD700; font-size: 0.8em;">⚡ JOKERS: </span>'
                                 for j in synthese['jokers']:
-                                    icon = "⚡" if j['type'] == "DOUBLE" else "🎯"
+                                    icon = "⚡" if j['type'] == "DOUBLE" else "🃏"
                                     jokers_html += f'<span style="color: #00BFFF; font-size: 0.8em;">{icon} {j["pseudo"]} </span>'
                                 jokers_html += '</div>'
 
@@ -1197,7 +1197,7 @@ else:
                             my_joker_icon = ""
                             if my_joker:
                                 jt = my_joker[0].get('type_joker', '')
-                                my_joker_icon = "⚡" if jt == "DOUBLE" else "🎯" if jt == "VOL" else ""
+                                my_joker_icon = "⚡" if jt == "DOUBLE" else "🃏" if jt == "VOL" else ""
 
                             my_total = round(sum(p.get('points_gagnes') or 0 for p in my_pronos), 2)
                             my_color = "#00FF00" if my_total >= 0 else "#FF4444"
@@ -1212,6 +1212,7 @@ else:
                                     continue
                                 m_p = p['matches']
                                 ph, pa, mise = p['score_prono_home'], p['score_prono_away'], p['mise_points']
+                                mise_gc = p.get('mise_bonus_gc') or 0
                                 pts = round(p.get('points_gagnes') or 0, 2)
                                 sh, sa = m_p.get('score_final_home'), m_p.get('score_final_away')
                                 if sh is not None:
@@ -1221,12 +1222,15 @@ else:
                                     icon_me, score_d = "⏳", "-"
                                 pts_c = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                 jd = my_joker_icon
+                                gc_display = f'🏆{mise_gc}' if mise_gc > 0 else '—'
+                                gc_color = "#FFD700" if mise_gc > 0 else "#444"
                                 html_me += f'<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">'
                                 html_me += f'<span style="color:#FFFFFF;flex:3;text-align:left;">{m_p["equipe_home"][:12]} - {m_p["equipe_away"][:12]}</span>'
                                 cote_me = m_p.get('cote_home', 2.0) if ph > pa else m_p.get('cote_away', 2.0) if ph < pa else m_p.get('cote_draw', 3.0)
                                 html_me += f'<span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>'
                                 html_me += f'<span style="color:#FFA500;flex:0.8;text-align:center;">{cote_me}</span>'
                                 html_me += f'<span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>'
+                                html_me += f'<span style="color:{gc_color};flex:0.8;text-align:center;">{gc_display}</span>'
                                 html_me += f'<span style="color:#FF00FF;flex:0.5;text-align:center;">{jd}</span>'
                                 html_me += f'<span style="color:#00FF00;flex:1.5;text-align:center;">{score_d} {icon_me}</span>'
                                 html_me += f'<span style="color:{pts_c};flex:1;text-align:right;">{"+" if pts > 0 else ""}{pts}</span></div>'
@@ -1271,23 +1275,31 @@ else:
                                 if uid not in pronos_par_joueur:
                                     pronos_par_joueur[uid] = []
                                 if p.get('matches'):
-                                    pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away'), p['matches'].get('cote_home', 2.0), p['matches'].get('cote_draw', 3.0), p['matches'].get('cote_away', 2.0)))
+                                    pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('mise_bonus_gc') or 0, p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away'), p['matches'].get('cote_home', 2.0), p['matches'].get('cote_draw', 3.0), p['matches'].get('cote_away', 2.0)))
+
+                            # Detecter les joueurs avec bonus GC actif (au moins 1 mise_bonus_gc > 0)
+                            joueurs_avec_gc = set()
+                            for uid, pronos_list in pronos_par_joueur.items():
+                                if any(p[5] > 0 for p in pronos_list):
+                                    joueurs_avec_gc.add(uid)
 
                             for joueur_id, pseudo, total_pts in joueurs_journee:
                                 joker_type = jokers_map.get(joueur_id)
-                                joker_icon = "⚡" if joker_type == "DOUBLE" else "🎯" if joker_type == "VOL" else "-"
+                                joker_icon = "⚡" if joker_type == "DOUBLE" else "🃏" if joker_type == "VOL" else "-"
                                 pronos_joueur = pronos_par_joueur.get(joueur_id, [])
+                                has_gc = joueur_id in joueurs_avec_gc
 
                                 total_color = "#00FF00" if total_pts >= 0 else "#FF4444"
+                                gc_badge = ' <span style="background:#FFD700;color:#000;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:bold;">🏆 GC</span>' if has_gc else ''
                                 st.markdown(f"""
-                                <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid #D4AF37; border-radius: 10px; padding: 12px; margin: 10px 0;">
+                                <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid {'#FFD700' if has_gc else '#D4AF37'}; border-radius: 10px; padding: 12px; margin: 10px 0;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #D4AF37;">
-                                        <span style="color: #D4AF37; font-weight: bold;">👤 {pseudo}</span>
+                                        <span style="color: #D4AF37; font-weight: bold;">👤 {pseudo}{gc_badge}</span>
                                         <span style="color: {total_color}; font-weight: bold;">{'+' if total_pts > 0 else ''}{total_pts} pts</span>
                                     </div>
                                 """, unsafe_allow_html=True)
 
-                                for home, away, ph, pa, mise, pts_gagnes, score_h, score_a, c_h, c_n, c_a in pronos_joueur:
+                                for home, away, ph, pa, mise, mise_gc, pts_gagnes, score_h, score_a, c_h, c_n, c_a in pronos_joueur:
                                     if score_h is not None:
                                         icon = "🎯" if (ph == score_h and pa == score_a) else "✅" if ((ph > pa and score_h > score_a) or (ph < pa and score_h < score_a) or (ph == pa and score_h == score_a)) else "❌"
                                         score_display = f"{score_h}-{score_a}"
@@ -1297,11 +1309,14 @@ else:
                                     pts = round(pts_gagnes, 2) if pts_gagnes else 0
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                     joker_display = joker_icon
+                                    gc_display = f'🏆{mise_gc}' if mise_gc > 0 else '—'
+                                    gc_color = "#FFD700" if mise_gc > 0 else "#444"
                                     st.markdown(f"""<div style="display:flex;padding:4px 0;border-top:1px solid #333;font-size:0.8em;">
                                         <span style="color:#FFFFFF;flex:3;text-align:left;">{home[:12]} - {away[:12]}</span>
                                         <span style="color:#4488FF;flex:1;text-align:center;">{ph}-{pa}</span>
                                         <span style="color:#FFA500;flex:0.8;text-align:center;">{cote_r}</span>
                                         <span style="color:#FFD700;flex:1;text-align:center;">{mise}</span>
+                                        <span style="color:{gc_color};flex:0.8;text-align:center;">{gc_display}</span>
                                         <span style="color:#FF00FF;flex:0.5;text-align:center;">{joker_display}</span>
                                         <span style="color:#00FF00;flex:1.5;text-align:center;">{score_display} {icon}</span>
                                         <span style="color:{pts_color};flex:1;text-align:right;">{'+' if pts > 0 else ''}{pts}</span>
@@ -1424,7 +1439,7 @@ else:
                                     r = str(rang).rjust(3)
 
                                 jt = jokers_map_recap.get(uid, '')
-                                j = '⚡' if jt == 'double' else '🎯' if jt == 'vol' else '-'
+                                j = '⚡' if jt == 'double' else '🃏' if jt == 'vol' else '-'
 
                                 bg = '#002040' if idx % 2 == 0 else '#001a35'
                                 html += f'<tr style="background:{bg};color:#FFF;">'

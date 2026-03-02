@@ -1060,13 +1060,13 @@ def get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_
         def _fetch(user_id, saison_id, journee_courante, match_ids_str):
             from modules.supabase_db import get_supabase
             return get_supabase()._request('GET',
-                f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
+                f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
             ) or []
         return _fetch(user_id, saison_id, journee_courante, match_ids_str)
     except Exception:
         from modules.supabase_db import get_supabase
         return get_supabase()._request('GET',
-            f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
+            f'predictions?user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(id,equipe_home,equipe_away,semaine_id,saison_id,score_final_home,score_final_away,cote_home,cote_draw,cote_away)&matches.saison_id=eq.{saison_id}&matches.semaine_id=eq.{journee_courante}'
         ) or []
 
 
@@ -1093,7 +1093,7 @@ def get_rivaux_predictions_cached(rivaux_ids_str, match_ids_str, journee_courant
             from modules.supabase_db import get_supabase
             sb = get_supabase()
             predictions = sb._request('GET',
-                f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
+                f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
             ) or []
             jokers = sb._request('GET',
                 f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
@@ -1104,7 +1104,7 @@ def get_rivaux_predictions_cached(rivaux_ids_str, match_ids_str, journee_courant
         from modules.supabase_db import get_supabase
         sb = get_supabase()
         predictions = sb._request('GET',
-            f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
+            f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
         ) or []
         jokers = sb._request('GET',
             f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'

@@ -439,7 +439,7 @@ def afficher_pronostics(user):
                     margin: 10px 0;
                     text-align: center;
                 ">
-                    <span style="color: #FF6B6B; font-size: 1.1em;">🎯 Joker actif: <b>Points Voles</b></span><br>
+                    <span style="color: #FF6B6B; font-size: 1.1em;">🃏 Joker actif: <b>Points Voles</b></span><br>
                     <span style="color: #FFFFFF; font-size: 0.9em;">Cible: <b>{cible_pseudo}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
@@ -606,7 +606,7 @@ def afficher_pronostics(user):
             )
         with jk2:
             st.checkbox(
-                f"🎯 Points Voles ({stock_voles}/2)",
+                f"🃏 Points Voles ({stock_voles}/2)",
                 value=default_vole,
                 key="chk_joker_vole",
                 disabled=(stock_voles <= 0)
@@ -615,7 +615,7 @@ def afficher_pronostics(user):
         # Cible VOL - toujours affichee (pas de rerun conditionnel dans un form)
         if autres_joueurs:
             st.selectbox(
-                "🎯 Cible du vol *(ignore si Points Voles non coche)*",
+                "🃏 Cible du vol *(ignore si Points Voles non coche)*",
                 joueur_pseudos,
                 index=default_cible_index,
                 key="select_cible_vol"

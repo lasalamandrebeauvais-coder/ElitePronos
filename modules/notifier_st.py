@@ -469,6 +469,170 @@ def email_lancement_saison(utilisateur):
 def email_prospection(lien_inscription="https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"):
     """Email de prospection/lancement pour inviter de nouveaux joueurs"""
 
+    # --- Bloc Tendances (barres colorees imitant l'app) ---
+    tendances_html = '''
+    <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+        <h3 style="color: #FFD700; margin: 0 0 4px 0; font-size: 15px;">📊 Tendances des Pronos</h3>
+        <p style="color: #666; font-size: 11px; margin: 0 0 14px 0;">Repartition 1 / N / 2 par match</p>
+
+        <!-- Match 1 -->
+        <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+            <div style="color: #ccc; font-size: 12px; margin-bottom: 7px;">RC Strasbourg Alsace vs Racing Club de Lens</div>
+            <div style="display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #333;">
+                <div style="width: 100%; background: linear-gradient(135deg, #27ae60, #2ecc71); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #fff; font-size: 11px; font-weight: bold;">100%</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #666;">
+                <span>🏠 Dom</span><span>🤝 Nul</span><span>✈️ Ext</span>
+            </div>
+        </div>
+
+        <!-- Match 2 -->
+        <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+            <div style="color: #ccc; font-size: 12px; margin-bottom: 7px;">Stade Rennais FC 1901 vs Toulouse FC</div>
+            <div style="display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #333;">
+                <div style="width: 100%; background: linear-gradient(135deg, #27ae60, #2ecc71); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #fff; font-size: 11px; font-weight: bold;">100%</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #666;">
+                <span>🏠 Dom</span><span>🤝 Nul</span><span>✈️ Ext</span>
+            </div>
+        </div>
+
+        <!-- Match 3 -->
+        <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+            <div style="color: #ccc; font-size: 12px; margin-bottom: 7px;">Olympique de Marseille vs Olympique Lyonnais</div>
+            <div style="display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #333;">
+                <div style="width: 67%; background: linear-gradient(135deg, #27ae60, #2ecc71); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #fff; font-size: 11px; font-weight: bold;">67%</span>
+                </div>
+                <div style="width: 33%; background: linear-gradient(135deg, #7f8c8d, #95a5a6); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #fff; font-size: 11px; font-weight: bold;">33%</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #666;">
+                <span>🏠 Dom</span><span>🤝 Nul</span><span>✈️ Ext</span>
+            </div>
+        </div>
+
+        <!-- Match 4 -->
+        <div style="margin: 10px 0; padding: 12px; background: #1a1a2e; border-radius: 8px;">
+            <div style="color: #ccc; font-size: 12px; margin-bottom: 7px;">AS Roma vs Juventus FC</div>
+            <div style="display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: #333;">
+                <div style="width: 100%; background: linear-gradient(135deg, #27ae60, #2ecc71); display: flex; align-items: center; justify-content: center;">
+                    <span style="color: #fff; font-size: 11px; font-weight: bold;">100%</span>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: #666;">
+                <span>🏠 Dom</span><span>🤝 Nul</span><span>✈️ Ext</span>
+            </div>
+        </div>
+    </div>
+    '''
+
+    # --- Bloc Recap des paris (tableau rivaux) ---
+    recap_html = '''
+    <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0; overflow-x: auto;">
+        <h3 style="color: #FFD700; margin: 0 0 12px 0; font-size: 15px;">🕵️ Recap des Paris — les mises de vos rivaux</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <thead>
+                <tr style="background: linear-gradient(135deg, #D4AF37, #B8960C);">
+                    <th style="padding: 8px 6px; color: #001a35; text-align: left; border-radius: 4px 0 0 0;">#</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: left;">Pseudo</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: center;">🃏</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: center;">Strasbourg<br>vs Lens</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: center;">Rennes<br>vs Toulouse</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: center;">OM<br>vs OL</th>
+                    <th style="padding: 8px 6px; color: #001a35; text-align: center; border-radius: 0 4px 0 0;">Roma<br>vs Juve</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background: #002040;">
+                    <td style="padding: 7px 6px; color: #FFD700; font-weight: bold;">1</td>
+                    <td style="padding: 7px 6px; color: #fff; font-weight: bold;">baggio</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #FFD700;">x2</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">2-0<br><span style="color: #e74c3c; font-size: 10px;">(30)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-0<br><span style="color: #e74c3c; font-size: 10px;">(25)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">2-1<br><span style="color: #e74c3c; font-size: 10px;">(30)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-0<br><span style="color: #e74c3c; font-size: 10px;">(15)</span></td>
+                </tr>
+                <tr style="background: #001a35;">
+                    <td style="padding: 7px 6px; color: #aaa;">2</td>
+                    <td style="padding: 7px 6px; color: #ccc;">jey</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #666;">—</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-1<br><span style="color: #e74c3c; font-size: 10px;">(20)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">2-0<br><span style="color: #e74c3c; font-size: 10px;">(35)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-0<br><span style="color: #e74c3c; font-size: 10px;">(25)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">0-1<br><span style="color: #e74c3c; font-size: 10px;">(20)</span></td>
+                </tr>
+                <tr style="background: #002040;">
+                    <td style="padding: 7px 6px; color: #aaa;">3</td>
+                    <td style="padding: 7px 6px; color: #ccc;">jbdb</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #9b59b6;">🎭</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">3-1<br><span style="color: #e74c3c; font-size: 10px;">(15)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-0<br><span style="color: #e74c3c; font-size: 10px;">(40)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">2-0<br><span style="color: #e74c3c; font-size: 10px;">(20)</span></td>
+                    <td style="padding: 7px 6px; text-align: center; color: #ccc;">1-1<br><span style="color: #e74c3c; font-size: 10px;">(25)</span></td>
+                </tr>
+                <tr style="background: #001a35;">
+                    <td style="padding: 7px 6px; color: #aaa;">?</td>
+                    <td style="padding: 7px 6px; color: #FFD700; font-style: italic;">Vous ?</td>
+                    <td style="padding: 7px 6px; text-align: center; color: #666;">—</td>
+                    <td colspan="4" style="padding: 7px 6px; text-align: center; color: #888; font-style: italic;">Inscrivez-vous pour jouer !</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    '''
+
+    # --- Bloc Classement general ---
+    classement_html = '''
+    <div style="background: #0a0a1a; border: 1px solid #444; border-radius: 10px; padding: 15px; margin: 20px 0;">
+        <h3 style="color: #FFD700; margin: 0 0 12px 0; font-size: 15px;">🏆 Classement General</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+                <tr style="background: linear-gradient(135deg, #D4AF37, #B8960C);">
+                    <th style="padding: 8px 10px; color: #001a35; text-align: left;">Rang</th>
+                    <th style="padding: 8px 10px; color: #001a35; text-align: left;">Pseudo</th>
+                    <th style="padding: 8px 10px; color: #001a35; text-align: right;">Points</th>
+                    <th style="padding: 8px 10px; color: #001a35; text-align: center;">Bons</th>
+                    <th style="padding: 8px 10px; color: #001a35; text-align: center;">Exacts</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background: #002040;">
+                    <td style="padding: 9px 10px; color: #FFD700; font-size: 16px;">🥇</td>
+                    <td style="padding: 9px 10px; color: #FFD700; font-weight: bold;">baggio</td>
+                    <td style="padding: 9px 10px; color: #FFD700; font-weight: bold; text-align: right;">1135.5</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">13</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">2</td>
+                </tr>
+                <tr style="background: #001a35;">
+                    <td style="padding: 9px 10px; color: #C0C0C0; font-size: 16px;">🥈</td>
+                    <td style="padding: 9px 10px; color: #ccc; font-weight: bold;">jey</td>
+                    <td style="padding: 9px 10px; color: #ccc; font-weight: bold; text-align: right;">774.1</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">10</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">0</td>
+                </tr>
+                <tr style="background: #002040;">
+                    <td style="padding: 9px 10px; color: #CD7F32; font-size: 16px;">🥉</td>
+                    <td style="padding: 9px 10px; color: #ccc; font-weight: bold;">jbdb</td>
+                    <td style="padding: 9px 10px; color: #ccc; font-weight: bold; text-align: right;">592.0</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">12</td>
+                    <td style="padding: 9px 10px; color: #ccc; text-align: center;">1</td>
+                </tr>
+                <tr style="background: #001a35; border-top: 1px dashed #444;">
+                    <td style="padding: 9px 10px; color: #888; font-size: 13px;">?</td>
+                    <td style="padding: 9px 10px; color: #FFD700; font-style: italic;">Vous ?</td>
+                    <td colspan="3" style="padding: 9px 10px; color: #888; font-style: italic; text-align: center;">Votre place vous attend</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    '''
+
     content = f'''
     <h2 style="color: #FFD700; text-align: center;">L'heritage de Gillou continue :<br>Elite Pronos passe au niveau superieur !</h2>
 
@@ -522,6 +686,10 @@ def email_prospection(lien_inscription="https://elitepronos-thnb3wvag3b8szfkoapp
         </tr>
     </table>
 
+    {tendances_html}
+
+    {recap_html}
+
     <div class="highlight-box">
         <div style="font-size: 1.2em; color: #FFD700; font-weight: bold;">
             Reprenez votre place dans l'arene !
@@ -532,6 +700,8 @@ def email_prospection(lien_inscription="https://elitepronos-thnb3wvag3b8szfkoapp
             pour relancer la machine.
         </p>
     </div>
+
+    {classement_html}
 
     <p style="text-align: center;">
         <a href="{lien_inscription}" class="button">Decouvrir l'application et s'inscrire</a>
@@ -1355,8 +1525,8 @@ def envoyer_synthese_paris(semaine_id):
     from modules.supabase_db import get_supabase
     supabase = get_supabase()
 
-    # Recuperer les matchs de la semaine
-    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&select=id,equipe_home,equipe_away,score_final_home') or []
+    # Recuperer les 4 matchs actifs de la journee
+    matchs = supabase._request('GET', f'matches?semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home&order=date_match') or []
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
