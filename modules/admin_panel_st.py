@@ -96,8 +96,22 @@ def get_tous_utilisateurs():
 
 def activer_compte(user_id):
     """Active le compte d'un utilisateur et envoie l'email de bienvenue"""
+    from modules.database_manager import get_saison_actuelle
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'Actif'})
+
+    # Initialiser le stock de jokers si pas encore existant (3 DOUBLE + 2 VOL)
+    saison_id = get_saison_actuelle()
+    stock_existant = supabase._request('GET',
+        f'stock_jokers?utilisateur_id=eq.{user_id}&saison_id=eq.{saison_id}&select=id'
+    ) or []
+    if not stock_existant:
+        supabase._request('POST', 'stock_jokers', {
+            'utilisateur_id': user_id,
+            'saison_id': saison_id,
+            'joker_double': 3,
+            'joker_vol': 2
+        })
 
     # Envoyer l'email de bienvenue
     user_data = supabase._request('GET', f'utilisateurs?id=eq.{user_id}&select=pseudo,prenom,email')
