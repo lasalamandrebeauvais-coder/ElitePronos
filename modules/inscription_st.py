@@ -197,7 +197,8 @@ def afficher_formulaire_inscription():
         st.markdown("")
         if st.button("CONTINUER", type="primary", use_container_width=True):
             st.session_state.inscription_reussie = False
-            st.session_state.inscription_pseudo = None
+            st.session_state.post_inscription_pseudo = pseudo
+            st.session_state.page = "post_inscription"
             st.rerun()
         return
 
@@ -474,3 +475,156 @@ def afficher_formulaire_inscription():
                     st.session_state.inscription_parrain_tmp = parrain.strip()
                     st.session_state.inscription_avatar_tmp = uploaded_file
                     st.rerun()
+
+
+def afficher_post_inscription():
+    """Page de bienvenue apres inscription - Kingo + matchs en lecture seule"""
+    import random
+    from datetime import datetime as _dt_now
+
+    pseudo = st.session_state.get('post_inscription_pseudo', 'nouveau membre')
+    date_str = _dt_now.now().strftime("%d/%m/%Y")
+
+    messages_kingo = [
+        f"Tiens tiens tiens... Un nouveau venu dans l'arene ! {pseudo} debarque les mains dans les poches et la confiance plein les yeux. Kingo t'observe, petit. La gloire du pronostic ne s'improvise pas — elle se gagne journee apres journee, match apres match. Ton compte est en cours de validation. Profites-en pour etudier les matchs ci-dessous... et reflechir a ta strategie.",
+        f"Ah, {pseudo} ! Enfin une recrue de plus pour animer la competition. Kingo a vu defiler des dizaines de joueurs persuades d'etre les meilleurs. Certains l'etaient. Les autres... disons qu'ils ont eu le temps d'apprendre. Ton inscription est transmise aux administrateurs. D'ici peu, tu rejoindras l'arene. Prepare-toi — les matchs n'attendent pas.",
+        f"Bienvenue dans Elite Pronos, {pseudo}. Ici on ne parie pas au hasard — on analyse, on anticipe, on prend des risques calcules. Kingo est curieux de voir ce que tu vaux. Ton compte est en attente de validation par un administrateur. En attendant, jette un oeil aux prochains matchs. Le temps de la preparation, c'est maintenant.",
+        f"Un nouveau challenger entre dans la place ! {pseudo}, bienvenue. Kingo te souhaite la bienvenue... et te previent : la bienveillance s'arrete ici. Sur le terrain des pronostics, chacun defend ses points avec acharnement. Ton compte sera valide sous peu. Observe les matchs a venir — et commence a reflechir.",
+    ]
+    message_kingo = random.choice(messages_kingo)
+
+    # === KINGO NEWS : message de bienvenue ===
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1a2e 100%);
+        border: 2px solid #D4AF37;
+        border-radius: 12px;
+        padding: 0;
+        margin: 0 0 20px 0;
+        overflow: hidden;
+    ">
+        <div style="
+            background: linear-gradient(90deg, #D4AF37 0%, #B8960C 100%);
+            padding: 8px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        ">
+            <span style="color:#000; font-size:1.1em; font-weight:900; letter-spacing:1px; text-transform:uppercase;">
+                KINGO NEWS
+            </span>
+            <span style="color:#000; font-size:0.75em; font-weight:600;">
+                Bienvenue &mdash; {date_str}
+            </span>
+        </div>
+        <div style="padding: 18px 20px 15px 20px;">
+            <div style="color:#D4AF37; font-size:1.15em; font-weight:800; margin-bottom:6px;">
+                Nouveau membre : {pseudo}
+            </div>
+            <div style="color:#8b949e; font-size:0.8em; font-style:italic; margin-bottom:12px;
+                        padding-bottom:10px; border-bottom:1px solid #30363d;">
+                Par Kingo, le roi des pronostics
+            </div>
+            <div style="color:#e6edf3; font-size:1.05em; line-height:1.7; text-align:justify;">
+                {message_kingo}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # === NOTICE VALIDATION ===
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #1a2a0a 0%, #2a3a1a 100%);
+        border: 1px solid #4CAF50;
+        border-radius: 10px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+        text-align: center;
+    ">
+        <span style="color:#4CAF50; font-weight:bold;">&#10003; Inscription enregistree</span>
+        <span style="color:#CCCCCC; font-size:0.9em;">
+            &nbsp;&mdash;&nbsp; Un administrateur va valider ton compte prochainement.
+            Tu recevras un email de confirmation.
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # === MATCHS DE LA JOURNEE (lecture seule) ===
+    try:
+        from modules.database_manager import get_saison_actuelle, get_journee_courante, get_matchs_journee_cached
+        saison_id = get_saison_actuelle()
+        journee = get_journee_courante(saison_id)
+        matchs = get_matchs_journee_cached(saison_id, journee)
+
+        if matchs:
+            st.markdown(f"""
+            <div style="color:#D4AF37; font-size:1.1em; font-weight:bold;
+                        margin-bottom:12px; border-bottom:1px solid #D4AF37; padding-bottom:6px;">
+                Pronostics Journee {journee} &mdash; apercu
+            </div>
+            """, unsafe_allow_html=True)
+
+            for m in matchs:
+                home = m.get('equipe_home', '?')
+                away = m.get('equipe_away', '?')
+                date_match = m.get('date_match', '')
+                try:
+                    from datetime import datetime as _dt
+                    dt = _dt.fromisoformat(date_match.replace('Z', '+00:00'))
+                    date_fmt = dt.strftime("%d/%m %H:%M")
+                except Exception:
+                    date_fmt = date_match[:16] if date_match else '?'
+
+                cote_h = m.get('cote_home', '-')
+                cote_n = m.get('cote_draw', '-')
+                cote_a = m.get('cote_away', '-')
+
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 100%);
+                    border: 1px solid #2a3a5a;
+                    border-radius: 10px;
+                    padding: 12px 16px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                ">
+                    <div style="flex:1; text-align:right; color:#FFFFFF; font-weight:bold; font-size:0.95em;">
+                        {home}
+                    </div>
+                    <div style="text-align:center; min-width:110px;">
+                        <div style="color:#FFD700; font-size:0.75em; margin-bottom:3px;">{date_fmt}</div>
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            <span style="background:#0d2137; color:#4CAF50; border-radius:5px;
+                                         padding:2px 7px; font-size:0.8em; font-weight:bold;">{cote_h}</span>
+                            <span style="background:#0d2137; color:#FFD700; border-radius:5px;
+                                         padding:2px 7px; font-size:0.8em; font-weight:bold;">{cote_n}</span>
+                            <span style="background:#0d2137; color:#FF6B6B; border-radius:5px;
+                                         padding:2px 7px; font-size:0.8em; font-weight:bold;">{cote_a}</span>
+                        </div>
+                    </div>
+                    <div style="flex:1; text-align:left; color:#FFFFFF; font-weight:bold; font-size:0.95em;">
+                        {away}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("""
+            <div style="color:#666; font-size:0.8em; text-align:center; margin-top:5px; font-style:italic;">
+                Connecte-toi une fois valide pour saisir tes pronostics
+            </div>
+            """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.info("Les matchs seront visibles une fois ton compte valide.")
+
+    # === BOUTON RETOUR CONNEXION ===
+    st.markdown("---")
+    if st.button("ALLER A LA CONNEXION", type="primary", use_container_width=True):
+        st.session_state.pop('post_inscription_pseudo', None)
+        st.session_state.page = "Connexion"
+        st.rerun()

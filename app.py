@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # Import des modules (Supabase uniquement)
-from modules.inscription_st import afficher_formulaire_inscription
+from modules.inscription_st import afficher_formulaire_inscription, afficher_post_inscription
 from modules.admin_panel_st import afficher_panel_admin
 from modules.login_st import (
     afficher_formulaire_login,
@@ -634,20 +634,24 @@ if not is_logged_in():
     st.sidebar.markdown("### Bienvenue!")
     st.sidebar.info("Connectez-vous pour acceder a votre espace.")
 
-    pages = ["Connexion", "S'inscrire"]
-    default_index = pages.index(st.session_state.page) if st.session_state.page in pages else 0
+    # Page post-inscription : pas de menu, affichage direct
+    if st.session_state.page == "post_inscription":
+        afficher_post_inscription()
+    else:
+        pages = ["Connexion", "S'inscrire"]
+        default_index = pages.index(st.session_state.page) if st.session_state.page in pages else 0
 
-    menu = st.sidebar.selectbox("Navigation", pages, index=default_index, label_visibility="collapsed")
+        menu = st.sidebar.selectbox("Navigation", pages, index=default_index, label_visibility="collapsed")
 
-    if menu != st.session_state.page:
-        st.session_state.page = menu
+        if menu != st.session_state.page:
+            st.session_state.page = menu
 
-    # Afficher la page correspondante
-    if menu == "Connexion":
-        afficher_formulaire_login()
+        # Afficher la page correspondante
+        if menu == "Connexion":
+            afficher_formulaire_login()
 
-    elif menu == "S'inscrire":
-        afficher_formulaire_inscription()
+        elif menu == "S'inscrire":
+            afficher_formulaire_inscription()
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("<small>Elite Pronos v1.0</small>", unsafe_allow_html=True)
