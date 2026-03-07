@@ -782,48 +782,48 @@ def email_bienvenue(utilisateur):
     </div>
 
     <!-- REPARTITION DES RECOMPENSES -->
-    <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #00FF00; border-radius: 10px; padding: 20px; margin: 25px 0;">
-        <h3 style="color: #00FF00; margin-top: 0;">Repartition des Recompenses</h3>
-        <p style="color: #AAAAAA; font-style: italic;">Cagnotte nette = nombre de joueurs x 45 &euro;, apres deduction des prix fixes.</p>
+    <div style="background: #f9f6e8; border: 2px solid #B8860B; border-radius: 10px; padding: 20px; margin: 25px 0;">
+        <h3 style="color: #B8860B; margin-top: 0;">Repartition des Recompenses</h3>
+        <p style="color: #555555; font-style: italic;">Cagnotte nette = nombre de joueurs x 45 euros, apres deduction des prix fixes.</p>
 
-        <p style="color: #FFD700; margin-top: 15px;"><strong>Prix Fixes (preleves en premier) :</strong></p>
-        <ul style="color: #ffffff; margin-left: 20px;">
-            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Meilleur score d'une journee :</span> 50 &euro;</li>
-            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Plus de paris reussis sur la saison :</span> 25 &euro;</li>
+        <p style="color: #333333; margin-top: 15px;"><strong>Prix Fixes (preleves en premier) :</strong></p>
+        <ul style="color: #333333; margin-left: 20px;">
+            <li style="margin: 8px 0;"><strong>Meilleur score d'une journee :</strong> 50 euros</li>
+            <li style="margin: 8px 0;"><strong>Plus de paris reussis sur la saison :</strong> 25 euros</li>
         </ul>
 
         <!-- TOP 3 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs - 3 joueurs recompenses</strong></p>
-        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
-            1er place : <strong>50%</strong><br>
-            2e place : <strong>30%</strong><br>
-            3e place : <strong>20%</strong>
+        <p style="color: #B8860B; margin-top: 20px;"><strong>Jusqu'a 20 joueurs - 3 joueurs recompenses</strong></p>
+        <p style="color: #333333; margin: 8px 0 0 15px; line-height: 2.2;">
+            1er place : <strong style="font-size: 1.05em;">50%</strong><br>
+            2e place : <strong style="font-size: 1.05em;">30%</strong><br>
+            3e place : <strong style="font-size: 1.05em;">20%</strong>
         </p>
 
         <!-- TOP 5 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>De 21 a 40 joueurs - 5 joueurs recompenses</strong></p>
-        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
-            1er place : <strong>le reste de la cagnotte</strong><br>
-            2e place : <strong>25%</strong><br>
-            3e place : <strong>20%</strong><br>
-            4e place : <strong>10%</strong><br>
-            5e place : <strong>50 euros garantis</strong>
+        <p style="color: #B8860B; margin-top: 20px;"><strong>De 21 a 40 joueurs - 5 joueurs recompenses</strong></p>
+        <p style="color: #333333; margin: 8px 0 0 15px; line-height: 2.2;">
+            1er place : <strong style="font-size: 1.05em;">le reste de la cagnotte</strong><br>
+            2e place : <strong style="font-size: 1.05em;">25%</strong><br>
+            3e place : <strong style="font-size: 1.05em;">20%</strong><br>
+            4e place : <strong style="font-size: 1.05em;">10%</strong><br>
+            5e place : <strong style="font-size: 1.05em;">50 euros garantis</strong>
         </p>
 
         <!-- TOP 7 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>41 joueurs et plus - 7 joueurs recompenses</strong></p>
-        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
-            1er place : <strong>le reste de la cagnotte</strong><br>
-            2e place : <strong>20%</strong><br>
-            3e place : <strong>15%</strong><br>
-            4e place : <strong>12%</strong><br>
-            5e place : <strong>9%</strong><br>
-            6e place : <strong>6%</strong><br>
-            7e place : <strong>50 euros garantis</strong>
+        <p style="color: #B8860B; margin-top: 20px;"><strong>41 joueurs et plus - 7 joueurs recompenses</strong></p>
+        <p style="color: #333333; margin: 8px 0 0 15px; line-height: 2.2;">
+            1er place : <strong style="font-size: 1.05em;">le reste de la cagnotte</strong><br>
+            2e place : <strong style="font-size: 1.05em;">20%</strong><br>
+            3e place : <strong style="font-size: 1.05em;">15%</strong><br>
+            4e place : <strong style="font-size: 1.05em;">12%</strong><br>
+            5e place : <strong style="font-size: 1.05em;">9%</strong><br>
+            6e place : <strong style="font-size: 1.05em;">6%</strong><br>
+            7e place : <strong style="font-size: 1.05em;">50 euros garantis</strong>
         </p>
 
-        <p style="color: #AAAAAA; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
-            Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
+        <p style="color: #555555; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #cccccc;">
+            Le versement de vos gains s'effectuera <strong style="color: #B8860B;">15 jours</strong> apres le coup de sifflet final du championnat.
         </p>
     </div>
 
