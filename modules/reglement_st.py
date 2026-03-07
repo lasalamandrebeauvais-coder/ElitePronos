@@ -183,6 +183,24 @@ def afficher_reglement():
     st.markdown('<div class="point-titre">6.4 Bonus meilleur joueur consecutif</div>', unsafe_allow_html=True)
     st.markdown('<div class="point-texte">Si un joueur est designe meilleur joueur <span class="valeur-or">2 semaines de suite</span> : bonus de <span class="valeur-vert">+10 points</span>. Au-dela de 2 semaines consecutives : <span class="valeur-vert">+15 points</span> par semaine supplementaire.</div>', unsafe_allow_html=True)
 
+    # ARTICLE 7 : SECURITE DES DONNEES
+    st.markdown('<div class="article-titre">Article 7 - Securite des Donnees</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">7.1 Code PIN securise</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Chaque membre choisit un <span class="valeur-or">code PIN personnel</span> lors de son inscription. Pour garantir la securite du compte, le PIN doit respecter les regles suivantes : <span class="valeur-or">9 caracteres minimum</span>, dont <span class="valeur-vert">au moins 6 chiffres</span>, <span class="valeur-vert">au moins 2 lettres</span> et <span class="valeur-vert">au moins 1 symbole</span> (!, @, #, $, etc.). Ce code est confidentiel et ne doit jamais etre communique a un tiers.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">7.2 Verification de l\'email a l\'inscription</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Lors de l\'inscription, un <span class="valeur-or">code de verification a 6 caracteres</span> est envoye a l\'adresse email renseignee. Le compte n\'est cree qu\'apres saisie correcte de ce code (valable <span class="valeur-vert">10 minutes</span>). Cela garantit que chaque compte est associe a une adresse email valide et accessible.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">7.3 Protection contre les tentatives multiples</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Apres <span class="valeur-or">5 tentatives de connexion echouees</span> en moins de 30 minutes, l\'acces au compte est <span class="valeur-or">temporairement bloque pendant 30 minutes</span>. Le compteur est remis a zero automatiquement apres une connexion reussie. En cas de blocage injustifie, contactez un administrateur.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">7.4 Journal de connexion</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">La date et l\'heure de chaque <span class="valeur-or">derniere connexion reussie</span> sont enregistrees. Ces informations sont accessibles aux administrateurs et permettent de detecter toute activite inhabituelle sur un compte.</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="point-titre">7.5 Confidentialite et responsabilite</div>', unsafe_allow_html=True)
+    st.markdown('<div class="point-texte">Les donnees personnelles (prenom, email, telephone) sont utilisees <span class="valeur-or">exclusivement dans le cadre du jeu</span> et ne sont jamais revendues ni partagees avec des tiers. Chaque membre est responsable de la <span class="valeur-or">confidentialite de ses identifiants</span>. En cas de compromission suspectee, contactez immediatement un administrateur.</div>', unsafe_allow_html=True)
+
     # Footer
     st.markdown("---")
     st.caption("Reglement officiel Elite Pronos - Saison 2025-2026")

@@ -1628,6 +1628,55 @@ def envoyer_alerte_nouvel_inscrit(pseudo, prenom, parrain, email):
 ## (utilisaient SQLite, non appeles depuis l'admin)
 
 
+def email_confirmation_code(destinataire, pseudo, code):
+    """
+    Envoie un email avec le code de verification a 6 caracteres
+    lors de l'inscription.
+    Retourne (success, message)
+    """
+    content = f'''
+    <div style="
+        background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 100%);
+        border: 2px solid #D4AF37;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        margin: 20px 0;
+    ">
+        <h2 style="color: #D4AF37; margin-top: 0;">Verification de votre email</h2>
+        <p style="color: #FFFFFF; font-size: 1em;">
+            Bonjour <strong style="color: #FFD700;">{pseudo}</strong>,
+        </p>
+        <p style="color: #CCCCCC;">
+            Pour finaliser votre inscription sur Elite Pronos,<br>
+            saisissez le code ci-dessous dans le formulaire :
+        </p>
+        <div style="
+            background: #0a0a1a;
+            border: 2px solid #FFD700;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 250px;
+        ">
+            <span style="
+                font-size: 2.5em;
+                font-weight: bold;
+                color: #FFD700;
+                letter-spacing: 8px;
+                font-family: monospace;
+            ">{code}</span>
+        </div>
+        <p style="color: #AAAAAA; font-size: 0.85em;">
+            Ce code est valable 10 minutes.<br>
+            Si vous n'avez pas demande d'inscription, ignorez cet email.
+        </p>
+    </div>
+    '''
+    html = get_base_template(content, "Verification Email")
+    return send_email(destinataire, "Elite Pronos - Code de verification", html)
+
+
 def _generer_commentaire_email(stats):
     """
     Genere un commentaire ironique du bot pour l'email de synthese.

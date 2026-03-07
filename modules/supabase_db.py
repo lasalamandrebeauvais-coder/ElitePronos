@@ -88,6 +88,30 @@ class SupabaseClient:
         result = self._request('GET', f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=*')
         return result[0] if result else None
 
+    def log_login_attempt(self, pseudo):
+        """Enregistre une tentative de connexion echouee"""
+        self._request('POST', 'login_attempts', {'pseudo': pseudo})
+
+    def count_recent_attempts(self, pseudo, minutes=30):
+        """Compte les tentatives echouees des X dernieres minutes"""
+        from datetime import datetime, timezone, timedelta
+        since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+        result = self._request('GET',
+            f'login_attempts?pseudo=eq.{pseudo}&tentative_at=gte.{since}&select=id'
+        )
+        return len(result) if result else 0
+
+    def clear_attempts(self, pseudo):
+        """Supprime toutes les tentatives pour un pseudo (apres connexion reussie)"""
+        self._request('DELETE', f'login_attempts?pseudo=eq.{pseudo}')
+
+    def update_derniere_connexion(self, user_id):
+        """Met a jour la derniere connexion d'un utilisateur"""
+        from datetime import datetime, timezone
+        self._request('PATCH', f'utilisateurs?id=eq.{user_id}', {
+            'derniere_connexion': datetime.now(timezone.utc).isoformat()
+        })
+
     # ============================================
     # MATCHES
     # ============================================

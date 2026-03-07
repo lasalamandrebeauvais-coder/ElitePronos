@@ -174,16 +174,50 @@ def afficher_formulaire_login():
                     if not pseudo or not pin:
                         st.error("Veuillez remplir tous les champs.")
                     else:
-                        success, message, user_data = verifier_identifiants(pseudo, pin)
+                        from modules.supabase_db import get_supabase
+                        from datetime import datetime, timezone, timedelta
 
-                        if success:
-                            st.session_state.logged_in = True
-                            st.session_state.user = user_data
-                            st.session_state.page = "Accueil"
-                            st.success(message)
-                            st.rerun()
+                        client = get_supabase()
+                        MAX_ATTEMPTS = 5
+                        WINDOW_MINUTES = 30
+
+                        nb_tentatives = client.count_recent_attempts(pseudo, WINDOW_MINUTES)
+
+                        if nb_tentatives >= MAX_ATTEMPTS:
+                            # Calculer le temps restant avant deblocage
+                            since = (datetime.now(timezone.utc) - timedelta(minutes=WINDOW_MINUTES)).isoformat()
+                            attempts_data = client._request('GET',
+                                f'login_attempts?pseudo=eq.{pseudo}&tentative_at=gte.{since}&select=tentative_at&order=tentative_at.asc&limit=1'
+                            )
+                            if attempts_data:
+                                from datetime import datetime as dt
+                                premiere = dt.fromisoformat(attempts_data[0]['tentative_at'].replace('Z', '+00:00'))
+                                deblocage = premiere + timedelta(minutes=WINDOW_MINUTES)
+                                restant = int((deblocage - datetime.now(timezone.utc)).total_seconds() / 60) + 1
+                                st.error(
+                                    f"Compte temporairement bloque apres {MAX_ATTEMPTS} tentatives echouees. "
+                                    f"Reessayez dans {restant} minute(s)."
+                                )
+                            else:
+                                st.error(f"Compte temporairement bloque. Reessayez dans {WINDOW_MINUTES} minutes.")
                         else:
-                            st.error(message)
+                            success, message, user_data = verifier_identifiants(pseudo, pin)
+
+                            if success:
+                                client.clear_attempts(pseudo)
+                                client.update_derniere_connexion(user_data['id'])
+                                st.session_state.logged_in = True
+                                st.session_state.user = user_data
+                                st.session_state.page = "Accueil"
+                                st.success(message)
+                                st.rerun()
+                            else:
+                                client.log_login_attempt(pseudo)
+                                restantes = MAX_ATTEMPTS - nb_tentatives - 1
+                                if restantes > 0:
+                                    st.error(f"{message} ({restantes} tentative(s) restante(s) avant blocage)")
+                                else:
+                                    st.error(f"{message} Compte bloque pendant {WINDOW_MINUTES} minutes.")
 
             # Lien PIN oublie
             st.markdown("---")

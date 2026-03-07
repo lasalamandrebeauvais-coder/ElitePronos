@@ -23,12 +23,14 @@ try:
         get_countdown_j1,
         get_saison_actuelle
     )
-    from modules.notifier_st import envoyer_alerte_nouvel_inscrit
+    from modules.notifier_st import envoyer_alerte_nouvel_inscrit, email_confirmation_code
     HAS_MANAGER = True
 except ImportError:
     HAS_MANAGER = False
     def envoyer_alerte_nouvel_inscrit(*args):
         pass
+    def email_confirmation_code(*args):
+        return False, "Notifier indisponible"
     def get_saison_actuelle():
         return 2025
 
@@ -44,8 +46,28 @@ def valider_pseudo(pseudo):
 
 
 def valider_pin(pin):
-    """Verifie que le PIN a au moins 4 caracteres"""
-    return len(pin) >= 4 if pin else False
+    """
+    Verifie que le PIN respecte les regles de securite :
+    - Au moins 6 chiffres
+    - Au moins 2 lettres
+    - Au moins 1 symbole (!@#$%^&*...)
+    Retourne (valide: bool, criteres: dict)
+    """
+    import re
+    if not pin:
+        return False, {
+            'longueur': False,
+            'chiffres': False,
+            'lettres': False,
+            'symbole': False
+        }
+    criteres = {
+        'longueur': len(pin) >= 9,
+        'chiffres': len(re.findall(r'\d', pin)) >= 6,
+        'lettres': len(re.findall(r'[a-zA-Z]', pin)) >= 2,
+        'symbole': bool(re.search(r'[!@#$%^&*()\-_=+\[\]{};:\'",.<>?/\\|`~]', pin))
+    }
+    return all(criteres.values()), criteres
 
 
 def pseudo_existe(pseudo):
@@ -294,6 +316,72 @@ def afficher_formulaire_inscription():
 
     # === COLONNE DROITE : FORMULAIRE ===
     with col_form:
+
+        # --- ETAPE 2 : Saisie du code de confirmation email ---
+        if st.session_state.get('inscription_attente_code'):
+            st.markdown("### Verification email")
+            st.info(f"Un code a 6 caracteres a ete envoye a **{st.session_state.get('inscription_email_tmp', '')}**. Saisissez-le ci-dessous.")
+
+            code_saisi = st.text_input("Code de verification *", placeholder="Ex: A3F7K2", max_chars=6)
+
+            col_val, col_annuler = st.columns([2, 1])
+            with col_val:
+                if st.button("CONFIRMER LE CODE", type="primary", use_container_width=True):
+                    code_attendu = st.session_state.get('inscription_code_email', '')
+                    import time
+                    code_expire = (time.time() - st.session_state.get('inscription_code_ts', 0)) > 600
+
+                    if code_expire:
+                        st.error("Le code a expire (10 minutes). Recommencez l'inscription.")
+                        st.session_state.inscription_attente_code = False
+                    elif not code_saisi or code_saisi.upper() != code_attendu:
+                        st.error("Code incorrect. Verifiez votre email et reessayez.")
+                    else:
+                        # Code correct → creer le compte
+                        avatar_path = None
+                        if st.session_state.get('inscription_avatar_tmp') is not None:
+                            avatar_path = sauvegarder_avatar(
+                                st.session_state.inscription_avatar_tmp,
+                                st.session_state.inscription_pseudo_tmp
+                            )
+
+                        success, message = enregistrer_utilisateur(
+                            st.session_state.inscription_prenom_tmp,
+                            st.session_state.inscription_pseudo_tmp,
+                            st.session_state.inscription_email_tmp,
+                            st.session_state.inscription_telephone_tmp,
+                            st.session_state.inscription_pin_tmp,
+                            st.session_state.inscription_parrain_tmp,
+                            avatar_path
+                        )
+
+                        # Nettoyer session
+                        for k in ['inscription_attente_code', 'inscription_code_email',
+                                  'inscription_code_ts', 'inscription_prenom_tmp',
+                                  'inscription_pseudo_tmp', 'inscription_email_tmp',
+                                  'inscription_telephone_tmp', 'inscription_pin_tmp',
+                                  'inscription_parrain_tmp', 'inscription_avatar_tmp']:
+                            st.session_state.pop(k, None)
+
+                        if success:
+                            st.session_state.inscription_reussie = True
+                            st.session_state.inscription_pseudo = st.session_state.get('inscription_pseudo_tmp', '')
+                            st.rerun()
+                        else:
+                            st.error(message)
+
+            with col_annuler:
+                if st.button("Annuler", use_container_width=True):
+                    for k in ['inscription_attente_code', 'inscription_code_email',
+                              'inscription_code_ts', 'inscription_prenom_tmp',
+                              'inscription_pseudo_tmp', 'inscription_email_tmp',
+                              'inscription_telephone_tmp', 'inscription_pin_tmp',
+                              'inscription_parrain_tmp', 'inscription_avatar_tmp']:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+            return
+
+        # --- ETAPE 1 : Formulaire principal ---
         st.markdown("### Informations")
 
         # Champs du formulaire
@@ -301,8 +389,28 @@ def afficher_formulaire_inscription():
         pseudo = st.text_input("Pseudo *", placeholder="Minimum 3 caracteres")
         email = st.text_input("Email *", placeholder="votre@email.com")
         telephone = st.text_input("Telephone", placeholder="06 12 34 56 78")
-        pin = st.text_input("Code PIN *", type="password", placeholder="Minimum 4 caracteres")
+        pin = st.text_input("Code PIN *", type="password", placeholder="Min 9 car. : 6 chiffres, 2 lettres, 1 symbole")
         parrain = st.text_input("Qui vous a recommande ? *", placeholder="Nom ou pseudo de votre parrain")
+
+        # Affichage criteres PIN en temps reel
+        if pin:
+            _, criteres = valider_pin(pin)
+            labels = {
+                'longueur': 'Longueur >= 9 caracteres',
+                'chiffres': 'Au moins 6 chiffres',
+                'lettres': 'Au moins 2 lettres',
+                'symbole': 'Au moins 1 symbole (!@#$%...)'
+            }
+            criteres_html = ''.join(
+                f'<div style="color: {"#4CAF50" if ok else "#FF5252"}; font-size: 0.85em;">'
+                f'{"✓" if ok else "✗"} {labels[k]}</div>'
+                for k, ok in criteres.items()
+            )
+            st.markdown(
+                f'<div style="background:#0a0a1a; border-radius:8px; padding:10px; margin-bottom:8px;">'
+                f'{criteres_html}</div>',
+                unsafe_allow_html=True
+            )
 
         st.markdown("<small>* Champs obligatoires</small>", unsafe_allow_html=True)
 
@@ -319,8 +427,9 @@ def afficher_formulaire_inscription():
             if not valider_email(email):
                 erreurs.append("L'email doit contenir un '@'")
 
-            if not valider_pin(pin):
-                erreurs.append("Le PIN doit contenir au moins 4 caracteres")
+            pin_ok, _ = valider_pin(pin)
+            if not pin_ok:
+                erreurs.append("Le PIN ne respecte pas les regles : 9 caracteres min., 6 chiffres, 2 lettres, 1 symbole")
 
             if not parrain or len(parrain.strip()) < 2:
                 erreurs.append("Veuillez indiquer qui vous a recommande")
@@ -328,25 +437,32 @@ def afficher_formulaire_inscription():
             if pseudo_existe(pseudo):
                 erreurs.append("Ce pseudo est deja pris")
 
-            # Afficher les erreurs ou enregistrer
+            # Afficher les erreurs ou envoyer le code
             if erreurs:
                 for err in erreurs:
                     st.error(err)
             else:
-                # Sauvegarder l'avatar si present
-                avatar_path = None
-                if uploaded_file is not None:
-                    avatar_path = sauvegarder_avatar(uploaded_file, pseudo)
+                # Generer un code a 6 caracteres alphanumeriques
+                import random
+                import string
+                import time
+                code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-                # Enregistrer l'utilisateur
-                success, message = enregistrer_utilisateur(
-                    prenom, pseudo, email, telephone, pin, parrain.strip(), avatar_path
-                )
+                # Envoyer l'email de verification
+                ok, msg_email = email_confirmation_code(email, pseudo, code)
 
-                if success:
-                    # Activer l'ecran de bienvenue avec video
-                    st.session_state.inscription_reussie = True
-                    st.session_state.inscription_pseudo = pseudo
-                    st.rerun()
+                if not ok:
+                    st.error(f"Impossible d'envoyer l'email de verification : {msg_email}")
                 else:
-                    st.error(message)
+                    # Stocker en session pour l'etape 2
+                    st.session_state.inscription_attente_code = True
+                    st.session_state.inscription_code_email = code
+                    st.session_state.inscription_code_ts = time.time()
+                    st.session_state.inscription_prenom_tmp = prenom
+                    st.session_state.inscription_pseudo_tmp = pseudo
+                    st.session_state.inscription_email_tmp = email
+                    st.session_state.inscription_telephone_tmp = telephone
+                    st.session_state.inscription_pin_tmp = pin
+                    st.session_state.inscription_parrain_tmp = parrain.strip()
+                    st.session_state.inscription_avatar_tmp = uploaded_file
+                    st.rerun()
