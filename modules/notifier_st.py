@@ -793,34 +793,34 @@ def email_bienvenue(utilisateur):
         </ul>
 
         <!-- TOP 3 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs &rarr; 3 joueurs recompenses</strong></p>
-        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
-            <li style="margin: 8px 0;">&#127942; <strong>1er place : 50 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;">&#129352; <strong>2e place : 30 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;">&#129353; <strong>3e place : 20 %</strong> de la cagnotte</li>
-        </ul>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs - 3 joueurs recompenses</strong></p>
+        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
+            1er place : <strong>50%</strong><br>
+            2e place : <strong>30%</strong><br>
+            3e place : <strong>20%</strong>
+        </p>
 
         <!-- TOP 5 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>De 21 a 40 joueurs &rarr; 5 joueurs recompenses</strong></p>
-        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
-            <li style="margin: 8px 0;">&#127942; <strong>1er place :</strong> le reste de la cagnotte <span style="color: #AAAAAA;">(apres paiement des autres places)</span></li>
-            <li style="margin: 8px 0;">&#129352; <strong>2e place : 25 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;">&#129353; <strong>3e place : 20 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>4e place : 10 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>5e place : 50 &euro;</strong> <span style="color: #AAAAAA;">(garanti)</span></li>
-        </ul>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>De 21 a 40 joueurs - 5 joueurs recompenses</strong></p>
+        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
+            1er place : <strong>le reste de la cagnotte</strong><br>
+            2e place : <strong>25%</strong><br>
+            3e place : <strong>20%</strong><br>
+            4e place : <strong>10%</strong><br>
+            5e place : <strong>50 euros garantis</strong>
+        </p>
 
         <!-- TOP 7 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>41 joueurs et plus &rarr; 7 joueurs recompenses</strong></p>
-        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
-            <li style="margin: 8px 0;">&#127942; <strong>1er place :</strong> le reste de la cagnotte <span style="color: #AAAAAA;">(apres paiement des autres places)</span></li>
-            <li style="margin: 8px 0;">&#129352; <strong>2e place : 20 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;">&#129353; <strong>3e place : 15 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>4e place : 12 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>5e place : 9 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>6e place : 6 %</strong> de la cagnotte</li>
-            <li style="margin: 8px 0;"><strong>7e place : 50 &euro;</strong> <span style="color: #AAAAAA;">(garanti)</span></li>
-        </ul>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>41 joueurs et plus - 7 joueurs recompenses</strong></p>
+        <p style="color: #ffffff; margin: 8px 0 0 15px; line-height: 2;">
+            1er place : <strong>le reste de la cagnotte</strong><br>
+            2e place : <strong>20%</strong><br>
+            3e place : <strong>15%</strong><br>
+            4e place : <strong>12%</strong><br>
+            5e place : <strong>9%</strong><br>
+            6e place : <strong>6%</strong><br>
+            7e place : <strong>50 euros garantis</strong>
+        </p>
 
         <p style="color: #AAAAAA; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
             Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
