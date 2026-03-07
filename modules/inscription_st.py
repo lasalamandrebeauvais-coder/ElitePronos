@@ -322,6 +322,14 @@ def afficher_formulaire_inscription():
             st.markdown("### Verification email")
             st.info(f"Un code a 6 caracteres a ete envoye a **{st.session_state.get('inscription_email_tmp', '')}**. Saisissez-le ci-dessous.")
 
+            # En mode test : afficher le code directement
+            try:
+                from modules.database_manager import is_mode_officiel
+                if not is_mode_officiel():
+                    st.warning(f"[MODE TEST] Code de verification : **{st.session_state.get('inscription_code_email', '')}**")
+            except Exception:
+                pass
+
             code_saisi = st.text_input("Code de verification *", placeholder="Ex: A3F7K2", max_chars=6)
 
             col_val, col_annuler = st.columns([2, 1])
