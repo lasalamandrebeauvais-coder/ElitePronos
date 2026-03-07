@@ -793,93 +793,34 @@ def email_bienvenue(utilisateur):
         </ul>
 
         <!-- TOP 3 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs &rarr; Top 3 recompenses</strong></p>
-        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
-            <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">&#127942; 1er</td>
-                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">50 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">&#129352; 2e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">30 %</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 14px;">&#129353; 3e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
-            </tr>
-        </table>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs &rarr; 3 joueurs recompenses</strong></p>
+        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
+            <li style="margin: 8px 0;">&#127942; <strong>1er place : 50 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;">&#129352; <strong>2e place : 30 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;">&#129353; <strong>3e place : 20 %</strong> de la cagnotte</li>
+        </ul>
 
         <!-- TOP 5 -->
-        <p style="color: #FFD700; margin-top: 25px;"><strong>De 21 a 40 joueurs &rarr; Top 5 recompenses</strong></p>
-        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
-            <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">&#127942; 1er</td>
-                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">reste *</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">&#129352; 2e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">25 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">&#129353; 3e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">4e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">10 %</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 14px;">5e</td>
-                <td style="padding: 8px 14px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro; fixes</td>
-            </tr>
-        </table>
-        <p style="color: #AAAAAA; font-size: 0.8em; margin-top: 6px;">* 1er = cagnotte nette &minus; (2e + 3e + 4e + 50 &euro;)</p>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>De 21 a 40 joueurs &rarr; 5 joueurs recompenses</strong></p>
+        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
+            <li style="margin: 8px 0;">&#127942; <strong>1er place :</strong> le reste de la cagnotte <span style="color: #AAAAAA;">(apres paiement des autres places)</span></li>
+            <li style="margin: 8px 0;">&#129352; <strong>2e place : 25 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;">&#129353; <strong>3e place : 20 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>4e place : 10 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>5e place : 50 &euro;</strong> <span style="color: #AAAAAA;">(garanti)</span></li>
+        </ul>
 
         <!-- TOP 7 -->
-        <p style="color: #FFD700; margin-top: 25px;"><strong>41 joueurs et plus &rarr; Top 7 recompenses</strong></p>
-        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
-            <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">&#127942; 1er</td>
-                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">reste *</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">&#129352; 2e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">&#129353; 3e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">15 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">4e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">12 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 8px 14px;">5e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">9 %</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 8px 14px;">6e</td>
-                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">6 %</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 14px;">7e</td>
-                <td style="padding: 8px 14px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro; fixes</td>
-            </tr>
-        </table>
-        <p style="color: #AAAAAA; font-size: 0.8em; margin-top: 6px;">* 1er = cagnotte nette &minus; (2e + 3e + 4e + 5e + 6e + 50 &euro;)</p>
+        <p style="color: #FFD700; margin-top: 20px;"><strong>41 joueurs et plus &rarr; 7 joueurs recompenses</strong></p>
+        <ul style="color: #ffffff; list-style: none; padding: 0; margin: 10px 0;">
+            <li style="margin: 8px 0;">&#127942; <strong>1er place :</strong> le reste de la cagnotte <span style="color: #AAAAAA;">(apres paiement des autres places)</span></li>
+            <li style="margin: 8px 0;">&#129352; <strong>2e place : 20 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;">&#129353; <strong>3e place : 15 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>4e place : 12 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>5e place : 9 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>6e place : 6 %</strong> de la cagnotte</li>
+            <li style="margin: 8px 0;"><strong>7e place : 50 &euro;</strong> <span style="color: #AAAAAA;">(garanti)</span></li>
+        </ul>
 
         <p style="color: #AAAAAA; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
             Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
