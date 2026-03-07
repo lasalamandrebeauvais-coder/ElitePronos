@@ -410,6 +410,17 @@ def recalculer_points_complet(semaine_id, saison_id):
     """
     BONUS_EXACT = 10
 
+    # Traiter les oublis AVANT le calcul des points
+    try:
+        from modules.database_manager import appliquer_vol_auto_oublis
+        oublis_traites, msg_oublis = appliquer_vol_auto_oublis(semaine_id, saison_id)
+        if oublis_traites:
+            print(f"Auto-VOL (script): {msg_oublis}")
+            for o in oublis_traites:
+                print(f"  -> {o['pseudo']} : {o['action']}")
+    except Exception as e:
+        print(f"Erreur Auto-VOL (script): {e}")
+
     # Recuperer les jokers
     users_double = get_jokers_double(semaine_id)
     vol_cibles = get_jokers_vol(semaine_id)
