@@ -714,71 +714,6 @@ else:
             matchs_journee = get_matchs_journee_cached(saison_id, journee_courante)
             nb_matchs_journee = len(matchs_journee)
 
-            # === SYNTHESE KINGO (en haut) ===
-            from modules.synthese_st import get_synthese_accueil
-
-            # Generer la synthese dynamique
-            synthese = get_synthese_accueil(saison_id, journee_courante)
-            message_kingo = synthese['commentaire']
-
-            # Afficher bloc Kingo style journal / news
-            from datetime import datetime as _dt_now
-            _date_str = _dt_now.now().strftime("%d/%m/%Y")
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1a2e 100%);
-                border: 2px solid #D4AF37;
-                border-radius: 12px;
-                padding: 0;
-                margin: 10px 0 15px 0;
-                overflow: hidden;
-            ">
-                <!-- Bandeau titre journal -->
-                <div style="
-                    background: linear-gradient(90deg, #D4AF37 0%, #B8960C 100%);
-                    padding: 8px 18px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                ">
-                    <span style="color: #000; font-size: 1.1em; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
-                        KINGO NEWS
-                    </span>
-                    <span style="color: #000; font-size: 0.75em; font-weight: 600;">
-                        Journee {journee_courante} &mdash; {_date_str}
-                    </span>
-                </div>
-                <!-- Contenu article -->
-                <div style="padding: 18px 20px 15px 20px;">
-                    <div style="
-                        color: #D4AF37;
-                        font-size: 1.15em;
-                        font-weight: 800;
-                        margin-bottom: 6px;
-                        letter-spacing: 0.5px;
-                    ">
-                        Synthese J{journee_courante}
-                    </div>
-                    <div style="
-                        color: #8b949e;
-                        font-size: 0.8em;
-                        font-style: italic;
-                        margin-bottom: 12px;
-                        padding-bottom: 10px;
-                        border-bottom: 1px solid #30363d;
-                    ">
-                        Par Kingo, le roi des pronostics
-                    </div>
-                    <div style="
-                        color: #e6edf3;
-                        font-size: 1.05em;
-                        line-height: 1.7;
-                        text-align: justify;
-                    ">{message_kingo}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
             # === BANDEAU MVP DE LA SEMAINE PRECEDENTE ===
             if journee_courante > 1:
                 mvp_data = get_mvp_semaine(journee_courante - 1, saison_id)
@@ -859,6 +794,71 @@ else:
                         <div class="mvp-sub">{mvp_msg}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+            # === SYNTHESE KINGO (en haut) ===
+            from modules.synthese_st import get_synthese_accueil
+
+            # Generer la synthese dynamique
+            synthese = get_synthese_accueil(saison_id, journee_courante)
+            message_kingo = synthese['commentaire']
+
+            # Afficher bloc Kingo style journal / news
+            from datetime import datetime as _dt_now
+            _date_str = _dt_now.now().strftime("%d/%m/%Y")
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1a2e 100%);
+                border: 2px solid #D4AF37;
+                border-radius: 12px;
+                padding: 0;
+                margin: 10px 0 15px 0;
+                overflow: hidden;
+            ">
+                <!-- Bandeau titre journal -->
+                <div style="
+                    background: linear-gradient(90deg, #D4AF37 0%, #B8960C 100%);
+                    padding: 8px 18px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span style="color: #000; font-size: 1.1em; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
+                        KINGO NEWS
+                    </span>
+                    <span style="color: #000; font-size: 0.75em; font-weight: 600;">
+                        Journee {journee_courante} &mdash; {_date_str}
+                    </span>
+                </div>
+                <!-- Contenu article -->
+                <div style="padding: 18px 20px 15px 20px;">
+                    <div style="
+                        color: #D4AF37;
+                        font-size: 1.15em;
+                        font-weight: 800;
+                        margin-bottom: 6px;
+                        letter-spacing: 0.5px;
+                    ">
+                        Synthese J{journee_courante}
+                    </div>
+                    <div style="
+                        color: #8b949e;
+                        font-size: 0.8em;
+                        font-style: italic;
+                        margin-bottom: 12px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #30363d;
+                    ">
+                        Par Kingo, le roi des pronostics
+                    </div>
+                    <div style="
+                        color: #e6edf3;
+                        font-size: 1.05em;
+                        line-height: 1.7;
+                        text-align: justify;
+                    ">{message_kingo}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # === BLOC COMPTE À REBOURS / PRONOSTICS FERMÉS ===
             if countdown and not countdown.get('expired', False):
