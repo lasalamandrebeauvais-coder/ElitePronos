@@ -1267,6 +1267,7 @@ else:
                             _rivaux_data = get_rivaux_predictions_cached(all_rivaux_str, match_ids_str, journee_courante)
                             all_jokers = _rivaux_data['jokers']
                             jokers_map = {j['utilisateur_id']: j['type_joker'] for j in all_jokers}
+                            vol_cibles_map = {j['utilisateur_id']: j.get('cible_vol_id') for j in all_jokers if j.get('type_joker') == 'VOL' and j.get('cible_vol_id')}
 
                             all_pronos = _rivaux_data['predictions']
                             pronos_par_joueur = {}
@@ -1277,25 +1278,70 @@ else:
                                 if p.get('matches'):
                                     pronos_par_joueur[uid].append((p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], p.get('mise_bonus_gc') or 0, p.get('points_gagnes'), p['matches'].get('score_final_home'), p['matches'].get('score_final_away'), p['matches'].get('cote_home', 2.0), p['matches'].get('cote_draw', 3.0), p['matches'].get('cote_away', 2.0)))
 
+                            # Fetch pronos et pseudos des cibles VOL manquantes
+                            cible_pseudo_map = {}
+                            if vol_cibles_map:
+                                cible_ids_all = list({cid for cid in vol_cibles_map.values()})
+                                cible_ids_str_q = ','.join(map(str, cible_ids_all))
+                                cible_users = supabase._request('GET', f'utilisateurs?id=in.({cible_ids_str_q})&select=id,pseudo') or []
+                                cible_pseudo_map = {u['id']: u['pseudo'] for u in cible_users}
+                                cibles_manquants = [cid for cid in cible_ids_all if cid not in pronos_par_joueur]
+                                if cibles_manquants:
+                                    cm_str = ','.join(map(str, cibles_manquants))
+                                    for p in (supabase._request('GET', f'predictions?user_id=in.({cm_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,matches(equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away)') or []):
+                                        uid = p['user_id']
+                                        if uid not in pronos_par_joueur:
+                                            pronos_par_joueur[uid] = []
+                                        if p.get('matches'):
+                                            m = p['matches']
+                                            pronos_par_joueur[uid].append((m['equipe_home'], m['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points'], 0, None, m.get('score_final_home'), m.get('score_final_away'), m.get('cote_home', 2.0), m.get('cote_draw', 3.0), m.get('cote_away', 2.0)))
+
                             # Detecter les joueurs avec bonus GC actif (au moins 1 mise_bonus_gc > 0)
                             joueurs_avec_gc = set()
                             for uid, pronos_list in pronos_par_joueur.items():
                                 if any(p[5] > 0 for p in pronos_list):
                                     joueurs_avec_gc.add(uid)
 
+                            def calc_pts_rt(ph, pa, sh, sa, mise, c_h, c_n, c_a):
+                                """Calcul de points en temps reel depuis les pronos et le score final."""
+                                if sh is None or sa is None:
+                                    return None
+                                cote = c_h if ph > pa else c_a if ph < pa else c_n
+                                bon = (ph > pa and sh > sa) or (ph < pa and sh < sa) or (ph == pa and sh == sa)
+                                pts = (mise * cote + (10 if ph == sh and pa == sa else 0)) if bon else -mise
+                                return round(pts, 2)
+
                             for joueur_id, pseudo, total_pts in joueurs_journee:
                                 joker_type = jokers_map.get(joueur_id)
                                 joker_icon = "⚡" if joker_type == "DOUBLE" else "🃏" if joker_type == "VOL" else "-"
-                                pronos_joueur = pronos_par_joueur.get(joueur_id, [])
+                                cible_id = vol_cibles_map.get(joueur_id) if joker_type == "VOL" else None
+                                # Pour VOL : utiliser les pronos de la cible
+                                pronos_joueur = pronos_par_joueur.get(cible_id if cible_id else joueur_id, [])
                                 has_gc = joueur_id in joueurs_avec_gc
 
-                                total_color = "#00FF00" if total_pts >= 0 else "#FF4444"
+                                # Recalcul total en temps reel
+                                rt_total = 0
+                                for _, _, ph, pa, mise, _, pts_db, sh, sa, c_h, c_n, c_a in pronos_joueur:
+                                    if joker_type == 'VOL':
+                                        rt_total += calc_pts_rt(ph, pa, sh, sa, mise, c_h, c_n, c_a) or 0
+                                    elif pts_db is not None:
+                                        rt_total += round(pts_db, 2)
+                                    else:
+                                        rt = calc_pts_rt(ph, pa, sh, sa, mise, c_h, c_n, c_a)
+                                        if joker_type == 'DOUBLE' and rt is not None:
+                                            rt = round(rt * 2, 2)
+                                        rt_total += rt or 0
+                                rt_total = round(rt_total, 2)
+
+                                total_color = "#00FF00" if rt_total >= 0 else "#FF4444"
                                 gc_badge = ' <span style="background:#FFD700;color:#000;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:bold;">🏆 GC</span>' if has_gc else ''
+                                cible_pseudo = cible_pseudo_map.get(cible_id, '') if cible_id else ''
+                                vol_badge = f' <span style="background:#9b59b6;color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;">✋ {cible_pseudo[:8]}</span>' if cible_id and cible_pseudo else ''
                                 st.markdown(f"""
                                 <div style="background: linear-gradient(135deg, #001529 0%, #002040 100%); border: 1px solid {'#FFD700' if has_gc else '#D4AF37'}; border-radius: 10px; padding: 12px; margin: 10px 0;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #D4AF37;">
-                                        <span style="color: #D4AF37; font-weight: bold;">👤 {pseudo}{gc_badge}</span>
-                                        <span style="color: {total_color}; font-weight: bold;">{'+' if total_pts > 0 else ''}{total_pts} pts</span>
+                                        <span style="color: #D4AF37; font-weight: bold;">👤 {pseudo}{gc_badge}{vol_badge}</span>
+                                        <span style="color: {total_color}; font-weight: bold;">{'+' if rt_total > 0 else ''}{rt_total} pts</span>
                                     </div>
                                 """, unsafe_allow_html=True)
 
@@ -1306,7 +1352,15 @@ else:
                                     else:
                                         icon, score_display = "⏳", "-"
                                     cote_r = c_h if ph > pa else c_a if ph < pa else c_n
-                                    pts = round(pts_gagnes, 2) if pts_gagnes else 0
+                                    if joker_type == 'VOL':
+                                        pts = calc_pts_rt(ph, pa, score_h, score_a, mise, c_h, c_n, c_a) or 0
+                                    elif pts_gagnes is not None:
+                                        pts = round(pts_gagnes, 2)
+                                    else:
+                                        rt = calc_pts_rt(ph, pa, score_h, score_a, mise, c_h, c_n, c_a)
+                                        if joker_type == 'DOUBLE' and rt is not None:
+                                            rt = round(rt * 2, 2)
+                                        pts = rt or 0
                                     pts_color = "#00FF00" if pts > 0 else "#FF4444" if pts < 0 else "#888"
                                     joker_display = joker_icon
                                     gc_display = f'🏆{mise_gc}' if mise_gc > 0 else '—'

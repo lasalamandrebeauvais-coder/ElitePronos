@@ -1223,7 +1223,7 @@ def get_rivaux_predictions_cached(rivaux_ids_str, match_ids_str, journee_courant
                 f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
             ) or []
             jokers = sb._request('GET',
-                f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+                f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker,cible_vol_id'
             ) or []
             return {'predictions': predictions, 'jokers': jokers}
         return _fetch(rivaux_ids_str, match_ids_str, journee_courante)
@@ -1234,7 +1234,7 @@ def get_rivaux_predictions_cached(rivaux_ids_str, match_ids_str, journee_courant
             f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,mise_bonus_gc,points_gagnes,matches(equipe_home,equipe_away,score_final_home,score_final_away,date_match,cote_home,cote_draw,cote_away),utilisateurs(id,pseudo)'
         ) or []
         jokers = sb._request('GET',
-            f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker'
+            f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{journee_courante}&select=utilisateur_id,type_joker,cible_vol_id'
         ) or []
         return {'predictions': predictions, 'jokers': jokers}
 
