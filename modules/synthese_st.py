@@ -514,7 +514,7 @@ def get_synthese_accueil(saison_id, semaine_id):
 @st.cache_data(ttl=30)
 def get_debrief_rivaux(user_id, saison_id, semaine_id):
     """
-    Genere un debrief specifique sur les rivaux (cache 30s)
+    Genere un debrief specifique sur les rivaux avec bilan provisionnel (cache 30s)
     """
     supabase = get_supabase()
 
@@ -523,7 +523,7 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
     if not rivaux_ids:
         return None
 
-    # Recuperer les points de la journee pour les rivaux
+    # Recuperer les matchs de la journee
     matchs = supabase.get_matches_journee(saison_id, semaine_id)
     if not matchs:
         return None
@@ -532,9 +532,22 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
     match_ids_str = ','.join(map(str, match_ids))
     rivaux_ids_str = ','.join(map(str, rivaux_ids))
 
+    # Predictions des rivaux
     predictions = supabase._request('GET',
         f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,mise_bonus_gc,utilisateurs(pseudo)'
     ) or []
+
+    # Predictions du joueur lui-meme
+    user_preds = supabase._request('GET',
+        f'predictions?match_id=in.({match_ids_str})&user_id=eq.{user_id}&select=points_gagnes'
+    ) or []
+    user_pts = round(sum(p.get('points_gagnes') or 0 for p in user_preds), 2)
+
+    # Jokers actifs des rivaux
+    jokers_rivaux = supabase._request('GET',
+        f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker'
+    ) or []
+    jokers_map = {j['utilisateur_id']: j['type_joker'] for j in jokers_rivaux}
 
     # Agreger par rival
     rivaux_pts = {}
@@ -542,41 +555,112 @@ def get_debrief_rivaux(user_id, saison_id, semaine_id):
         uid = p['user_id']
         pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
         if uid not in rivaux_pts:
-            rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0, 'bonus_gc': 0}
+            rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0, 'bonus_gc': 0, 'uid': uid}
         rivaux_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
         rivaux_pts[uid]['bonus_gc'] += p.get('mise_bonus_gc') or 0
 
-    # Arrondir les points pour l'affichage
     for v in rivaux_pts.values():
         v['points_journee'] = round(v['points_journee'], 2)
+        v['joker'] = jokers_map.get(v['uid'])
 
     if not rivaux_pts:
         return None
 
-    # Trier par points
+    # Classement des rivaux
     classement_rivaux = sorted(rivaux_pts.values(), key=lambda x: x['points_journee'], reverse=True)
-
-    # Joueurs avec bonus GC actif
-    gc_joueurs = [v['pseudo'] for v in rivaux_pts.values() if v['bonus_gc'] > 0]
-
-    # Generer le message
     meilleur = classement_rivaux[0]
-    messages = [
-        f"Parmi tes rivaux, **{meilleur['pseudo']}** mene avec {meilleur['points_journee']} pts cette semaine.",
-        f"**{meilleur['pseudo']}** est en tete de tes rivaux ({meilleur['points_journee']} pts). Tu le laisses filer ?",
-        f"Attention, **{meilleur['pseudo']}** fait {meilleur['points_journee']} pts ! Tes rivaux n'attendent pas.",
-    ]
-    message = random.choice(messages)
+    pire = classement_rivaux[-1]
 
-    # Kingo commente le bonus GC si present
+    rivaux_devant = [v for v in classement_rivaux if v['points_journee'] > user_pts]
+    rivaux_derriere = [v for v in classement_rivaux if v['points_journee'] < user_pts]
+    rivaux_egalite = [v for v in classement_rivaux if v['points_journee'] == user_pts]
+
+    nb_devant = len(rivaux_devant)
+    nb_derriere = len(rivaux_derriere)
+    nb_rivaux = len(classement_rivaux)
+
+    # Stats supplementaires
+    tous_negatifs = all(v['points_journee'] <= 0 for v in classement_rivaux)
+    tous_positifs = all(v['points_journee'] > 0 for v in classement_rivaux)
+    gc_joueurs = [v['pseudo'] for v in classement_rivaux if v['bonus_gc'] > 0]
+    double_joueurs = [v['pseudo'] for v in classement_rivaux if v['joker'] == 'DOUBLE']
+    vol_joueurs = [v['pseudo'] for v in classement_rivaux if v['joker'] == 'VOL']
+    ecart_max = round(meilleur['points_journee'] - pire['points_journee'], 2) if nb_rivaux > 1 else 0
+
+    # --- Phrase principale selon la situation ---
+    if nb_devant == 0 and user_pts > 0:
+        # Joueur en tete de ses rivaux
+        phrases_tete = [
+            f"T'es devant tous tes rivaux cette journee. {meilleur['pseudo']} essaie de t'accrocher avec {meilleur['points_journee']} pts, mais c'est toi qui menes. Profite.",
+            f"Premier parmi tes rivaux pour l'instant. Mais ne te detends pas trop, **{meilleur['pseudo']}** est a {meilleur['points_journee']} pts et les matchs ne sont pas tous termines.",
+            f"Tes rivaux sont tous dans ton sillage. **{meilleur['pseudo']}** fait {meilleur['points_journee']} pts, mais c'est encore toi le boss. Pour l'instant.",
+            f"Bilan provisoire : tu domines. Tes {nb_rivaux} rivaux sont derriere toi. Le plus dangereux reste **{meilleur['pseudo']}** ({meilleur['points_journee']} pts).",
+        ]
+        message = random.choice(phrases_tete)
+    elif nb_devant == nb_rivaux:
+        # Joueur derriere tous ses rivaux
+        phrases_derriere = [
+            f"Tous tes rivaux sont devant toi actuellement. **{meilleur['pseudo']}** mene avec {meilleur['points_journee']} pts. C'est pas l'heure de paniquer... enfin si, un peu.",
+            f"**{meilleur['pseudo']}** en tete, **{pire['pseudo']}** ferme la marche... et toi tu es ou exactement ? Derriere tout le monde. Bilan provisoire : pas glorieux.",
+            f"Mauvaise nouvelle : tes {nb_rivaux} rivaux sont tous au-dessus de toi pour l'instant. **{meilleur['pseudo']}** ecrase tout ({meilleur['points_journee']} pts). Il reste des matchs, mais faut se reveiller.",
+            f"Je vais pas te mentir : tu es dernier parmi tes rivaux. **{meilleur['pseudo']}** est a {meilleur['points_journee']} pts devant. L'ecart est de {round(meilleur['points_journee'] - user_pts, 2)} pts. Courage.",
+        ]
+        message = random.choice(phrases_derriere)
+    elif nb_devant > 0 and nb_derriere > 0:
+        # Dans le ventre mou
+        phrases_milieu = [
+            f"**{nb_devant}** rival(ux) devant toi, **{nb_derriere}** derriere. Tu es dans le ventre mou. **{meilleur['pseudo']}** mene ({meilleur['points_journee']} pts), **{pire['pseudo']}** ramasse ({pire['points_journee']} pts).",
+            f"Position intermediaire : {nb_devant} rival(ux) t'ont devance pour l'instant, {nb_derriere} sont derriere. **{meilleur['pseudo']}** est la principale menace avec {meilleur['points_journee']} pts.",
+            f"C'est serre. **{rivaux_devant[0]['pseudo']}** est juste au-dessus de toi ({rivaux_devant[0]['points_journee']} pts). {nb_derriere} rival(ux) derriere toi. La journee n'est pas finie.",
+            f"Tu es en milieu de peloton. **{meilleur['pseudo']}** mene la danse avec {meilleur['points_journee']} pts, **{pire['pseudo']}** est en galere ({pire['points_journee']} pts). Toi ? Entre les deux.",
+        ]
+        message = random.choice(phrases_milieu)
+    elif tous_negatifs:
+        phrases_catastrophe = [
+            f"Tout le monde est dans le rouge cette journee. **{meilleur['pseudo']}** limite la casse avec seulement {meilleur['points_journee']} pts. Journee noire pour tout le monde.",
+            f"Carnage general. Tes rivaux souffrent autant que toi. **{pire['pseudo']}** prend la plus grosse claque ({pire['points_journee']} pts). C'est une journee a oublier pour tout le monde.",
+        ]
+        message = random.choice(phrases_catastrophe)
+    else:
+        message = f"**{meilleur['pseudo']}** mene provisoirement avec {meilleur['points_journee']} pts. Situation a surveiller."
+
+    # --- Bilan provisionnel ---
+    if user_pts > 0:
+        user_bilan = f"Toi : **+{user_pts} pts**"
+    elif user_pts < 0:
+        user_bilan = f"Toi : **{user_pts} pts** (dans le rouge)"
+    else:
+        user_bilan = "Toi : **0 pts** (pas encore joue ou matchs en cours)"
+
+    bilan_parts = [f"📊 **Bilan provisoire J{semaine_id}** — {user_bilan} | {nb_devant} rival(ux) devant, {nb_derriere} derriere."]
+
+    if ecart_max > 0 and nb_rivaux > 1:
+        bilan_parts.append(f"Ecart max entre rivaux : {ecart_max} pts.")
+
+    message += " " + " ".join(bilan_parts)
+
+    # --- Contexte jokers ---
+    extras = []
     if gc_joueurs:
         noms_gc = ', '.join(f'**{p}**' for p in gc_joueurs)
-        gc_phrases = [
-            f" Et attention : {noms_gc} joue avec le bonus Grand Chelem cette semaine. 40 pts de budget en plus... ca peut faire mal !",
-            f" A noter : {noms_gc} a le bonus Grand Chelem actif (+40 pts de budget). Le danger vient de partout.",
-            f" {noms_gc} profite de son Grand Chelem avec 40 pts supplementaires. Ce n'est pas le moment de relacher !",
-        ]
-        message += random.choice(gc_phrases)
+        extras.append(random.choice([
+            f"{noms_gc} joue avec le bonus Grand Chelem cette semaine. 40 pts de budget en plus, ca peut tout changer.",
+            f"Attention a {noms_gc} et son bonus GC — budget etendu a 140 pts, le danger est reel.",
+        ]))
+    if double_joueurs:
+        noms_d = ', '.join(f'**{p}**' for p in double_joueurs)
+        extras.append(random.choice([
+            f"{noms_d} a joue son joker DOUBLE — si la semaine se passe bien pour lui, ca va faire mal.",
+            f"Le joker x2 de {noms_d} peut tout faire basculer si ses pronos sont bons.",
+        ]))
+    if vol_joueurs:
+        noms_v = ', '.join(f'**{p}**' for p in vol_joueurs)
+        extras.append(random.choice([
+            f"{noms_v} a vole les pronos d'un rival — ses points dependent entierement de quelqu'un d'autre. Karma.",
+            f"Joker VOL pour {noms_v} : il mise tout sur les pronos d'un autre. Risque calcule... ou pas.",
+        ]))
+    if extras:
+        message += " " + random.choice(extras)
 
     return {
         'message': message,
