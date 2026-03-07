@@ -768,11 +768,9 @@ def email_bienvenue(utilisateur):
     <!-- PARTICIPATION FINANCIERE -->
     <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid #FFD700; border-radius: 10px; padding: 20px; margin: 25px 0;">
         <h3 style="color: #FFD700; margin-top: 0;">Participation financiere</h3>
-        <ul style="color: #ffffff; font-size: 1.1em; list-style: none; padding: 0;">
-            <li style="margin: 10px 0;">
-                <strong style="color: #FFD700;">Participation unique :</strong> 50 euros
-                <span style="color: #AAAAAA;">(dont 5 euros frais techniques et maintenance &mdash; 45 euros reverses en cagnotte)</span>
-            </li>
+        <p style="font-size: 2em; font-weight: 900; color: #FFD700; text-align: center; margin: 10px 0 5px 0;">50 &euro;</p>
+        <ul style="color: #ffffff; font-size: 1em; list-style: none; padding: 0; text-align: center;">
+            <li style="margin: 5px 0; color: #AAAAAA;">dont 5 &euro; frais techniques et maintenance &mdash; 45 &euro; reverses en cagnotte</li>
         </ul>
         <p style="color: #AAAAAA; margin-top: 10px; font-size: 0.9em;">
             <strong style="color: #FFD700;">Modes de paiement acceptes :</strong>
@@ -786,154 +784,102 @@ def email_bienvenue(utilisateur):
     <!-- REPARTITION DES RECOMPENSES -->
     <div style="background: rgba(0, 255, 0, 0.05); border: 1px solid #00FF00; border-radius: 10px; padding: 20px; margin: 25px 0;">
         <h3 style="color: #00FF00; margin-top: 0;">Repartition des Recompenses</h3>
-        <p style="color: #AAAAAA; font-style: italic;">Montants calcules sur 45 euros par joueur (arrondis). Prix fixes preleves en premier.</p>
+        <p style="color: #AAAAAA; font-style: italic;">Cagnotte nette = nombre de joueurs x 45 &euro;, apres deduction des prix fixes.</p>
 
-        <p style="color: #FFD700; margin-top: 15px;"><strong>Prix Fixes (preleves sur la cagnotte) :</strong></p>
+        <p style="color: #FFD700; margin-top: 15px;"><strong>Prix Fixes (preleves en premier) :</strong></p>
         <ul style="color: #ffffff; margin-left: 20px;">
-            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Meilleur score d'une journee :</span> 50 euros</li>
-            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Plus de paris reussis sur la saison :</span> 25 euros</li>
+            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Meilleur score d'une journee :</span> 50 &euro;</li>
+            <li style="margin: 8px 0;"><span style="color: #FFD700; font-weight: bold;">Plus de paris reussis sur la saison :</span> 25 &euro;</li>
         </ul>
 
         <!-- TOP 3 -->
         <p style="color: #FFD700; margin-top: 20px;"><strong>Jusqu'a 20 joueurs &rarr; Top 3 recompenses</strong></p>
-        <table style="width:100%; border-collapse: collapse; color: #ffffff; font-size: 0.9em; margin-top: 8px;">
+        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
             <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 6px 10px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">%</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">10 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">15 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">19 joueurs</th>
+                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
+                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">&#127942; 1er</td>
-                <td style="padding: 6px 10px; text-align: center;">50%</td>
-                <td style="padding: 6px 10px; text-align: center;">190 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">300 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">390 &euro;</td>
+                <td style="padding: 8px 14px;">&#127942; 1er</td>
+                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">50 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">&#129352; 2e</td>
-                <td style="padding: 6px 10px; text-align: center;">30%</td>
-                <td style="padding: 6px 10px; text-align: center;">115 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">180 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">235 &euro;</td>
+                <td style="padding: 8px 14px;">&#129352; 2e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">30 %</td>
             </tr>
             <tr>
-                <td style="padding: 6px 10px;">&#129353; 3e</td>
-                <td style="padding: 6px 10px; text-align: center;">20%</td>
-                <td style="padding: 6px 10px; text-align: center;">75 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">120 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">155 &euro;</td>
+                <td style="padding: 8px 14px;">&#129353; 3e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
             </tr>
         </table>
 
         <!-- TOP 5 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>De 21 a 40 joueurs &rarr; Top 5 recompenses</strong></p>
-        <table style="width:100%; border-collapse: collapse; color: #ffffff; font-size: 0.9em; margin-top: 8px;">
+        <p style="color: #FFD700; margin-top: 25px;"><strong>De 21 a 40 joueurs &rarr; Top 5 recompenses</strong></p>
+        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
             <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 6px 10px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">Base</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">25 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">30 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">40 joueurs</th>
+                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
+                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">&#127942; 1er</td>
-                <td style="padding: 6px 10px; text-align: center;">reste</td>
-                <td style="padding: 6px 10px; text-align: center;">425 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">520 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">725 &euro;</td>
+                <td style="padding: 8px 14px;">&#127942; 1er</td>
+                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">reste *</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">&#129352; 2e</td>
-                <td style="padding: 6px 10px; text-align: center;">25%</td>
-                <td style="padding: 6px 10px; text-align: center;">260 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">320 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">430 &euro;</td>
+                <td style="padding: 8px 14px;">&#129352; 2e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">25 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">&#129353; 3e</td>
-                <td style="padding: 6px 10px; text-align: center;">20%</td>
-                <td style="padding: 6px 10px; text-align: center;">210 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">255 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">345 &euro;</td>
+                <td style="padding: 8px 14px;">&#129353; 3e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">4e</td>
-                <td style="padding: 6px 10px; text-align: center;">10%</td>
-                <td style="padding: 6px 10px; text-align: center;">105 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">130 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">175 &euro;</td>
+                <td style="padding: 8px 14px;">4e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">10 %</td>
             </tr>
             <tr>
-                <td style="padding: 6px 10px;">5e</td>
-                <td style="padding: 6px 10px; text-align: center;">fixe</td>
-                <td style="padding: 6px 10px; text-align: center;">50 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">50 &euro;</td>
+                <td style="padding: 8px 14px;">5e</td>
+                <td style="padding: 8px 14px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro; fixes</td>
             </tr>
         </table>
+        <p style="color: #AAAAAA; font-size: 0.8em; margin-top: 6px;">* 1er = cagnotte nette &minus; (2e + 3e + 4e + 50 &euro;)</p>
 
         <!-- TOP 7 -->
-        <p style="color: #FFD700; margin-top: 20px;"><strong>41 joueurs et plus &rarr; Top 7 recompenses</strong></p>
-        <table style="width:100%; border-collapse: collapse; color: #ffffff; font-size: 0.9em; margin-top: 8px;">
+        <p style="color: #FFD700; margin-top: 25px;"><strong>41 joueurs et plus &rarr; Top 7 recompenses</strong></p>
+        <table style="width:60%; border-collapse: collapse; color: #ffffff; font-size: 0.95em; margin-top: 8px;">
             <tr style="background: rgba(212,175,55,0.15);">
-                <th style="padding: 6px 10px; text-align: left; color: #D4AF37;">Place</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">Base</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">45 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">50 joueurs</th>
-                <th style="padding: 6px 10px; text-align: center; color: #D4AF37;">60 joueurs</th>
+                <th style="padding: 8px 14px; text-align: left; color: #D4AF37;">Place</th>
+                <th style="padding: 8px 14px; text-align: center; color: #D4AF37;">Part de la cagnotte</th>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">&#127942; 1er</td>
-                <td style="padding: 6px 10px; text-align: center;">reste</td>
-                <td style="padding: 6px 10px; text-align: center;">690 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">780 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">945 &euro;</td>
+                <td style="padding: 8px 14px;">&#127942; 1er</td>
+                <td style="padding: 8px 14px; text-align: center; font-weight: bold; font-size: 1.1em;">reste *</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">&#129352; 2e</td>
-                <td style="padding: 6px 10px; text-align: center;">20%</td>
-                <td style="padding: 6px 10px; text-align: center;">390 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">435 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">525 &euro;</td>
+                <td style="padding: 8px 14px;">&#129352; 2e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">20 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">&#129353; 3e</td>
-                <td style="padding: 6px 10px; text-align: center;">15%</td>
-                <td style="padding: 6px 10px; text-align: center;">295 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">325 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">395 &euro;</td>
+                <td style="padding: 8px 14px;">&#129353; 3e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">15 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">4e</td>
-                <td style="padding: 6px 10px; text-align: center;">12%</td>
-                <td style="padding: 6px 10px; text-align: center;">235 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">260 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">315 &euro;</td>
+                <td style="padding: 8px 14px;">4e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">12 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333;">
-                <td style="padding: 6px 10px;">5e</td>
-                <td style="padding: 6px 10px; text-align: center;">9%</td>
-                <td style="padding: 6px 10px; text-align: center;">175 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">200 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">235 &euro;</td>
+                <td style="padding: 8px 14px;">5e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">9 %</td>
             </tr>
             <tr style="border-bottom: 1px solid #333; background: rgba(255,255,255,0.03);">
-                <td style="padding: 6px 10px;">6e</td>
-                <td style="padding: 6px 10px; text-align: center;">6%</td>
-                <td style="padding: 6px 10px; text-align: center;">115 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">130 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">160 &euro;</td>
+                <td style="padding: 8px 14px;">6e</td>
+                <td style="padding: 8px 14px; text-align: center; font-size: 1.05em;">6 %</td>
             </tr>
             <tr>
-                <td style="padding: 6px 10px;">7e</td>
-                <td style="padding: 6px 10px; text-align: center;">fixe</td>
-                <td style="padding: 6px 10px; text-align: center;">50 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro;</td>
-                <td style="padding: 6px 10px; text-align: center;">50 &euro;</td>
+                <td style="padding: 8px 14px;">7e</td>
+                <td style="padding: 8px 14px; text-align: center; color: #FFD700; font-weight: bold;">50 &euro; fixes</td>
             </tr>
         </table>
+        <p style="color: #AAAAAA; font-size: 0.8em; margin-top: 6px;">* 1er = cagnotte nette &minus; (2e + 3e + 4e + 5e + 6e + 50 &euro;)</p>
 
         <p style="color: #AAAAAA; font-size: 0.95em; margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
             Le versement de vos gains s'effectuera <strong style="color: #FFD700;">15 jours</strong> apres le coup de sifflet final du championnat.
@@ -954,15 +900,36 @@ def email_bienvenue(utilisateur):
         </div>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
-            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 2 - Pronostics Hebdomadaires</h4>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 2 - Kingo, le Pronostiqueur Officiel</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
-                4 matchs par semaine. Budget de 100 points a repartir (mise min. 10 pts, max. 60 pts par match).
-                Deadline : 1h avant le premier match. Defaut de pronostic = pronostics de <strong style="color: #FFD700;">Kingo</strong> attribues automatiquement.
+                <strong style="color: #FFD700;">Kingo</strong> est le pronostiqueur officiel et l'intelligence du club Elite Pronos.
+                Veritable expert du ballon rond, il analyse chaque semaine les cotes, les statistiques et les confrontations
+                pour etablir ses pronostics.<br><br>
+                <strong>Son role au sein du club :</strong><br><br>
+                &#x2022; <strong>Pronostics de reference :</strong> Kingo est le seul membre du club a pronostiquer
+                sur tous les matchs chaque semaine, sans exception. Ses predictions servent de reference collective.<br><br>
+                &#x2022; <strong>Filet de securite :</strong> tout membre qui oublie de soumettre ses pronostics avant la
+                deadline se voit automatiquement attribuer les pronostics de Kingo pour la semaine en cours.
+                Ce n'est pas un avantage &mdash; c'est une penalite deguisee !<br><br>
+                &#x2022; <strong>Voix du club :</strong> Kingo commente chaque journee, anime la page d'accueil, analyse
+                les performances et tient la chronique des exploits (et des catastrophes) de chaque joueur.<br><br>
+                &#x2022; <strong>Classement :</strong> Kingo figure au classement general a titre indicatif uniquement.
+                Il ne peut ni gagner ni percevoir de recompenses.<br><br>
+                <span style="color: #FFD700; font-style: italic;">Battre Kingo chaque semaine devient vite un objectif en soi !</span>
             </p>
         </div>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
-            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 3 - Systeme de Points</h4>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 3 - Pronostics Hebdomadaires</h4>
+            <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
+                4 matchs par semaine. Budget de 100 points a repartir (mise min. 10 pts, max. 60 pts par match).
+                Deadline : 1h avant le premier match.<br>
+                <strong>Defaut de pronostic :</strong> les pronostics de <strong style="color: #FFD700;">Kingo</strong> sont attribues automatiquement.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 4 - Systeme de Points</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 <strong>Formule :</strong> Points = Mise x Cote (si 1N2 correct).<br>
                 <strong>Bonus score exact :</strong> +10 points fixes.<br>
@@ -971,7 +938,7 @@ def email_bienvenue(utilisateur):
         </div>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
-            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 4 - Les Jokers</h4>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 5 - Les Jokers</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 Chaque joueur dispose de <strong>3 Jokers Points Doubles</strong> et <strong>2 Jokers Points Voles</strong> par saison.<br><br>
                 <strong>Points Doubles :</strong> x2 sur tous les gains de la semaine.<br>
@@ -981,7 +948,7 @@ def email_bienvenue(utilisateur):
         </div>
 
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #333;">
-            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 5 - Defis Hebdomadaires</h4>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 6 - Defis Hebdomadaires</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 Chaque semaine, 3 defis sont proposes. Reussir les <strong>3 defis dans la meme semaine</strong> rapporte
                 <strong style="color: #9b59b6;">+1 Joker Points Voles</strong> bonus :<br><br>
@@ -993,7 +960,7 @@ def email_bienvenue(utilisateur):
         </div>
 
         <div>
-            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 6 - Classement et Recompenses</h4>
+            <h4 style="color: #FFD700; margin: 0 0 10px 0;">Article 7 - Classement et Recompenses</h4>
             <p style="color: #cccccc; font-size: 0.9em; margin: 0;">
                 Classement par cumul des points. Departage : scores exacts, Grand Chelems, confrontation directe.
                 <strong style="color: #ff6b6b;">Tout comportement antisportif (multi-comptes, collusion, triche) = disqualification immediate et definitive.</strong>
