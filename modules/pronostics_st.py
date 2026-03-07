@@ -323,6 +323,33 @@ def get_countdown_pronostics():
 def afficher_pronostics(user):
     """Affiche l'interface de saisie des pronostics - Version Supabase"""
 
+    # Blocage si reglement non accepte par l'admin
+    if not user.get('reglement_accepte', False):
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #1a0a0a 0%, #2a1010 100%);
+            border: 2px solid #FF4444;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin: 20px 0;
+        ">
+            <div style="font-size: 2em; margin-bottom: 10px;">🔒</div>
+            <div style="color: #FF4444; font-size: 1.1em; font-weight: bold; margin-bottom: 10px;">
+                Acces aux pronostics suspendu
+            </div>
+            <div style="color: #CCCCCC; font-size: 0.9em; line-height: 1.6;">
+                Votre acceptation du reglement n'a pas encore ete validee par un administrateur.<br>
+                Vous pouvez consulter l'application en lecture seule.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("◀ Retour", use_container_width=True):
+            st.session_state.dashboard_section = None
+            st.session_state.page = "Accueil"
+            st.rerun()
+        return
+
     pronos_existants = get_pronos_existants(user['id'])
     mode_edition = st.session_state.get('mode_edition_pronos', False)
 

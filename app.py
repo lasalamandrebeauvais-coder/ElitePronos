@@ -864,6 +864,31 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
+            # === BANNIERE REGLEMENT NON VALIDE ===
+            if not user.get('reglement_accepte', False):
+                st.markdown("""
+                <div style="
+                    background: linear-gradient(135deg, #1a0a0a 0%, #2a1010 100%);
+                    border: 2px solid #FF4444;
+                    border-radius: 10px;
+                    padding: 12px 18px;
+                    margin: 10px 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                ">
+                    <span style="font-size:1.5em;">🔒</span>
+                    <div>
+                        <span style="color:#FF4444; font-weight:bold; font-size:0.9em;">
+                            Reglement non valide
+                        </span>
+                        <span style="color:#CCCCCC; font-size:0.85em;">
+                            &nbsp;&mdash;&nbsp; Vous etes en lecture seule. Un administrateur doit valider votre acceptation du reglement pour participer.
+                        </span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
             # === BLOC COMPTE À REBOURS / PRONOSTICS FERMÉS ===
             if countdown and not countdown.get('expired', False):
                     st.markdown(f"""

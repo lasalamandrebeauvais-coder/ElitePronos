@@ -26,7 +26,7 @@ def verifier_identifiants(pseudo, pin):
 
         # Chercher l'utilisateur avec ce pseudo et pin
         user = client._request('GET',
-            f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=id,pseudo,prenom,email,statut,is_admin'
+            f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=id,pseudo,prenom,email,statut,is_admin,reglement_accepte'
         )
 
         if not user or len(user) == 0:
@@ -48,7 +48,8 @@ def verifier_identifiants(pseudo, pin):
             'prenom': user.get('prenom'),
             'email': user.get('email'),
             'statut': statut,
-            'is_admin': bool(user.get('is_admin', False))
+            'is_admin': bool(user.get('is_admin', False)),
+            'reglement_accepte': bool(user.get('reglement_accepte', False))
         }
 
         return True, "Connexion reussie!", user_data

@@ -83,6 +83,10 @@ class SupabaseClient:
         result = self._request('PATCH', f'utilisateurs?id=eq.{user_id}', data)
         return result[0] if result else None
 
+    def set_reglement_accepte(self, user_id, valeur: bool):
+        """Met a jour l'acceptation du reglement d'un utilisateur"""
+        self._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'reglement_accepte': valeur})
+
     def check_login(self, pseudo, pin):
         """Verifie les credentials de connexion"""
         result = self._request('GET', f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=*')

@@ -90,8 +90,8 @@ def get_nombre_admins():
 def get_tous_utilisateurs():
     """Recupere tous les utilisateurs avec statut admin"""
     supabase = get_supabase()
-    users = supabase._request('GET', 'utilisateurs?select=id,pseudo,email,prenom,statut,is_admin&order=is_admin.desc,id.desc') or []
-    return [(u['id'], u['pseudo'], u.get('email'), u.get('prenom'), u.get('statut'), u.get('is_admin', False)) for u in users]
+    users = supabase._request('GET', 'utilisateurs?select=id,pseudo,email,prenom,statut,is_admin,reglement_accepte&order=is_admin.desc,id.desc') or []
+    return [(u['id'], u['pseudo'], u.get('email'), u.get('prenom'), u.get('statut'), u.get('is_admin', False), u.get('reglement_accepte', False)) for u in users]
 
 
 def activer_compte(user_id):
@@ -275,27 +275,24 @@ def afficher_panel_admin():
                 .stCheckbox { margin: 0 !important; padding: 0 !important; }
             </style>""", unsafe_allow_html=True)
 
-            # En-tête du tableau
-            st.markdown("""
-            <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #D4AF37;margin-bottom:5px;">
-                <span style="width:30px;color:#D4AF37;font-size:0.7em;font-weight:bold;">#</span>
-                <span style="width:100px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Pseudo</span>
-                <span style="flex:1;color:#D4AF37;font-size:0.7em;font-weight:bold;">Email</span>
-                <span style="width:40px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Actif</span>
-                <span style="width:40px;color:#D4AF37;font-size:0.7em;font-weight:bold;">Admin</span>
-                <span style="width:40px;color:#FF4444;font-size:0.7em;font-weight:bold;">Suppr</span>
-            </div>
-            """, unsafe_allow_html=True)
+            # En-tête aligné avec st.columns (memes proportions que les lignes)
+            COLS = [0.4, 1.3, 2.2, 0.4, 0.4, 0.4, 0.4]
+            h = st.columns(COLS)
+            labels = ["#", "Pseudo", "Email", "Actif", "Regle", "Admin", "Suppr"]
+            colors = ["#D4AF37"] * 6 + ["#FF4444"]
+            for col, lbl, col_color in zip(h, labels, colors):
+                col.markdown(f"<span style='color:{col_color};font-size:0.7em;font-weight:bold;'>{lbl}</span>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:4px 0 6px 0;border-color:#D4AF37;'>", unsafe_allow_html=True)
 
             # Liste des utilisateurs
             for user in all_users:
-                user_id, pseudo, email, prenom, statut, user_is_admin = user
+                user_id, pseudo, email, prenom, statut, user_is_admin, regle = user
 
                 is_actif = statut == "Actif"
                 is_admin_user = user_is_admin or False
                 is_super = is_super_admin(pseudo)
 
-                cols = st.columns([0.4, 1.3, 2.2, 0.4, 0.4, 0.4])
+                cols = st.columns(COLS)
 
                 with cols[0]:
                     st.markdown(f"<span style='color:#FFF;font-size:0.75em;'>{user_id}</span>", unsafe_allow_html=True)
@@ -307,7 +304,6 @@ def afficher_panel_admin():
                     st.markdown(f"<span style='color:#888;font-size:0.7em;'>{email or '-'}</span>", unsafe_allow_html=True)
 
                 with cols[3]:
-                    # Case Actif: vert si actif, rouge si pause
                     bg = "🟢" if is_actif else "🔴"
                     new_actif = st.checkbox(bg, value=is_actif, key=f"actif_{user_id}", label_visibility="collapsed")
                     if new_actif != is_actif:
@@ -315,10 +311,14 @@ def afficher_panel_admin():
                         st.rerun()
 
                 with cols[4]:
-                    # Admin: couronne si admin
+                    new_regle = st.checkbox("R", value=bool(regle), key=f"regle_{user_id}", label_visibility="collapsed")
+                    if new_regle != bool(regle):
+                        get_supabase().set_reglement_accepte(user_id, new_regle)
+                        st.rerun()
+
+                with cols[5]:
                     if is_admin_user:
                         st.markdown("👑", unsafe_allow_html=True)
-                    # Seul Baggio peut promouvoir/revoquer les admins
                     current_user = get_current_user()
                     is_current_super = current_user and is_super_admin(current_user.get('pseudo', ''))
                     if is_current_super and not is_super:
@@ -327,8 +327,7 @@ def afficher_panel_admin():
                             promouvoir_admin(user_id) if new_admin else revoquer_admin(user_id)
                             st.rerun()
 
-                with cols[5]:
-                    # Supprimer
+                with cols[6]:
                     if not is_super:
                         if st.button("🗑", key=f"del_{user_id}"):
                             confirmer_suppression(user_id, pseudo)
