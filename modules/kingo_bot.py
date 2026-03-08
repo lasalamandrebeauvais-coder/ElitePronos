@@ -38,7 +38,9 @@ def get_or_create_kingo():
             'pin': KINGO_PIN,
             'prenom': KINGO_PRENOM,
             'statut': 'Actif',
-            'is_admin': False
+            'is_admin': False,
+            'is_bot': True,
+            'reglement_accepte': True
         }
         created = supabase._request('POST', 'utilisateurs', new_user)
 

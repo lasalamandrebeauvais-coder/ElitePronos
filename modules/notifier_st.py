@@ -2587,7 +2587,7 @@ def email_recap_reglement_admins():
     supabase = get_supabase()
     users = supabase._request(
         'GET',
-        'utilisateurs?statut=eq.Actif&select=id,pseudo,prenom,email,reglement_accepte&order=pseudo.asc'
+        'utilisateurs?statut=eq.Actif&is_bot=eq.false&select=id,pseudo,prenom,email,reglement_accepte&order=pseudo.asc'
     ) or []
 
     regles = [u for u in users if u.get('reglement_accepte')]

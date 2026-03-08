@@ -700,19 +700,22 @@ def _get_mvp_semaine_impl(semaine_id, saison_id):
         match_ids = [m['id'] for m in matchs]
         match_ids_str = ','.join(map(str, match_ids))
 
-        # Recuperer toutes les predictions avec points
+        # Recuperer toutes les predictions avec points (inclut is_bot pour exclure les bots)
         predictions = supabase._request('GET',
-            f'predictions?match_id=in.({match_ids_str})&points_gagnes=not.is.null&select=user_id,points_gagnes,utilisateurs(pseudo)'
+            f'predictions?match_id=in.({match_ids_str})&points_gagnes=not.is.null&select=user_id,points_gagnes,utilisateurs(pseudo,is_bot)'
         ) or []
 
         if not predictions:
             return None
 
-        # Agreger par joueur
+        # Agreger par joueur (Kingo et bots exclus du MVP)
         joueurs_pts = {}
         for p in predictions:
             uid = p['user_id']
-            pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
+            u = p.get('utilisateurs') or {}
+            if u.get('is_bot'):
+                continue
+            pseudo = u.get('pseudo', 'Inconnu')
             if uid not in joueurs_pts:
                 joueurs_pts[uid] = {'user_id': uid, 'pseudo': pseudo, 'points_journee': 0}
             joueurs_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
