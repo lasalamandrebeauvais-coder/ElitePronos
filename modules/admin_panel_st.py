@@ -26,7 +26,9 @@ from modules.notifier_st import (
     envoyer_email_bienvenue,
     envoyer_email_prospection,
     envoyer_tableau_pronos_admin,
-    envoyer_lancement_journee
+    envoyer_lancement_journee,
+    email_recap_reglement_admins,
+    envoyer_relance_non_regles
 )
 
 
@@ -232,6 +234,57 @@ def afficher_panel_admin():
                     st.markdown("---")
 
     # === ONGLET 2 : TOUS LES UTILISATEURS ===
+    with tab1:
+        st.markdown("---")
+        st.markdown("### Relance reglement")
+
+        # Calcul des non-regles actifs
+        from modules.supabase_db import get_supabase as _get_sb
+        _users_actifs = _get_sb()._request(
+            'GET', 'utilisateurs?statut=eq.Actif&select=id,pseudo,reglement_accepte'
+        ) or []
+        _non_regles = [u for u in _users_actifs if not u.get('reglement_accepte')]
+        _regles = [u for u in _users_actifs if u.get('reglement_accepte')]
+
+        col_stat1, col_stat2 = st.columns(2)
+        with col_stat1:
+            st.metric("Reglement valide", len(_regles), help="Joueurs actifs avec reglement accepte")
+        with col_stat2:
+            st.metric("En attente", len(_non_regles), help="Joueurs actifs sans reglement valide")
+
+        if _non_regles:
+            # Calcul du countdown J1
+            try:
+                from modules.database_manager import get_countdown_j1
+                countdown_j1 = get_countdown_j1()
+                jours_avant_j1 = countdown_j1.get('days', 99) if countdown_j1 else 99
+            except Exception:
+                jours_avant_j1 = 99
+
+            if jours_avant_j1 <= 7:
+                alerte_j1 = f"⚠️ J1 dans **{jours_avant_j1} jour(s)** — relance recommandee !"
+                st.warning(alerte_j1)
+            else:
+                st.info(f"J1 dans {jours_avant_j1} jour(s). La relance est prevue a J-7.")
+
+            noms_non_regles = ', '.join(u['pseudo'] for u in _non_regles)
+            st.caption(f"Non regles : {noms_non_regles}")
+
+            if st.button(
+                f"ENVOYER RELANCE ({len(_non_regles)} joueur(s))",
+                type="primary",
+                use_container_width=True,
+                key="btn_relance_reglement"
+            ):
+                with st.spinner("Envoi des emails de relance..."):
+                    nb_ok, nb_err, details = envoyer_relance_non_regles()
+                if nb_err == 0:
+                    st.success(f"✅ {nb_ok} email(s) de relance envoye(s) avec succes.")
+                else:
+                    st.warning(f"✅ {nb_ok} envoye(s), ⚠️ {nb_err} echec(s).")
+        else:
+            st.success("✅ Tous les joueurs actifs ont valide leur reglement !")
+
     with tab2:
         st.markdown("### Liste complete des utilisateurs")
 
@@ -314,6 +367,10 @@ def afficher_panel_admin():
                     new_regle = st.checkbox("R", value=bool(regle), key=f"regle_{user_id}", label_visibility="collapsed")
                     if new_regle != bool(regle):
                         get_supabase().set_reglement_accepte(user_id, new_regle)
+                        try:
+                            email_recap_reglement_admins()
+                        except Exception as e:
+                            print(f"Erreur envoi recap reglement: {e}")
                         st.rerun()
 
                 with cols[5]:

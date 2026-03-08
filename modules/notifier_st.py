@@ -2571,5 +2571,171 @@ def test_email_template():
     return True
 
 
+# ============================================
+# EMAIL RECAP REGLEMENT → ADMINS
+# ============================================
+
+def email_recap_reglement_admins():
+    """
+    Envoie aux admins un tableau recap des joueurs regles / non regles.
+    Appele automatiquement a chaque validation de reglement.
+    Retourne liste de resultats d'envoi.
+    """
+    from modules.supabase_db import get_supabase
+    from datetime import datetime as _dt
+
+    supabase = get_supabase()
+    users = supabase._request(
+        'GET',
+        'utilisateurs?statut=eq.Actif&select=id,pseudo,prenom,email,reglement_accepte&order=pseudo.asc'
+    ) or []
+
+    regles = [u for u in users if u.get('reglement_accepte')]
+    non_regles = [u for u in users if not u.get('reglement_accepte')]
+
+    date_str = _dt.now().strftime("%d/%m/%Y %H:%M")
+
+    def _ligne(u, couleur_bg, icone):
+        return f"""
+        <tr style="background:{couleur_bg};">
+            <td style="padding:8px 12px;color:#FFFFFF;">{icone}</td>
+            <td style="padding:8px 12px;color:#FFD700;font-weight:bold;">{u.get('pseudo','?')}</td>
+            <td style="padding:8px 12px;color:#CCCCCC;">{u.get('prenom') or '-'}</td>
+            <td style="padding:8px 12px;color:#AAAAAA;font-size:0.85em;">{u.get('email') or '-'}</td>
+        </tr>"""
+
+    lignes_regles = ''.join(_ligne(u, '#0a1f0a', '✅') for u in regles) or \
+        '<tr><td colspan="4" style="color:#666;padding:10px;text-align:center;">Aucun</td></tr>'
+    lignes_non = ''.join(_ligne(u, '#1f0a0a', '❌') for u in non_regles) or \
+        '<tr><td colspan="4" style="color:#666;padding:10px;text-align:center;">Aucun</td></tr>'
+
+    thead = """
+    <tr style="background:linear-gradient(90deg,#D4AF37,#B8960C);">
+        <th style="padding:8px 12px;color:#000;text-align:left;width:30px;"></th>
+        <th style="padding:8px 12px;color:#000;text-align:left;">Pseudo</th>
+        <th style="padding:8px 12px;color:#000;text-align:left;">Prenom</th>
+        <th style="padding:8px 12px;color:#000;text-align:left;">Email</th>
+    </tr>"""
+
+    content = f"""
+    <div style="text-align:center;margin-bottom:20px;">
+        <h2 style="color:#D4AF37;">Etat du Reglement — {date_str}</h2>
+        <div style="display:inline-flex;gap:30px;margin-top:10px;">
+            <div style="background:#0a1f0a;border:1px solid #4CAF50;border-radius:8px;padding:12px 24px;">
+                <div style="color:#4CAF50;font-size:2em;font-weight:bold;">{len(regles)}</div>
+                <div style="color:#CCCCCC;font-size:0.85em;">Reglement valide ✅</div>
+            </div>
+            <div style="background:#1f0a0a;border:1px solid #FF4444;border-radius:8px;padding:12px 24px;">
+                <div style="color:#FF4444;font-size:2em;font-weight:bold;">{len(non_regles)}</div>
+                <div style="color:#CCCCCC;font-size:0.85em;">En attente ❌</div>
+            </div>
+        </div>
+    </div>
+
+    <h3 style="color:#4CAF50;margin:20px 0 8px 0;">✅ Joueurs qui ont regle ({len(regles)})</h3>
+    <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;">
+        {thead}{lignes_regles}
+    </table>
+
+    <h3 style="color:#FF4444;margin:24px 0 8px 0;">❌ Joueurs qui n'ont pas regle ({len(non_regles)})</h3>
+    <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;">
+        {thead}{lignes_non}
+    </table>
+    """
+
+    html = get_base_template(content, "Recap Reglement")
+
+    admins = supabase._request('GET', 'utilisateurs?is_admin=eq.true&select=pseudo,email') or []
+    resultats = []
+    for admin in admins:
+        if not admin.get('email'):
+            continue
+        ok, msg = send_email(admin['email'], f"Elite Pronos — Recap Reglement ({len(regles)}/{len(regles)+len(non_regles)})", html)
+        resultats.append({'admin': admin['pseudo'], 'success': ok, 'message': msg})
+
+    return resultats
+
+
+# ============================================
+# EMAIL RELANCE REGLEMENT → JOUEURS NON REGLES
+# ============================================
+
+PHRASES_KINGO_RELANCE_REGLEMENT = [
+    "Les delais ne sont pas une suggestion, {prenom}. Le championnat commence dans moins d'une semaine et ton reglement n'est toujours pas valide. Une simple lecture suffit. Kingo attend.",
+    "{prenom}, le coup d'envoi approche a grands pas. Tout le monde est pret... sauf toi. Valide ton reglement avant qu'il ne soit trop tard pour participer.",
+    "Ah, {prenom}. Kingo pensait que tu avais oublie. Et visiblement, c'est le cas. Le debut du championnat est dans 7 jours. Ton reglement n'est pas valide. Contacte vite un admin.",
+    "Message urgent de Kingo a {prenom} : le championnat commence bientot et ta participation est suspendue. Prends le temps de valider ton reglement — c'est maintenant ou jamais.",
+]
+
+
+def envoyer_relance_non_regles():
+    """
+    Envoie un email de relance a chaque joueur actif qui n'a pas valide son reglement.
+    A appeler manuellement depuis le panel admin, idealement 1 semaine avant J1.
+    Retourne (nb_ok, nb_err, details).
+    """
+    import random
+    from modules.supabase_db import get_supabase
+
+    supabase = get_supabase()
+    users = supabase._request(
+        'GET',
+        'utilisateurs?statut=eq.Actif&reglement_accepte=eq.false&select=id,pseudo,prenom,email'
+    ) or []
+
+    nb_ok, nb_err, details = 0, 0, []
+
+    for u in users:
+        email = u.get('email')
+        prenom = u.get('prenom') or u.get('pseudo', '')
+        pseudo = u.get('pseudo', '')
+
+        if not email:
+            continue
+
+        phrase = random.choice(PHRASES_KINGO_RELANCE_REGLEMENT).format(prenom=prenom)
+
+        content = f"""
+        <div style="
+            background:linear-gradient(135deg,#0d1117 0%,#1a1a2e 100%);
+            border:2px solid #FF4444;border-radius:12px;padding:0;overflow:hidden;margin-bottom:20px;
+        ">
+            <div style="background:linear-gradient(90deg,#FF4444,#CC0000);padding:8px 18px;
+                        display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:#FFF;font-size:1.1em;font-weight:900;letter-spacing:1px;">
+                    ⚠️ RELANCE REGLEMENT
+                </span>
+                <span style="color:#FFF;font-size:0.75em;">Elite Pronos</span>
+            </div>
+            <div style="padding:20px;">
+                <div style="color:#FF6666;font-size:1em;font-weight:bold;margin-bottom:8px;">
+                    Bonjour {prenom},
+                </div>
+                <div style="color:#e6edf3;font-size:1em;line-height:1.7;margin-bottom:16px;">
+                    {phrase}
+                </div>
+                <div style="background:#0a0a1a;border:1px solid #FF4444;border-radius:8px;
+                            padding:14px;text-align:center;">
+                    <div style="color:#CCCCCC;font-size:0.9em;">
+                        Pour valider votre participation, contactez un administrateur Elite Pronos.<br>
+                        Votre compte <strong style="color:#FFD700;">@{pseudo}</strong> est actuellement
+                        en <strong style="color:#FF4444;">lecture seule</strong>.
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+        html = get_base_template(content, "Relance Reglement")
+        ok, msg = send_email(email, "Elite Pronos — Valide ton reglement avant le coup d'envoi !", html)
+
+        if ok:
+            nb_ok += 1
+        else:
+            nb_err += 1
+        details.append({'pseudo': pseudo, 'email': email, 'success': ok, 'message': msg})
+
+    return nb_ok, nb_err, details
+
+
 if __name__ == "__main__":
     test_email_template()
