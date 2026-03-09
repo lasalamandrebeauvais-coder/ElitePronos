@@ -598,17 +598,23 @@ def afficher_panel_admin():
                 from modules.kingo_bot import kingo_pronostique_semaine
                 if kingo_pronostique_semaine(semaine_selectionnee, saison, force=True):
                     st.success("👑 Kingo a fait ses pronostics sur les matchs actifs!")
-                    # Envoyer l'email nouvelle journee a tous les joueurs
+                    st.session_state['kingo_a_pronostique'] = True
+                else:
+                    st.warning("Kingo n'a pas pu pronostiquer.")
+                st.rerun()
+
+            # Bouton email nouvelle journee — uniquement apres que Kingo a pronostique
+            if st.session_state.get('kingo_a_pronostique'):
+                st.info("✅ Kingo a pronostiqué. Vérifiez la sélection puis envoyez l'email de lancement.")
+                if st.button("📧 ENVOYER EMAIL NOUVELLE JOURNÉE", use_container_width=True):
                     with st.spinner("Envoi des emails nouvelle journee..."):
                         try:
                             resultats, _ = envoyer_lancement_journee(semaine_selectionnee)
                             nb_ok = sum(1 for r in resultats if r['success'])
                             st.success(f"📧 Email nouvelle journee envoye a {nb_ok}/{len(resultats)} joueur(s)")
+                            st.session_state['kingo_a_pronostique'] = False
                         except Exception as e:
-                            st.warning(f"⚠️ Pronostics OK mais erreur email: {str(e)}")
-                else:
-                    st.warning("Kingo n'a pas pu pronostiquer.")
-                st.rerun()
+                            st.warning(f"⚠️ Erreur envoi email: {str(e)}")
         else:
             st.warning(f"Aucun match importe pour J{semaine_selectionnee}. Cliquez sur 'IMPORTER TOUS LES MATCHS' ci-dessus.")
 
