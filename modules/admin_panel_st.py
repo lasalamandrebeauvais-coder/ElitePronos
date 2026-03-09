@@ -480,10 +480,8 @@ def afficher_panel_admin():
         if nb_total > 0:
             st.info(f"**{nb_actifs} matchs actifs** sur {nb_total} disponibles pour J{semaine_selectionnee}")
 
-            # === TRI : Ligue 1 d'abord, puis autres championnats
-            # Dans chaque groupe : matchs les plus equilibres en premier
+            # === GROUPEMENT PAR CHAMPIONNAT ===
             def _balance_ratio(m):
-                """Ratio max/min des probabilites implicites. Plus proche de 1 = plus equilibre."""
                 c_h = m.get('cote_home') or 3.0
                 c_a = m.get('cote_away') or 3.0
                 if c_h <= 0 or c_a <= 0:
@@ -491,80 +489,109 @@ def afficher_panel_admin():
                 p_h, p_a = 1 / c_h, 1 / c_a
                 return max(p_h, p_a) / min(p_h, p_a) if min(p_h, p_a) > 0 else 99.0
 
-            CHAMP_ORDRE = {'FL1': 0}  # Ligue 1 en premier, tout le reste apres
-            tous_matchs.sort(key=lambda m: (
-                CHAMP_ORDRE.get(m.get('championnat', ''), 1),
-                _balance_ratio(m)
-            ))
+            # Ordre des championnats : Ligue 1 toujours en tete
+            CHAMP_ORDRE = {
+                'Ligue 1': 0, 'FL1': 0,
+                'Premier League': 1,
+                'La Liga': 2,
+                'Serie A': 3,
+                'Bundesliga': 4,
+            }
+            CHAMP_FLAGS = {
+                'Ligue 1': '🇫🇷', 'FL1': '🇫🇷',
+                'Premier League': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+                'La Liga': '🇪🇸',
+                'Serie A': '🇮🇹',
+                'Bundesliga': '🇩🇪',
+            }
 
-            # Legende equilibre
-            st.markdown("""
-            <div style="font-size:0.75em; color:#888; margin-bottom:6px;">
-                🟢 Equilibre &nbsp;|&nbsp; 🟡 Correct &nbsp;|&nbsp; 🔴 Favori marque
-                &nbsp;&nbsp;—&nbsp;&nbsp; <span style="color:#D4AF37;">Ligue 1 en premier</span>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Afficher tous les matchs avec checkboxes
-            champ_affiches = set()
+            # Grouper par championnat
+            from collections import defaultdict
+            groupes = defaultdict(list)
             for m in tous_matchs:
-                is_actif = m.get('is_active', False)
-                border_color = "#00FF00" if is_actif else "#333"
-                bg = "#002040" if is_actif else "#001529"
-                champ = m.get('championnat', '')
+                groupes[m.get('championnat', 'Autre')].append(m)
 
-                # Separateur de championnat
-                if champ not in champ_affiches:
-                    champ_affiches.add(champ)
-                    champ_label = {'FL1': '🇫🇷 Ligue 1'}.get(champ, f'🌍 {champ}')
-                    st.markdown(
-                        f"<div style='color:#D4AF37;font-size:0.75em;font-weight:bold;"
-                        f"margin:10px 0 3px 0;border-bottom:1px solid #333;padding-bottom:2px;'>"
-                        f"{champ_label}</div>",
-                        unsafe_allow_html=True
-                    )
+            # Trier les championnats (Ligue 1 en premier)
+            championnats_tries = sorted(
+                groupes.keys(),
+                key=lambda c: (CHAMP_ORDRE.get(c, 9), c)
+            )
 
-                # Date formatee
-                date_info = ""
-                if m.get('date_match'):
-                    try:
-                        dt = datetime.fromisoformat(m['date_match'].replace('Z', '+00:00'))
-                        jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-                        date_info = f"{jours[dt.weekday()]} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
-                    except:
-                        date_info = ""
+            # Legende
+            st.markdown(
+                "<div style='font-size:0.75em;color:#888;margin-bottom:8px;'>"
+                "🟢 Équilibré &nbsp;|&nbsp; 🟡 Correct &nbsp;|&nbsp; 🔴 Favori marqué</div>",
+                unsafe_allow_html=True
+            )
 
-                # Cotes et indicateur equilibre
-                c_h = m.get('cote_home') or 0
-                c_n = m.get('cote_draw') or 0
-                c_a = m.get('cote_away') or 0
-                ratio = _balance_ratio(m)
-                if ratio < 1.5:
-                    eq_icon, eq_color = "🟢", "#4CAF50"
-                elif ratio < 2.5:
-                    eq_icon, eq_color = "🟡", "#FFD700"
-                else:
-                    eq_icon, eq_color = "🔴", "#FF4444"
+            for champ in championnats_tries:
+                matchs_champ = sorted(groupes[champ], key=_balance_ratio)
+                flag = CHAMP_FLAGS.get(champ, '🌍')
+                nb_champ = len(matchs_champ)
+                nb_actifs_champ = sum(1 for m in matchs_champ if m.get('is_active'))
 
-                col_m1, col_m2 = st.columns([4, 0.5])
-                with col_m1:
-                    st.markdown(f"""<div style="background:{bg}; border-left:4px solid {border_color}; padding:8px 10px; margin:2px 0; border-radius:5px; font-size:0.8em;">
-<div style="display:flex; justify-content:space-between; align-items:center;">
-  <span style="color:#FFF; font-weight:bold;">{eq_icon} {m['equipe_home']} vs {m['equipe_away']}</span>
-  <span style="color:#888; font-size:0.8em;">{date_info}</span>
-</div>
-<div style="display:flex; gap:15px; margin-top:4px; font-size:0.85em;">
-  <span style="color:#D4AF37;">1: {c_h:.2f}</span>
-  <span style="color:#D4AF37;">N: {c_n:.2f}</span>
-  <span style="color:#D4AF37;">2: {c_a:.2f}</span>
-  <span style="color:{eq_color}; margin-left:8px; font-size:0.85em;">ratio {ratio:.1f}</span>
-</div>
-</div>""", unsafe_allow_html=True)
-                with col_m2:
-                    new_actif = st.checkbox("✓", value=is_actif, key=f"match_actif_{m['id']}", label_visibility="collapsed")
-                    if new_actif != is_actif:
-                        supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
-                        st.rerun()
+                # En-tete du championnat
+                st.markdown(
+                    f"<div style='background:#001f3d;border-left:4px solid #D4AF37;"
+                    f"padding:6px 12px;margin:12px 0 4px 0;border-radius:4px;"
+                    f"display:flex;justify-content:space-between;align-items:center;'>"
+                    f"<span style='color:#D4AF37;font-weight:bold;font-size:0.9em;'>"
+                    f"{flag} {champ}</span>"
+                    f"<span style='color:#888;font-size:0.75em;'>"
+                    f"{nb_actifs_champ} actif(s) / {nb_champ} match(s)</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+                for m in matchs_champ:
+                    is_actif = m.get('is_active', False)
+                    border_color = "#00FF00" if is_actif else "#444"
+                    bg = "#002040" if is_actif else "#001529"
+
+                    # Date
+                    date_info = ""
+                    if m.get('date_match'):
+                        try:
+                            dt = datetime.fromisoformat(m['date_match'].replace('Z', '+00:00'))
+                            jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+                            date_info = f"{jours[dt.weekday()]} {dt.day}/{dt.month} {dt.hour}h{dt.minute:02d}"
+                        except:
+                            date_info = ""
+
+                    # Cotes et equilibre
+                    c_h = m.get('cote_home') or 0
+                    c_n = m.get('cote_draw') or 0
+                    c_a = m.get('cote_away') or 0
+                    ratio = _balance_ratio(m)
+                    if ratio < 1.5:
+                        eq_icon, eq_color = "🟢", "#4CAF50"
+                    elif ratio < 2.5:
+                        eq_icon, eq_color = "🟡", "#FFD700"
+                    else:
+                        eq_icon, eq_color = "🔴", "#FF4444"
+
+                    col_m1, col_m2 = st.columns([4, 0.5])
+                    with col_m1:
+                        st.markdown(
+                            f"<div style='background:{bg};border-left:4px solid {border_color};"
+                            f"padding:7px 10px;margin:2px 0;border-radius:5px;font-size:0.8em;'>"
+                            f"<div style='display:flex;justify-content:space-between;align-items:center;'>"
+                            f"<span style='color:#FFF;font-weight:bold;'>{eq_icon} {m['equipe_home']} vs {m['equipe_away']}</span>"
+                            f"<span style='color:#888;font-size:0.8em;'>{date_info}</span>"
+                            f"</div>"
+                            f"<div style='display:flex;gap:12px;margin-top:3px;font-size:0.85em;'>"
+                            f"<span style='color:#D4AF37;'>1: {c_h:.2f}</span>"
+                            f"<span style='color:#D4AF37;'>N: {c_n:.2f}</span>"
+                            f"<span style='color:#D4AF37;'>2: {c_a:.2f}</span>"
+                            f"<span style='color:{eq_color};margin-left:6px;'>ratio {ratio:.1f}</span>"
+                            f"</div></div>",
+                            unsafe_allow_html=True
+                        )
+                    with col_m2:
+                        new_actif = st.checkbox("✓", value=is_actif, key=f"match_actif_{m['id']}", label_visibility="collapsed")
+                        if new_actif != is_actif:
+                            supabase._request('PATCH', f'matches?id=eq.{m["id"]}', {'is_active': new_actif})
+                            st.rerun()
 
             # Bouton pour faire repronostiquer Kingo apres modification
             if st.button("KINGO REPRONOSTIQUE", type="primary", use_container_width=True):
