@@ -480,14 +480,49 @@ def afficher_panel_admin():
         if nb_total > 0:
             st.info(f"**{nb_actifs} matchs actifs** sur {nb_total} disponibles pour J{semaine_selectionnee}")
 
-            # Afficher tous les matchs avec checkboxes
-            st.markdown("**Cochez les matchs a activer:**")
+            # === TRI : Ligue 1 d'abord, puis autres championnats
+            # Dans chaque groupe : matchs les plus equilibres en premier
+            def _balance_ratio(m):
+                """Ratio max/min des probabilites implicites. Plus proche de 1 = plus equilibre."""
+                c_h = m.get('cote_home') or 3.0
+                c_a = m.get('cote_away') or 3.0
+                if c_h <= 0 or c_a <= 0:
+                    return 99.0
+                p_h, p_a = 1 / c_h, 1 / c_a
+                return max(p_h, p_a) / min(p_h, p_a) if min(p_h, p_a) > 0 else 99.0
 
+            CHAMP_ORDRE = {'FL1': 0}  # Ligue 1 en premier, tout le reste apres
+            tous_matchs.sort(key=lambda m: (
+                CHAMP_ORDRE.get(m.get('championnat', ''), 1),
+                _balance_ratio(m)
+            ))
+
+            # Legende equilibre
+            st.markdown("""
+            <div style="font-size:0.75em; color:#888; margin-bottom:6px;">
+                🟢 Equilibre &nbsp;|&nbsp; 🟡 Correct &nbsp;|&nbsp; 🔴 Favori marque
+                &nbsp;&nbsp;—&nbsp;&nbsp; <span style="color:#D4AF37;">Ligue 1 en premier</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Afficher tous les matchs avec checkboxes
+            champ_affiches = set()
             for m in tous_matchs:
                 is_actif = m.get('is_active', False)
                 border_color = "#00FF00" if is_actif else "#333"
                 bg = "#002040" if is_actif else "#001529"
                 champ = m.get('championnat', '')
+
+                # Separateur de championnat
+                if champ not in champ_affiches:
+                    champ_affiches.add(champ)
+                    champ_label = {'FL1': '🇫🇷 Ligue 1'}.get(champ, f'🌍 {champ}')
+                    st.markdown(
+                        f"<div style='color:#D4AF37;font-size:0.75em;font-weight:bold;"
+                        f"margin:10px 0 3px 0;border-bottom:1px solid #333;padding-bottom:2px;'>"
+                        f"{champ_label}</div>",
+                        unsafe_allow_html=True
+                    )
 
                 # Date formatee
                 date_info = ""
@@ -499,16 +534,31 @@ def afficher_panel_admin():
                     except:
                         date_info = ""
 
-                # Cotes
+                # Cotes et indicateur equilibre
                 c_h = m.get('cote_home') or 0
                 c_n = m.get('cote_draw') or 0
                 c_a = m.get('cote_away') or 0
+                ratio = _balance_ratio(m)
+                if ratio < 1.5:
+                    eq_icon, eq_color = "🟢", "#4CAF50"
+                elif ratio < 2.5:
+                    eq_icon, eq_color = "🟡", "#FFD700"
+                else:
+                    eq_icon, eq_color = "🔴", "#FF4444"
 
                 col_m1, col_m2 = st.columns([4, 0.5])
                 with col_m1:
                     st.markdown(f"""<div style="background:{bg}; border-left:4px solid {border_color}; padding:8px 10px; margin:2px 0; border-radius:5px; font-size:0.8em;">
-<div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#FFF; font-weight:bold;">{m['equipe_home']} vs {m['equipe_away']}</span><span style="color:#888; font-size:0.8em;">{champ} | {date_info}</span></div>
-<div style="display:flex; gap:15px; margin-top:4px; font-size:0.85em;"><span style="color:#D4AF37;">1: {c_h:.2f}</span><span style="color:#D4AF37;">N: {c_n:.2f}</span><span style="color:#D4AF37;">2: {c_a:.2f}</span></div>
+<div style="display:flex; justify-content:space-between; align-items:center;">
+  <span style="color:#FFF; font-weight:bold;">{eq_icon} {m['equipe_home']} vs {m['equipe_away']}</span>
+  <span style="color:#888; font-size:0.8em;">{date_info}</span>
+</div>
+<div style="display:flex; gap:15px; margin-top:4px; font-size:0.85em;">
+  <span style="color:#D4AF37;">1: {c_h:.2f}</span>
+  <span style="color:#D4AF37;">N: {c_n:.2f}</span>
+  <span style="color:#D4AF37;">2: {c_a:.2f}</span>
+  <span style="color:{eq_color}; margin-left:8px; font-size:0.85em;">ratio {ratio:.1f}</span>
+</div>
 </div>""", unsafe_allow_html=True)
                 with col_m2:
                     new_actif = st.checkbox("✓", value=is_actif, key=f"match_actif_{m['id']}", label_visibility="collapsed")
