@@ -20,6 +20,7 @@ MISE_MIN = 10
 MISE_MAX = 60
 
 
+@st.cache_data(ttl=120)
 def has_grand_chelem(user_id):
     """Verifie si le joueur a fait un Grand Chelem la semaine precedente."""
     try:
@@ -40,6 +41,7 @@ def get_budget_joueur(user_id):
     return BUDGET_BASE
 
 
+@st.cache_data(ttl=120)
 def get_matchs_semaine():
     """
     Recupere les 4 matchs de la semaine en cours depuis Supabase
@@ -76,6 +78,7 @@ def get_matchs_semaine():
         return []
 
 
+@st.cache_data(ttl=30)
 def get_pronos_existants(user_id):
     """Recupere les pronostics deja saisis par l'utilisateur depuis Supabase"""
     supabase = get_supabase()
@@ -116,6 +119,7 @@ def get_pronos_existants(user_id):
         return {}
 
 
+@st.cache_data(ttl=30)
 def get_joker_semaine(user_id):
     """Recupere le joker utilise cette semaine depuis Supabase
     Retourne un dict avec type_joker, id, cible_vol_id, cible_pseudo ou None
@@ -260,6 +264,7 @@ def get_championnat_nom(code):
     return championnats.get(code, code)
 
 
+@st.cache_data(ttl=300)
 def get_deadline_pronostics():
     """
     Retourne la date limite pour soumettre les pronostics
@@ -500,7 +505,10 @@ def afficher_pronostics(user):
             stock_voles += 1
 
     # Autres joueurs pour cible VOL
-    autres_joueurs = supabase.get_all_utilisateurs(statut='Actif')
+    @st.cache_data(ttl=120)
+    def _get_joueurs_actifs():
+        return get_supabase().get_all_utilisateurs(statut='Actif')
+    autres_joueurs = _get_joueurs_actifs()
     autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
     joueur_pseudos = [j['pseudo'] for j in autres_joueurs]
     joueur_ids = [j['id'] for j in autres_joueurs]
@@ -722,6 +730,9 @@ def afficher_pronostics(user):
             if success:
                 st.success(message)
                 st.balloons()
+                # Invalider les caches utilisateur
+                get_pronos_existants.clear()
+                get_joker_semaine.clear()
                 # Nettoyer le session_state lie au form
                 for match in matchs:
                     mid = match[0]

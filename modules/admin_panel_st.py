@@ -32,6 +32,7 @@ from modules.notifier_st import (
 )
 
 
+@st.cache_data(ttl=60)
 def get_utilisateurs_en_attente():
     """Recupere tous les utilisateurs en attente de validation"""
     supabase = get_supabase()
@@ -39,6 +40,7 @@ def get_utilisateurs_en_attente():
     return [(u['id'], u['pseudo'], u.get('email'), u.get('prenom'), u.get('telephone')) for u in users]
 
 
+@st.cache_data(ttl=120)
 def is_admin(user_id):
     """Verifie si un utilisateur est admin"""
     supabase = get_supabase()
@@ -57,7 +59,9 @@ def promouvoir_admin(user_id):
     """Promouvoit un utilisateur en admin"""
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': True})
-    # Invalider le cache admin
+    is_admin.clear()
+    get_nombre_admins.clear()
+    get_tous_utilisateurs.clear()
     try:
         from modules.database_manager import _fetch_is_admin
         _fetch_is_admin.clear()
@@ -73,7 +77,9 @@ def revoquer_admin(user_id):
     if result and result[0].get('pseudo', '').lower() == SUPER_ADMIN_PSEUDO:
         return False
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'is_admin': False})
-    # Invalider le cache admin
+    is_admin.clear()
+    get_nombre_admins.clear()
+    get_tous_utilisateurs.clear()
     try:
         from modules.database_manager import _fetch_is_admin
         _fetch_is_admin.clear()
@@ -82,6 +88,7 @@ def revoquer_admin(user_id):
     return True
 
 
+@st.cache_data(ttl=120)
 def get_nombre_admins():
     """Retourne le nombre d'administrateurs"""
     supabase = get_supabase()
@@ -89,6 +96,7 @@ def get_nombre_admins():
     return len(result)
 
 
+@st.cache_data(ttl=60)
 def get_tous_utilisateurs():
     """Recupere tous les utilisateurs avec statut admin"""
     supabase = get_supabase()
@@ -99,6 +107,8 @@ def get_tous_utilisateurs():
 def activer_compte(user_id):
     """Active le compte d'un utilisateur et envoie l'email de bienvenue"""
     from modules.database_manager import get_saison_actuelle
+    get_utilisateurs_en_attente.clear()
+    get_tous_utilisateurs.clear()
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'Actif'})
 
@@ -127,6 +137,7 @@ def suspendre_compte(user_id):
     """Suspend le compte d'un utilisateur"""
     supabase = get_supabase()
     supabase._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'statut': 'En pause'})
+    get_tous_utilisateurs.clear()
     return True
 
 
@@ -142,6 +153,10 @@ def supprimer_compte(user_id):
 
         # Supprimer l'utilisateur
         result = supabase._request('DELETE', f'utilisateurs?id=eq.{user_id}')
+        get_tous_utilisateurs.clear()
+        get_utilisateurs_en_attente.clear()
+        is_admin.clear()
+        get_nombre_admins.clear()
         return True
     except Exception as e:
         print(f"Erreur suppression compte: {e}")
