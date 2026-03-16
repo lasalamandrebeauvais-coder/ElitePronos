@@ -616,7 +616,13 @@ def cloturer_journee(semaine_id, saison_id):
     """Cloture une journee terminee et passe a la suivante"""
     print(f"Cloture de la journee {semaine_id}...")
 
-    # 1. Desactiver les matchs de la journee terminee
+    # 1. Envoyer le debrief ironique (avant desactivation des matchs)
+    try:
+        envoyer_debrief_ironique_auto(semaine_id, saison_id)
+    except Exception as e:
+        print(f"  Erreur debrief ironique: {e}")
+
+    # 2. Desactiver les matchs de la journee terminee
     requests.patch(
         f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}",
         headers=SUPABASE_HEADERS,
@@ -781,10 +787,7 @@ def creer_matchs_journee(semaine_id, saison_id):
             cote_n = round(random.uniform(3.0, 4.0), 2)
             cote_a = round(random.uniform(1.8, 4.0), 2)
 
-        # Les 4 premiers sont actifs par defaut
-        is_active = (i < 4)
-        status_txt = "ACTIF" if is_active else ""
-
+        # Tous les matchs inactifs - l'admin valide manuellement
         requests.post(
             f"{SUPABASE_URL}/rest/v1/matches",
             headers=SUPABASE_HEADERS,
@@ -798,13 +801,13 @@ def creer_matchs_journee(semaine_id, saison_id):
                 'cote_draw': cote_n,
                 'cote_away': cote_a,
                 'date_match': m['date_match'],
-                'is_active': is_active
+                'is_active': False
             }
         )
-        print(f"  -> [{m['championnat']}] {m['equipe_home']} vs {m['equipe_away']} {status_txt}")
+        print(f"  -> [{m['championnat']}] {m['equipe_home']} vs {m['equipe_away']}")
         count += 1
 
-    print(f"{count} matchs importes pour J{semaine_id} (4 actifs par defaut)")
+    print(f"{count} matchs importes pour J{semaine_id} (tous inactifs - validation admin requise)")
 
 
 # ============================================
@@ -1158,6 +1161,216 @@ def _generer_commentaire_synthese(stats):
             break
 
     return " ".join(commentaires)
+
+
+def envoyer_debrief_ironique_auto(semaine_id, saison_id):
+    """
+    Envoie automatiquement le debrief ironique de fin de journee.
+    A appeler au debut de cloturer_journee(), avant de desactiver les matchs.
+    """
+    print(f"=== DEBRIEF IRONIQUE AUTO - J{semaine_id} ===")
+
+    # 1. Recuperer les matchs de la journee avec scores
+    matchs_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&select=id,equipe_home,equipe_away,score_final_home,score_final_away,championnat",
+        headers=SUPABASE_HEADERS
+    )
+    if matchs_resp.status_code != 200:
+        print("  Impossible de recuperer les matchs")
+        return
+    matchs = matchs_resp.json()
+    if not matchs:
+        print("  Aucun match trouve")
+        return
+
+    # Filtrer ceux joues par Kingo (= matchs actifs de la journee)
+    all_match_ids = [m['id'] for m in matchs]
+    match_map = {m['id']: m for m in matchs}
+    kingo_id = get_kingo_user_id()
+    active_match_ids = all_match_ids
+    if kingo_id:
+        ids_str = ','.join(map(str, all_match_ids))
+        kp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/predictions?user_id=eq.{kingo_id}&match_id=in.({ids_str})&select=match_id",
+            headers=SUPABASE_HEADERS
+        )
+        if kp.status_code == 200 and kp.json():
+            active_match_ids = [p['match_id'] for p in kp.json()]
+
+    matchs_actifs = [m for m in matchs if m['id'] in active_match_ids]
+    match_ids_str = ','.join(map(str, active_match_ids))
+
+    # 2. Recuperer les utilisateurs actifs (sans Kingo)
+    users_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/utilisateurs?statut=eq.Actif&pseudo=neq.Kingo&select=id,pseudo,email",
+        headers=SUPABASE_HEADERS
+    )
+    users = users_resp.json() if users_resp.status_code == 200 else []
+    user_map = {u['id']: u['pseudo'] for u in users}
+
+    # 3. Recuperer les predictions avec points_gagnes
+    preds_resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/predictions?match_id=in.({match_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away,points_gagnes",
+        headers=SUPABASE_HEADERS
+    )
+    predictions = preds_resp.json() if preds_resp.status_code == 200 else []
+
+    # 4. Calculer les stats par joueur
+    stats_joueur = {}
+    for u in users:
+        stats_joueur[u['id']] = {'points': 0, 'bons_pronos': 0, 'scores_exacts': 0}
+
+    for p in predictions:
+        uid = p['user_id']
+        m = match_map.get(p['match_id'])
+        if not m or m.get('score_final_home') is None:
+            continue
+        if uid not in stats_joueur:
+            stats_joueur[uid] = {'points': 0, 'bons_pronos': 0, 'scores_exacts': 0}
+
+        stats_joueur[uid]['points'] += (p.get('points_gagnes') or 0)
+
+        prono_res = '1' if p['score_prono_home'] > p['score_prono_away'] else ('2' if p['score_prono_home'] < p['score_prono_away'] else 'N')
+        real_res = '1' if m['score_final_home'] > m['score_final_away'] else ('2' if m['score_final_home'] < m['score_final_away'] else 'N')
+        if prono_res == real_res:
+            stats_joueur[uid]['bons_pronos'] += 1
+        if p['score_prono_home'] == m['score_final_home'] and p['score_prono_away'] == m['score_final_away']:
+            stats_joueur[uid]['scores_exacts'] += 1
+
+    # 5. Classement trie par points
+    sorted_joueurs = sorted(stats_joueur.items(), key=lambda x: x[1]['points'], reverse=True)
+    nb_matchs = len([m for m in matchs_actifs if m.get('score_final_home') is not None])
+
+    classement = []
+    for i, (uid, stats) in enumerate(sorted_joueurs, 1):
+        pseudo = user_map.get(uid, 'Inconnu')
+        grand_chelem = stats['bons_pronos'] >= 4 and nb_matchs >= 4
+        classement.append({
+            'rang': i,
+            'pseudo': pseudo,
+            'points': stats['points'],
+            'bons_pronos': stats['bons_pronos'],
+            'scores_exacts': stats['scores_exacts'],
+            'grand_chelem': grand_chelem
+        })
+
+    # 6. Commentaire ironique de Kingo
+    phrases_intro = [
+        "Encore une semaine de drama footballistique !",
+        "Les des sont tombes, et certains auraient prefere ne pas regarder...",
+        "Resultats tombes. Les excuses peuvent commencer.",
+        "La journee est terminee. Les blessures d'ego peuvent soigner.",
+        "Voila ce que ca donne quand on croit connaitre le foot !"
+    ]
+    commentaire = random.choice(phrases_intro)
+    if classement:
+        winner = classement[0]
+        loser = classement[-1]
+        commentaire += f" Champion de la semaine : @{winner['pseudo']} avec {winner['points']} pts"
+        if winner['grand_chelem']:
+            commentaire += " — Grand Chelem !"
+        commentaire += "."
+        if len(classement) > 1:
+            commentaire += f" Une pensee pour @{loser['pseudo']} ({loser['points']} pts)... courage, ca ira mieux la prochaine fois !"
+
+    # 7. Generer le HTML du debrief
+    now = datetime.now()
+    annee = now.year if now.month >= 8 else now.year - 1
+    saison_label = f"{annee}-{annee + 1}"
+
+    lignes_classement = ""
+    medailles = ['🥇', '🥈', '🥉']
+    for joueur in classement:
+        rang = joueur['rang']
+        medaille = medailles[rang - 1] if rang <= 3 else f"#{rang}"
+        gc_badge = ' <span style="color:#FFD700;">⭐ Grand Chelem</span>' if joueur['grand_chelem'] else ''
+        se_txt = f" | {joueur['scores_exacts']} score(s) exact(s)" if joueur['scores_exacts'] else ""
+        bg = "#002040" if rang % 2 == 0 else "#001a35"
+        lignes_classement += f'''
+        <tr style="background:{bg};">
+            <td style="padding:10px 15px;color:#D4AF37;font-weight:bold;">{medaille}</td>
+            <td style="padding:10px 15px;color:#ffffff;">@{joueur["pseudo"]}{gc_badge}</td>
+            <td style="padding:10px 15px;color:#00FF88;font-weight:bold;text-align:center;">{joueur["points"]} pts</td>
+            <td style="padding:10px 15px;color:#aaaaaa;text-align:center;">{joueur["bons_pronos"]}/{nb_matchs}{se_txt}</td>
+        </tr>'''
+
+    lignes_matchs = ""
+    for m in matchs_actifs:
+        if m.get('score_final_home') is not None:
+            score = f"{m['score_final_home']}-{m['score_final_away']}"
+            champ = m.get('championnat', '')
+            lignes_matchs += f'''
+            <tr>
+                <td style="padding:8px 15px;color:#888888;font-size:11px;">{champ}</td>
+                <td style="padding:8px 15px;color:#cccccc;">{m["equipe_home"]}</td>
+                <td style="padding:8px 15px;color:#FFD700;font-weight:bold;text-align:center;">{score}</td>
+                <td style="padding:8px 15px;color:#cccccc;">{m["equipe_away"]}</td>
+            </tr>'''
+
+    html = f'''<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="background:#001020;color:#ffffff;font-family:Arial,sans-serif;margin:0;padding:20px;">
+<div style="max-width:600px;margin:0 auto;">
+    <div style="background:linear-gradient(135deg,#002040,#001530);border:2px solid #D4AF37;border-radius:15px;padding:30px;margin-bottom:20px;text-align:center;">
+        <div style="font-size:48px;">⚽</div>
+        <h1 style="color:#D4AF37;margin:10px 0;">Debrief Journee {semaine_id}</h1>
+        <p style="color:#aaaaaa;">Saison {saison_label}</p>
+    </div>
+
+    <div style="background:rgba(155,89,182,0.1);border:1px solid #9b59b6;border-radius:10px;padding:20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:flex-start;">
+            <div style="font-size:32px;margin-right:15px;">🤖</div>
+            <div>
+                <div style="color:#9b59b6;font-weight:bold;font-size:14px;margin-bottom:8px;">Kingo — Le Bot Elite</div>
+                <p style="color:#cccccc;margin:0;line-height:1.6;font-style:italic;">{commentaire}</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="background:#002040;border:1px solid #D4AF37;border-radius:10px;padding:20px;margin-bottom:20px;">
+        <h2 style="color:#D4AF37;margin:0 0 15px;">🏆 Classement de la Semaine</h2>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);">
+                    <th style="padding:10px 15px;color:#001020;text-align:left;">#</th>
+                    <th style="padding:10px 15px;color:#001020;text-align:left;">Joueur</th>
+                    <th style="padding:10px 15px;color:#001020;text-align:center;">Points</th>
+                    <th style="padding:10px 15px;color:#001020;text-align:center;">Pronos</th>
+                </tr>
+            </thead>
+            <tbody>{lignes_classement}</tbody>
+        </table>
+    </div>
+
+    <div style="background:#001530;border:1px solid #333;border-radius:10px;padding:20px;margin-bottom:20px;">
+        <h3 style="color:#D4AF37;margin:0 0 15px;">📋 Resultats des Matchs</h3>
+        <table style="width:100%;border-collapse:collapse;">
+            <tbody>{lignes_matchs}</tbody>
+        </table>
+    </div>
+
+    <div style="text-align:center;color:#555555;font-size:12px;margin-top:20px;">
+        Elite Pronos — Powered by Kingo 🤖
+    </div>
+</div>
+</body>
+</html>'''
+
+    # 8. Envoyer a tous les joueurs
+    envois = 0
+    for user in users:
+        if not user.get('email'):
+            continue
+        ok = send_email_direct(
+            user['email'],
+            f"Elite Pronos - Debrief J{semaine_id} 🏆",
+            html
+        )
+        if ok:
+            envois += 1
+
+    print(f"Debrief ironique envoye a {envois} joueur(s)")
 
 
 def generer_html_synthese_paris(semaine_id, jokers_actifs, stats_matchs, commentaire_bot):
