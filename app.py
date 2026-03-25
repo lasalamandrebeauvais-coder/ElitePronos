@@ -1580,6 +1580,13 @@ else:
         except Exception as e:
             st.error(f"Erreur de lecture Supabase: {e}")
 
+        # Bouton Faire ses pronostics
+        if pronostics_ouverts:
+            if st.button("✏️ FAIRE SES PRONOSTICS", type="primary", use_container_width=True):
+                st.session_state.dashboard_section = "pronostics"
+                st.session_state.page = "Tableau de bord"
+                st.rerun()
+
         # Bouton Tableau de bord en bas
         st.markdown("---")
         if st.button("📊 TABLEAU DE BORD", type="primary", use_container_width=True):
