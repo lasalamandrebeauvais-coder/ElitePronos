@@ -48,8 +48,9 @@ def valider_pseudo(pseudo):
 def valider_pin(pin):
     """
     Verifie que le PIN respecte les regles de securite :
-    - Au moins 6 chiffres
-    - Au moins 2 lettres
+    - Au moins 9 caracteres
+    - Au moins 1 lettre majuscule
+    - Au moins 1 chiffre
     - Au moins 1 symbole (!@#$%^&*...)
     Retourne (valide: bool, criteres: dict)
     """
@@ -57,14 +58,14 @@ def valider_pin(pin):
     if not pin:
         return False, {
             'longueur': False,
-            'chiffres': False,
-            'lettres': False,
+            'majuscule': False,
+            'chiffre': False,
             'symbole': False
         }
     criteres = {
         'longueur': len(pin) >= 9,
-        'chiffres': len(re.findall(r'\d', pin)) >= 6,
-        'lettres': len(re.findall(r'[a-zA-Z]', pin)) >= 2,
+        'majuscule': bool(re.search(r'[A-Z]', pin)),
+        'chiffre': bool(re.search(r'\d', pin)),
         'symbole': bool(re.search(r'[!@#$%^&*()\-_=+\[\]{};:\'",.<>?/\\|`~]', pin))
     }
     return all(criteres.values()), criteres
@@ -402,7 +403,7 @@ def afficher_formulaire_inscription():
         pseudo = st.text_input("Pseudo *", placeholder="Minimum 3 caracteres")
         email = st.text_input("Email *", placeholder="votre@email.com")
         telephone = st.text_input("Telephone", placeholder="06 12 34 56 78")
-        pin = st.text_input("Code PIN *", type="password", placeholder="Min 9 car. : 6 chiffres, 2 lettres, 1 symbole")
+        pin = st.text_input("Code PIN *", type="password", placeholder="Min 9 car. : 1 majuscule, 1 chiffre, 1 symbole")
         parrain = st.text_input("Qui vous a recommande ? *", placeholder="Nom ou pseudo de votre parrain")
 
         # Affichage criteres PIN en temps reel
@@ -410,8 +411,8 @@ def afficher_formulaire_inscription():
             _, criteres = valider_pin(pin)
             labels = {
                 'longueur': 'Longueur >= 9 caracteres',
-                'chiffres': 'Au moins 6 chiffres',
-                'lettres': 'Au moins 2 lettres',
+                'majuscule': 'Au moins 1 lettre majuscule',
+                'chiffre': 'Au moins 1 chiffre',
                 'symbole': 'Au moins 1 symbole (!@#$%...)'
             }
             criteres_html = ''.join(
@@ -442,7 +443,7 @@ def afficher_formulaire_inscription():
 
             pin_ok, _ = valider_pin(pin)
             if not pin_ok:
-                erreurs.append("Le PIN ne respecte pas les regles : 9 caracteres min., 6 chiffres, 2 lettres, 1 symbole")
+                erreurs.append("Le PIN ne respecte pas les regles : 9 caracteres min., 1 majuscule, 1 chiffre, 1 symbole")
 
             if not parrain or len(parrain.strip()) < 2:
                 erreurs.append("Veuillez indiquer qui vous a recommande")

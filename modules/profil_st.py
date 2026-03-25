@@ -235,7 +235,7 @@ def afficher_profil(user):
 
     with st.form("form_pin"):
         ancien_pin = st.text_input("PIN actuel", type="password", placeholder="Votre PIN actuel")
-        nouveau_pin = st.text_input("Nouveau PIN", type="password", placeholder="Min 9 car. : 6 chiffres, 2 lettres, 1 symbole")
+        nouveau_pin = st.text_input("Nouveau PIN", type="password", placeholder="Min 9 car. : 1 majuscule, 1 chiffre, 1 symbole")
         nouveau_pin2 = st.text_input("Confirmer le nouveau PIN", type="password")
         submitted_pin = st.form_submit_button("Changer le PIN", use_container_width=True)
 
@@ -250,7 +250,7 @@ def afficher_profil(user):
             else:
                 pin_ok, criteres = valider_pin(nouveau_pin)
                 if not pin_ok:
-                    st.error("Le nouveau PIN ne respecte pas les regles : 9 caracteres min., 6 chiffres, 2 lettres, 1 symbole.")
+                    st.error("Le nouveau PIN ne respecte pas les regles : 9 caracteres min., 1 majuscule, 1 chiffre, 1 symbole.")
                 else:
                     profil_full = get_user_profile(user['id'])
                     stored_hash = (profil_full or {}).get('pin', '')
