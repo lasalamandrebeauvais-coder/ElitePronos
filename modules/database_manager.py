@@ -732,6 +732,83 @@ def _get_mvp_semaine_impl(semaine_id, saison_id):
         return None
 
 
+def get_all_mvp_saison(saison_id):
+    """
+    Recupere les MVPs de toutes les journees d'une saison en 2 requetes (au lieu de N).
+    Retourne: dict {semaine_id: {'user_id', 'pseudo', 'points_journee'}}
+    Cache 300s.
+    """
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=300)
+        def _fetch_all_mvp(saison_id):
+            return _get_all_mvp_saison_impl(saison_id)
+        return _fetch_all_mvp(saison_id)
+    except Exception:
+        return _get_all_mvp_saison_impl(saison_id)
+
+
+def _get_all_mvp_saison_impl(saison_id):
+    """Implementation sans cache"""
+    from modules.supabase_db import get_supabase
+    try:
+        supabase = get_supabase()
+
+        # 1. Tous les matchs de la saison
+        matchs = supabase._request('GET',
+            f'matches?saison_id=eq.{saison_id}&select=id,semaine_id,score_final_home'
+        ) or []
+        if not matchs:
+            return {}
+
+        # Map match_id -> semaine_id + semaines avec au moins 1 match termine
+        match_semaine = {}
+        semaines_terminees = set()
+        for m in matchs:
+            sid = m['semaine_id']
+            match_semaine[m['id']] = sid
+            if m.get('score_final_home') is not None:
+                semaines_terminees.add(sid)
+
+        if not semaines_terminees:
+            return {}
+
+        # 2. Toutes les predictions de la saison avec points
+        all_match_ids_str = ','.join(map(str, [m['id'] for m in matchs]))
+        predictions = supabase._request('GET',
+            f'predictions?match_id=in.({all_match_ids_str})&points_gagnes=not.is.null&select=user_id,points_gagnes,match_id,utilisateurs(pseudo,is_bot)'
+        ) or []
+
+        # Agreger par (semaine, joueur)
+        pts_par_semaine = {}
+        for p in predictions:
+            u = p.get('utilisateurs') or {}
+            if u.get('is_bot'):
+                continue
+            mid = p['match_id']
+            sid = match_semaine.get(mid)
+            if sid is None or sid not in semaines_terminees:
+                continue
+            uid = p['user_id']
+            if sid not in pts_par_semaine:
+                pts_par_semaine[sid] = {}
+            if uid not in pts_par_semaine[sid]:
+                pts_par_semaine[sid][uid] = {'user_id': uid, 'pseudo': u.get('pseudo', 'Inconnu'), 'points_journee': 0}
+            pts_par_semaine[sid][uid]['points_journee'] += p.get('points_gagnes') or 0
+
+        # MVP de chaque semaine = joueur avec le plus de points
+        mvps = {}
+        for sid, joueurs in pts_par_semaine.items():
+            if joueurs:
+                mvps[sid] = max(joueurs.values(), key=lambda x: x['points_journee'])
+
+        return mvps
+
+    except Exception as e:
+        print(f"Erreur get_all_mvp_saison: {e}")
+        return {}
+
+
 def get_utilisateurs_sans_pronostics(semaine_id):
     """Récupère les utilisateurs qui n'ont pas fait de pronostics cette semaine"""
     conn = get_connection()

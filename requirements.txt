@@ -13,11 +13,19 @@ requests>=2.31.0
 # Environment Variables
 python-dotenv>=1.0.0
 
-# Data Processing (optional, for future analytics)
+# Data Processing & Visualization
 pandas>=2.0.0
+altair>=5.0.0
 
 # Database - Supabase (PostgreSQL)
 supabase>=2.0.0
+
+# IA - Kingo commentaires (Gemini gratuit + Claude Haiku fallback)
+google-generativeai>=0.8.0
+anthropic>=0.40.0
+
+# Security - Password hashing
+bcrypt>=4.0.0
 
 # Note: sqlite3 is included in Python standard library
 # Note: smtplib is included in Python standard library

@@ -35,21 +35,24 @@ class SupabaseClient:
     def _request(self, method, endpoint, data=None, params=None):
         """Execute une requete API"""
         url = f"{self.url}/rest/v1/{endpoint}"
-        response = requests.request(method, url, headers=self.headers, json=data, params=params)
+        try:
+            response = requests.request(method, url, headers=self.headers, json=data, params=params, timeout=10)
+        except requests.exceptions.Timeout:
+            print(f"Supabase: timeout sur {method} {endpoint}")
+            return None
 
         if response.status_code < 200 or response.status_code >= 300:
-            print(f"Erreur Supabase: {response.status_code} - {response.text[:300]}")
+            print(f"Erreur Supabase: {response.status_code} sur {method} {endpoint}")
             return None
 
         try:
             result = response.json()
-            # Ne jamais retourner un str - les appelants attendent list/dict/None
             if isinstance(result, str):
-                print(f"Supabase: reponse string inattendue: {result[:200]}")
+                print(f"Supabase: reponse string inattendue sur {endpoint}")
                 return None
             return result
         except Exception:
-            print(f"Supabase: JSON parse error: {response.text[:200]}")
+            print(f"Supabase: JSON parse error sur {endpoint}")
             return None
 
     # ============================================
@@ -88,9 +91,23 @@ class SupabaseClient:
         self._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'reglement_accepte': valeur})
 
     def check_login(self, pseudo, pin):
-        """Verifie les credentials de connexion"""
-        result = self._request('GET', f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=*')
-        return result[0] if result else None
+        """Verifie les credentials de connexion (PIN hashé bcrypt)"""
+        import bcrypt
+        result = self._request('GET', f'utilisateurs?pseudo=eq.{pseudo}&select=*')
+        if not result:
+            return None
+        user = result[0]
+        stored_hash = user.get('pin', '')
+        try:
+            if stored_hash and bcrypt.checkpw(pin.encode('utf-8'), stored_hash.encode('utf-8')):
+                return user
+        except Exception:
+            pass
+        return None
+
+    def changer_pin(self, user_id, new_pin_hash):
+        """Met a jour le PIN hashé d'un utilisateur"""
+        return self._request('PATCH', f'utilisateurs?id=eq.{user_id}', {'pin': new_pin_hash})
 
     def log_login_attempt(self, pseudo):
         """Enregistre une tentative de connexion echouee"""

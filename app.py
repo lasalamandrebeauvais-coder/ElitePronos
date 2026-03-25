@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import os
+import json
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1266,9 +1267,39 @@ else:
                             html_me += '</div>'
                             st.markdown(html_me, unsafe_allow_html=True)
 
-                            # Bloc Kingo Rivaux
+                            # Bloc Kingo IA - Ta Semaine (commentaire personnel sur la semaine precedente)
+                            if journee_courante > 1:
+                                from modules.kingo_ia import construire_data_joueur, generer_commentaire_kingo_ia
+                                from modules.classement_st import get_classement_general_complet
+                                _classement_kingo = get_classement_general_complet()
+                                data_joueur = construire_data_joueur(
+                                    user, saison_id, journee_courante - 1, _classement_kingo
+                                )
+                                if data_joueur:
+                                    commentaire_ia = generer_commentaire_kingo_ia(
+                                        json.dumps(data_joueur, ensure_ascii=False)
+                                    )
+                                    if commentaire_ia:
+                                        st.markdown(f"""
+                                        <div style="
+                                            background: linear-gradient(135deg, #1a0a2e 0%, #2a1a3e 100%);
+                                            border: 2px solid #FF6B00;
+                                            border-radius: 10px;
+                                            padding: 12px;
+                                            margin: 10px 0;
+                                        ">
+                                            <div style="color: #FF6B00; font-size: 0.85em; font-weight: bold; margin-bottom: 5px;">
+                                                👑 KINGO - Ta Semaine
+                                            </div>
+                                            <div style="color: #FFFFFF; font-size: 0.85em; line-height: 1.5;">
+                                                {commentaire_ia}
+                                            </div>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+
+                            # Bloc Kingo Rivaux (analyse la semaine precedente, resultats definitifs)
                             from modules.synthese_st import get_debrief_rivaux
-                            debrief_rivaux = get_debrief_rivaux(user_id, saison_id, journee_courante)
+                            debrief_rivaux = get_debrief_rivaux(user_id, saison_id, journee_courante - 1) if journee_courante > 1 else None
                             if debrief_rivaux:
                                 st.markdown(f"""
                                 <div style="

@@ -22,17 +22,26 @@ def verifier_identifiants(pseudo, pin):
     Retourne: (success, message, user_data)
     """
     try:
+        import bcrypt
         client = get_supabase()
 
-        # Chercher l'utilisateur avec ce pseudo et pin
-        user = client._request('GET',
-            f'utilisateurs?pseudo=eq.{pseudo}&pin=eq.{pin}&select=id,pseudo,prenom,email,statut,is_admin,reglement_accepte'
+        # Chercher l'utilisateur par pseudo uniquement, puis verifier le PIN localement
+        user_list = client._request('GET',
+            f'utilisateurs?pseudo=eq.{pseudo}&select=id,pseudo,prenom,email,statut,is_admin,reglement_accepte,pin'
         )
 
-        if not user or len(user) == 0:
+        if not user_list or len(user_list) == 0:
             return False, "Pseudo ou PIN incorrect.", None
 
-        user = user[0]
+        user = user_list[0]
+        stored_hash = user.get('pin', '')
+        try:
+            pin_ok = stored_hash and bcrypt.checkpw(pin.encode('utf-8'), stored_hash.encode('utf-8'))
+        except Exception:
+            pin_ok = False
+
+        if not pin_ok:
+            return False, "Pseudo ou PIN incorrect.", None
         statut = user.get('statut', '')
 
         if statut == 'en_attente':
@@ -61,27 +70,30 @@ def verifier_identifiants(pseudo, pin):
 
 def recuperer_pin_par_email(email):
     """
-    Recupere le PIN associe a un email depuis Supabase
-    Retourne: (success, message, pin)
+    Reinitialise le PIN a '1234' pour le compte associe a cet email.
+    Le joueur devra le changer dans son profil.
+    Retourne: (success, message)
     """
     try:
+        import bcrypt
         client = get_supabase()
 
-        user = client._request('GET',
-            f'utilisateurs?email=eq.{email}&select=pseudo,pin,email'
+        user_list = client._request('GET',
+            f'utilisateurs?email=eq.{email}&select=id,pseudo,email'
         )
 
-        if not user or len(user) == 0:
-            return False, "Aucun compte associe a cet email.", None
+        if not user_list or len(user_list) == 0:
+            return False, "Aucun compte associe a cet email."
 
-        user = user[0]
-        pseudo, pin, user_email = user.get('pseudo'), user.get('pin'), user.get('email')
+        user = user_list[0]
+        new_hash = bcrypt.hashpw('1234'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        client.changer_pin(user['id'], new_hash)
 
-        return True, f"Un email de recuperation a ete envoye a {user_email}", pin
+        return True, f"PIN reinitialise a **1234** pour le compte **{user['pseudo']}**. Connectez-vous puis changez-le dans votre profil."
 
     except Exception as e:
-        print(f"Erreur recuperation PIN Supabase: {e}")
-        return False, "Erreur de connexion au serveur.", None
+        print(f"Erreur reinitialisation PIN: {e}")
+        return False, "Erreur de connexion au serveur."
 
 
 def init_session():
@@ -302,12 +314,9 @@ def afficher_formulaire_login():
                     if not email or '@' not in email:
                         st.error("Veuillez entrer un email valide.")
                     else:
-                        success, message, pin = recuperer_pin_par_email(email)
-
+                        success, message = recuperer_pin_par_email(email)
                         if success:
                             st.success(message)
-                            # Mode test : afficher le PIN recupere
-                            st.info(f"[MODE TEST] Votre PIN est : **{pin}**")
                         else:
                             st.error(message)
 

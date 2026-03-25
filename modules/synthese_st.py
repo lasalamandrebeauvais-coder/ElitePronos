@@ -511,156 +511,228 @@ def get_synthese_accueil(saison_id, semaine_id):
     }
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_debrief_rivaux(user_id, saison_id, semaine_id):
     """
-    Genere un debrief specifique sur les rivaux avec bilan provisionnel (cache 30s)
+    Genere un debrief sur les rivaux base sur les resultats DEFINITIFS de la semaine precedente.
+    Focus sur le JEU : bons pronos, scores exacts, mises, anecdotes — pas juste les points.
     """
+    if semaine_id < 1:
+        return None
+
     supabase = get_supabase()
 
-    # Recuperer les rivaux
+    # Abreviations equipes
+    _ABBR = {
+        'paris saint-germain fc': 'PSG', 'paris saint-germain': 'PSG', 'paris sg': 'PSG',
+        'olympique de marseille': 'OM', 'olympique lyonnais': 'OL',
+        'rc lens': 'Lens', 'losc lille': 'Lille', 'losc': 'Lille',
+        'as monaco fc': 'Monaco', 'as monaco': 'Monaco',
+        'stade rennais fc 1901': 'Rennes', 'stade rennais fc': 'Rennes', 'stade rennais': 'Rennes',
+        'stade brestois 29': 'Brest', 'toulouse fc': 'TFC', 'ogc nice': 'Nice',
+        'montpellier hsc': 'MHSC', 'angers sco': 'Angers', 'fc nantes': 'Nantes',
+        'aj auxerre': 'Auxerre', 'rc strasbourg alsace': 'Strasbourg',
+        'as saint-etienne': 'ASSE', 'stade de reims': 'Reims', 'le havre ac': 'Le Havre',
+        'manchester united fc': 'Man Utd', 'manchester city fc': 'Man City',
+        'fc barcelona': 'Barca', 'real madrid cf': 'Real', 'arsenal fc': 'Arsenal',
+        'liverpool fc': 'Liverpool', 'chelsea fc': 'Chelsea', 'tottenham hotspur fc': 'Spurs',
+        'fc bayern münchen': 'Bayern', 'borussia dortmund': 'Dortmund',
+        'juventus fc': 'Juve', 'ac milan': 'Milan', 'inter milan': 'Inter',
+        'ssc napoli': 'Napoli', 'atletico madrid': 'Atletico',
+    }
+    def _abbr(nom):
+        return _ABBR.get(nom.lower(), nom.split()[0].capitalize())
+
+    # Rivaux
     rivaux_ids = supabase.get_rivaux_ids(user_id)
     if not rivaux_ids:
         return None
 
-    # Recuperer les matchs de la journee
-    matchs = supabase.get_matches_journee(saison_id, semaine_id)
-    if not matchs:
+    # Matchs de la semaine (tous, pour avoir les scores)
+    matchs = supabase._request('GET',
+        f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&is_active=eq.true&select=id,equipe_home,equipe_away,score_final_home,score_final_away&order=id'
+    ) or []
+    matchs_termines = [m for m in matchs if m.get('score_final_home') is not None]
+    if not matchs_termines:
         return None
 
-    match_ids = [m['id'] for m in matchs]
+    match_ids = [m['id'] for m in matchs_termines]
     match_ids_str = ','.join(map(str, match_ids))
     rivaux_ids_str = ','.join(map(str, rivaux_ids))
+    match_dict = {m['id']: m for m in matchs_termines}
+    nb_matchs = len(match_ids)
 
-    # Predictions des rivaux
-    predictions = supabase._request('GET',
-        f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,mise_bonus_gc,utilisateurs(pseudo)'
+    # Predictions des rivaux avec detail complet
+    predictions_rivaux = supabase._request('GET',
+        f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,is_score_exact,utilisateurs(pseudo)'
     ) or []
 
-    # Predictions du joueur lui-meme
+    # Predictions de l'utilisateur (pour se comparer)
     user_preds = supabase._request('GET',
-        f'predictions?match_id=in.({match_ids_str})&user_id=eq.{user_id}&select=points_gagnes'
+        f'predictions?match_id=in.({match_ids_str})&user_id=eq.{user_id}&select=match_id,score_prono_home,score_prono_away,mise_points,points_gagnes,is_score_exact'
     ) or []
     user_pts = round(sum(p.get('points_gagnes') or 0 for p in user_preds), 2)
+    user_bons = sum(1 for p in user_preds if (p.get('points_gagnes') or 0) > 0)
+    user_exacts = sum(1 for p in user_preds if p.get('is_score_exact'))
 
-    # Jokers actifs des rivaux
+    # Jokers utilises par les rivaux cette semaine
     jokers_rivaux = supabase._request('GET',
         f'jokers_historique?utilisateur_id=in.({rivaux_ids_str})&semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker'
     ) or []
     jokers_map = {j['utilisateur_id']: j['type_joker'] for j in jokers_rivaux}
 
     # Agreger par rival
-    rivaux_pts = {}
-    for p in predictions:
+    rivaux_data = {}
+    for p in predictions_rivaux:
         uid = p['user_id']
-        pseudo = p['utilisateurs']['pseudo'] if p.get('utilisateurs') else 'Inconnu'
-        if uid not in rivaux_pts:
-            rivaux_pts[uid] = {'pseudo': pseudo, 'points_journee': 0, 'bonus_gc': 0, 'uid': uid}
-        rivaux_pts[uid]['points_journee'] += p.get('points_gagnes') or 0
-        rivaux_pts[uid]['bonus_gc'] += p.get('mise_bonus_gc') or 0
+        pseudo = (p.get('utilisateurs') or {}).get('pseudo', 'Inconnu')
+        if uid not in rivaux_data:
+            rivaux_data[uid] = {
+                'uid': uid, 'pseudo': pseudo,
+                'pts': 0, 'nb_bons': 0, 'nb_exacts': 0,
+                'grosse_mise': 0, 'grosse_mise_match': None,
+                'exact_match': None,
+                'pronos_bizarres': [],
+            }
+        mid = p['match_id']
+        match = match_dict.get(mid, {})
+        pts = p.get('points_gagnes') or 0
+        mise = p.get('mise_points') or 0
+        ph = p.get('score_prono_home')
+        pa = p.get('score_prono_away')
+        sh = match.get('score_final_home')
+        sa = match.get('score_final_away')
+        home_abbr = _abbr(match.get('equipe_home', ''))
+        away_abbr = _abbr(match.get('equipe_away', ''))
 
-    for v in rivaux_pts.values():
-        v['points_journee'] = round(v['points_journee'], 2)
+        rivaux_data[uid]['pts'] += pts
+        if pts > 0:
+            rivaux_data[uid]['nb_bons'] += 1
+        if p.get('is_score_exact'):
+            rivaux_data[uid]['nb_exacts'] += 1
+            if rivaux_data[uid]['exact_match'] is None:
+                rivaux_data[uid]['exact_match'] = f"{home_abbr}-{away_abbr} ({sh}-{sa})"
+        if mise > rivaux_data[uid]['grosse_mise']:
+            rivaux_data[uid]['grosse_mise'] = mise
+            rivaux_data[uid]['grosse_mise_match'] = f"{home_abbr}-{away_abbr}"
+            rivaux_data[uid]['grosse_mise_bon'] = pts > 0
+        # Prono bizarre : grosse diff de score (ex: 5-0, 0-4...)
+        if ph is not None and pa is not None and abs(ph - pa) >= 4:
+            rivaux_data[uid]['pronos_bizarres'].append(f"{ph}-{pa} sur {home_abbr}-{away_abbr}")
+
+    for v in rivaux_data.values():
+        v['pts'] = round(v['pts'], 2)
         v['joker'] = jokers_map.get(v['uid'])
 
-    if not rivaux_pts:
+    if not rivaux_data:
         return None
 
-    # Classement des rivaux
-    classement_rivaux = sorted(rivaux_pts.values(), key=lambda x: x['points_journee'], reverse=True)
-    meilleur = classement_rivaux[0]
-    pire = classement_rivaux[-1]
-
-    rivaux_devant = [v for v in classement_rivaux if v['points_journee'] > user_pts]
-    rivaux_derriere = [v for v in classement_rivaux if v['points_journee'] < user_pts]
-    rivaux_egalite = [v for v in classement_rivaux if v['points_journee'] == user_pts]
-
+    classement_rivaux = sorted(rivaux_data.values(), key=lambda x: x['pts'], reverse=True)
+    meilleur_jeu = max(classement_rivaux, key=lambda x: (x['nb_bons'], x['nb_exacts']))
+    pire_jeu = min(classement_rivaux, key=lambda x: (x['nb_bons'], x['nb_exacts']))
+    nb_rivaux = len(classement_rivaux)
+    rivaux_devant = [v for v in classement_rivaux if v['pts'] > user_pts]
+    rivaux_derriere = [v for v in classement_rivaux if v['pts'] < user_pts]
     nb_devant = len(rivaux_devant)
     nb_derriere = len(rivaux_derriere)
-    nb_rivaux = len(classement_rivaux)
 
-    # Stats supplementaires
-    tous_negatifs = all(v['points_journee'] <= 0 for v in classement_rivaux)
-    tous_positifs = all(v['points_journee'] > 0 for v in classement_rivaux)
-    gc_joueurs = [v['pseudo'] for v in classement_rivaux if v['bonus_gc'] > 0]
     double_joueurs = [v['pseudo'] for v in classement_rivaux if v['joker'] == 'DOUBLE']
     vol_joueurs = [v['pseudo'] for v in classement_rivaux if v['joker'] == 'VOL']
-    ecart_max = round(meilleur['points_journee'] - pire['points_journee'], 2) if nb_rivaux > 1 else 0
 
-    # --- Phrase principale selon la situation ---
-    if nb_devant == 0 and user_pts > 0:
-        # Joueur en tete de ses rivaux
-        phrases_tete = [
-            f"T'es devant tous tes rivaux cette journee. {meilleur['pseudo']} essaie de t'accrocher avec {meilleur['points_journee']} pts, mais c'est toi qui menes. Profite.",
-            f"Premier parmi tes rivaux pour l'instant. Mais ne te detends pas trop, **{meilleur['pseudo']}** est a {meilleur['points_journee']} pts et les matchs ne sont pas tous termines.",
-            f"Tes rivaux sont tous dans ton sillage. **{meilleur['pseudo']}** fait {meilleur['points_journee']} pts, mais c'est encore toi le boss. Pour l'instant.",
-            f"Bilan provisoire : tu domines. Tes {nb_rivaux} rivaux sont derriere toi. Le plus dangereux reste **{meilleur['pseudo']}** ({meilleur['points_journee']} pts).",
+    # --- Construction du message centre sur le JEU ---
+    parties = []
+
+    # 1. Meilleur joueur cote jeu
+    if meilleur_jeu['nb_bons'] == nb_matchs:
+        phrases = [
+            f"**{meilleur_jeu['pseudo']}** a tout vu venir — {nb_matchs}/{nb_matchs} bons pronos. Parfait.",
+            f"Semaine parfaite pour **{meilleur_jeu['pseudo']}** : {nb_matchs} pronos, {nb_matchs} bons. Rien a redire.",
         ]
-        message = random.choice(phrases_tete)
-    elif nb_devant == nb_rivaux:
-        # Joueur derriere tous ses rivaux
-        phrases_derriere = [
-            f"Tous tes rivaux sont devant toi actuellement. **{meilleur['pseudo']}** mene avec {meilleur['points_journee']} pts. C'est pas l'heure de paniquer... enfin si, un peu.",
-            f"**{meilleur['pseudo']}** en tete, **{pire['pseudo']}** ferme la marche... et toi tu es ou exactement ? Derriere tout le monde. Bilan provisoire : pas glorieux.",
-            f"Mauvaise nouvelle : tes {nb_rivaux} rivaux sont tous au-dessus de toi pour l'instant. **{meilleur['pseudo']}** ecrase tout ({meilleur['points_journee']} pts). Il reste des matchs, mais faut se reveiller.",
-            f"Je vais pas te mentir : tu es dernier parmi tes rivaux. **{meilleur['pseudo']}** est a {meilleur['points_journee']} pts devant. L'ecart est de {round(meilleur['points_journee'] - user_pts, 2)} pts. Courage.",
-        ]
-        message = random.choice(phrases_derriere)
-    elif nb_devant > 0 and nb_derriere > 0:
-        # Dans le ventre mou
-        phrases_milieu = [
-            f"**{nb_devant}** rival(ux) devant toi, **{nb_derriere}** derriere. Tu es dans le ventre mou. **{meilleur['pseudo']}** mene ({meilleur['points_journee']} pts), **{pire['pseudo']}** ramasse ({pire['points_journee']} pts).",
-            f"Position intermediaire : {nb_devant} rival(ux) t'ont devance pour l'instant, {nb_derriere} sont derriere. **{meilleur['pseudo']}** est la principale menace avec {meilleur['points_journee']} pts.",
-            f"C'est serre. **{rivaux_devant[0]['pseudo']}** est juste au-dessus de toi ({rivaux_devant[0]['points_journee']} pts). {nb_derriere} rival(ux) derriere toi. La journee n'est pas finie.",
-            f"Tu es en milieu de peloton. **{meilleur['pseudo']}** mene la danse avec {meilleur['points_journee']} pts, **{pire['pseudo']}** est en galere ({pire['points_journee']} pts). Toi ? Entre les deux.",
-        ]
-        message = random.choice(phrases_milieu)
-    elif tous_negatifs:
-        phrases_catastrophe = [
-            f"Tout le monde est dans le rouge cette journee. **{meilleur['pseudo']}** limite la casse avec seulement {meilleur['points_journee']} pts. Journee noire pour tout le monde.",
-            f"Carnage general. Tes rivaux souffrent autant que toi. **{pire['pseudo']}** prend la plus grosse claque ({pire['points_journee']} pts). C'est une journee a oublier pour tout le monde.",
-        ]
-        message = random.choice(phrases_catastrophe)
-    else:
-        message = f"**{meilleur['pseudo']}** mene provisoirement avec {meilleur['points_journee']} pts. Situation a surveiller."
-
-    # --- Bilan provisionnel ---
-    if user_pts > 0:
-        user_bilan = f"Toi : **+{user_pts} pts**"
-    elif user_pts < 0:
-        user_bilan = f"Toi : **{user_pts} pts** (dans le rouge)"
-    else:
-        user_bilan = "Toi : **0 pts** (pas encore joue ou matchs en cours)"
-
-    bilan_parts = [f"📊 **Bilan provisoire J{semaine_id}** — {user_bilan} | {nb_devant} rival(ux) devant, {nb_derriere} derriere."]
-
-    if ecart_max > 0 and nb_rivaux > 1:
-        bilan_parts.append(f"Ecart max entre rivaux : {ecart_max} pts.")
-
-    message += " " + " ".join(bilan_parts)
-
-    # --- Contexte jokers ---
-    extras = []
-    if gc_joueurs:
-        noms_gc = ', '.join(f'**{p}**' for p in gc_joueurs)
-        extras.append(random.choice([
-            f"{noms_gc} joue avec le bonus Grand Chelem cette semaine. 40 pts de budget en plus, ca peut tout changer.",
-            f"Attention a {noms_gc} et son bonus GC — budget etendu a 140 pts, le danger est reel.",
+        parties.append(random.choice(phrases))
+    elif meilleur_jeu['nb_exacts'] >= 2:
+        parties.append(random.choice([
+            f"**{meilleur_jeu['pseudo']}** a cartonne avec {meilleur_jeu['nb_bons']}/{nb_matchs} bons pronos et {meilleur_jeu['nb_exacts']} scores exacts. Il lit les matchs.",
+            f"Belle lecture de **{meilleur_jeu['pseudo']}** : {meilleur_jeu['nb_exacts']} scores exacts et {meilleur_jeu['nb_bons']} bons sur {nb_matchs}. Chapeau.",
         ]))
+    elif meilleur_jeu['nb_exacts'] == 1 and meilleur_jeu['exact_match']:
+        parties.append(random.choice([
+            f"**{meilleur_jeu['pseudo']}** s'en sort avec {meilleur_jeu['nb_bons']}/{nb_matchs} et un score exact sur {meilleur_jeu['exact_match']}. Bonne semaine.",
+            f"{meilleur_jeu['nb_bons']} bons pronos pour **{meilleur_jeu['pseudo']}**, et il a cloue le score exact de {meilleur_jeu['exact_match']}.",
+        ]))
+    elif meilleur_jeu['nb_bons'] > 0:
+        parties.append(random.choice([
+            f"**{meilleur_jeu['pseudo']}** s'en tire le mieux avec {meilleur_jeu['nb_bons']}/{nb_matchs} pronos corrects.",
+            f"Meilleure lecture de la semaine : **{meilleur_jeu['pseudo']}** avec {meilleur_jeu['nb_bons']}/{nb_matchs}.",
+        ]))
+
+    # 2. Pire joueur cote jeu (si different)
+    if pire_jeu['uid'] != meilleur_jeu['uid']:
+        if pire_jeu['nb_bons'] == 0:
+            parties.append(random.choice([
+                f"A l'inverse, **{pire_jeu['pseudo']}** n'a rien touche : 0/{nb_matchs}. Semaine a oublier.",
+                f"**{pire_jeu['pseudo']}** peut rentrer chez lui : 0 bon prono sur {nb_matchs}. Brutal.",
+            ]))
+        elif pire_jeu['nb_bons'] == 1:
+            parties.append(random.choice([
+                f"**{pire_jeu['pseudo']}** n'a sauve qu'un seul prono sur {nb_matchs}. Pas la semaine.",
+                f"Galere pour **{pire_jeu['pseudo']}** : 1/{nb_matchs} seulement.",
+            ]))
+
+    # 3. Scores exacts marquants (hors meilleur_jeu)
+    autres_exacts = [v for v in classement_rivaux if v['nb_exacts'] > 0 and v['uid'] != meilleur_jeu['uid'] and v['exact_match']]
+    if autres_exacts:
+        v = autres_exacts[0]
+        parties.append(random.choice([
+            f"**{v['pseudo']}** a aussi touche un score exact : {v['exact_match']}.",
+            f"Petit exploit de **{v['pseudo']}** avec le score exact de {v['exact_match']}.",
+        ]))
+
+    # 4. Gros parieur (mise >= 50)
+    gros_miseurs = [v for v in classement_rivaux if v['grosse_mise'] >= 50 and v['grosse_mise_match']]
+    if gros_miseurs:
+        v = gros_miseurs[0]
+        if v['grosse_mise_bon']:
+            parties.append(random.choice([
+                f"**{v['pseudo']}** a joue {v['grosse_mise']} pts sur {v['grosse_mise_match']} — et c'est passe. Audacieux.",
+                f"Belle confiance de **{v['pseudo']}** : {v['grosse_mise']} pts sur {v['grosse_mise_match']}, bien joue.",
+            ]))
+        else:
+            parties.append(random.choice([
+                f"**{v['pseudo']}** a balance {v['grosse_mise']} pts sur {v['grosse_mise_match']}... et ca n'a pas marche. Ca fait mal.",
+                f"**{v['pseudo']}** a tente le tout pour le tout ({v['grosse_mise']} pts sur {v['grosse_mise_match']}). Mauvais pari.",
+            ]))
+
+    # 5. Prono bizarre
+    for v in classement_rivaux:
+        if v['pronos_bizarres']:
+            parties.append(random.choice([
+                f"**{v['pseudo']}** a joue {v['pronos_bizarres'][0]}. Original.",
+                f"Curieux prono de **{v['pseudo']}** : {v['pronos_bizarres'][0]}. On en parle pas.",
+            ]))
+            break
+
+    # 6. Jokers
     if double_joueurs:
         noms_d = ', '.join(f'**{p}**' for p in double_joueurs)
-        extras.append(random.choice([
-            f"{noms_d} a joue son joker DOUBLE — si la semaine se passe bien pour lui, ca va faire mal.",
-            f"Le joker x2 de {noms_d} peut tout faire basculer si ses pronos sont bons.",
-        ]))
+        match_d = next((v for v in classement_rivaux if v['pseudo'] in double_joueurs), None)
+        if match_d and match_d['nb_bons'] >= 2:
+            parties.append(f"{noms_d} avait le joker x2 — {match_d['nb_bons']}/{nb_matchs} bons pronos, ca lui a bien servi.")
+        elif match_d and match_d['nb_bons'] <= 1:
+            parties.append(f"{noms_d} avait le joker x2 mais seulement {match_d['nb_bons']}/{nb_matchs} bon(s) prono(s). Dommage.")
+        else:
+            parties.append(f"{noms_d} jouait avec le joker Points Doubles.")
     if vol_joueurs:
         noms_v = ', '.join(f'**{p}**' for p in vol_joueurs)
-        extras.append(random.choice([
-            f"{noms_v} a vole les pronos d'un rival — ses points dependent entierement de quelqu'un d'autre. Karma.",
-            f"Joker VOL pour {noms_v} : il mise tout sur les pronos d'un autre. Risque calcule... ou pas.",
-        ]))
-    if extras:
-        message += " " + random.choice(extras)
+        parties.append(f"{noms_v} avait vole les pronos d'un rival — ses resultats ne lui appartenaient meme pas.")
+
+    message = " ".join(parties) if parties else f"Semaine en demi-teinte pour tes rivaux — personne ne s'est vraiment distingue."
+
+    # --- Bilan final ---
+    user_bilan = f"Toi : **{user_bons}/{nb_matchs}**"
+    if user_exacts > 0:
+        user_bilan += f" dont {user_exacts} exact(s) 🎯"
+    bilan = f"\n\n📊 **Recap J{semaine_id}** — {user_bilan} | {nb_devant} rival(ux) devant, {nb_derriere} derriere."
+    message += bilan
 
     return {
         'message': message,

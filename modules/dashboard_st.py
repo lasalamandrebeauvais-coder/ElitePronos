@@ -17,7 +17,7 @@ from modules.database_manager import (
 )
 
 # Cache pour les donnees lourdes (TTL 30 secondes pour mise a jour rapide)
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_classement_cache(saison_id):
     """Recupere le classement general avec cache"""
     supabase = get_supabase()
@@ -55,7 +55,7 @@ def get_classement_cache(saison_id):
     return classement
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_classement_par_journee(saison_id):
     """Calcule le classement (rang) de chaque joueur a chaque journee (points cumules)"""
     supabase = get_supabase()
@@ -106,7 +106,7 @@ def get_avatar_path(pseudo):
     return None
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_user_stats_supabase(user_id, saison_id):
     """
     Recupere les statistiques du joueur depuis Supabase

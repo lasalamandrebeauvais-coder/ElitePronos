@@ -78,7 +78,7 @@ def get_matchs_semaine():
         return []
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def get_pronos_existants(user_id):
     """Recupere les pronostics deja saisis par l'utilisateur depuis Supabase"""
     supabase = get_supabase()
@@ -119,7 +119,7 @@ def get_pronos_existants(user_id):
         return {}
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def get_joker_semaine(user_id):
     """Recupere le joker utilise cette semaine depuis Supabase
     Retourne un dict avec type_joker, id, cible_vol_id, cible_pseudo ou None
@@ -325,6 +325,11 @@ def get_countdown_pronostics():
     }
 
 
+@st.cache_data(ttl=120)
+def _get_joueurs_actifs():
+    return get_supabase().get_all_utilisateurs(statut='Actif')
+
+
 def afficher_pronostics(user):
     """Affiche l'interface de saisie des pronostics - Version Supabase"""
 
@@ -505,9 +510,6 @@ def afficher_pronostics(user):
             stock_voles += 1
 
     # Autres joueurs pour cible VOL
-    @st.cache_data(ttl=120)
-    def _get_joueurs_actifs():
-        return get_supabase().get_all_utilisateurs(statut='Actif')
     autres_joueurs = _get_joueurs_actifs()
     autres_joueurs = [j for j in autres_joueurs if j['id'] != user['id']]
     joueur_pseudos = [j['pseudo'] for j in autres_joueurs]

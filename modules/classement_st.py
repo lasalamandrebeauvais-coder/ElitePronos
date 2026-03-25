@@ -8,14 +8,14 @@ from datetime import datetime
 
 # Import Supabase
 from modules.supabase_db import get_supabase
-from modules.database_manager import get_mvp_semaine, get_saison_actuelle, get_saison_label, get_journee_courante, get_streak_meilleur_joueur, get_bonus_meilleur_joueur
+from modules.database_manager import get_mvp_semaine, get_saison_actuelle, get_saison_label, get_journee_courante, get_streak_meilleur_joueur, get_bonus_meilleur_joueur, get_all_mvp_saison
 
 # Chemins pour assets (images)
 AVATARS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'avatars')
 ASSETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_classement_general_complet():
     """
     Recupere le classement general avec cache (TTL 60s)
@@ -145,7 +145,7 @@ def get_classement_general_complet():
         return []
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_evolution_classement():
     """Compare classement actuel (temps reel) vs classement il y a 5 journees max"""
     try:
@@ -205,7 +205,7 @@ def get_evolution_classement():
         return {}
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_historique_joueur(user_id):
     """Recupere l'historique des pronostics par journee pour un joueur (cache 30s)"""
     try:
@@ -260,7 +260,7 @@ def get_historique_joueur(user_id):
         return []
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=300)
 def get_records_joueur(user_id):
     """Recupere les records d'un joueur (cache 30s)"""
     try:
@@ -325,7 +325,10 @@ def afficher_classement(user):
         st.markdown("## Classement Elite")
     with col_refresh:
         if st.button("🔄", help="Actualiser", use_container_width=True, key="btn_refresh_classement"):
-            st.cache_data.clear()
+            get_classement_general_complet.clear()
+            get_evolution_classement.clear()
+            get_historique_joueur.clear()
+            get_records_joueur.clear()
             st.rerun()
     with col_mascot:
         mascot_path = os.path.join(ASSETS_PATH, "kingo classements.png")
@@ -423,11 +426,14 @@ def afficher_classement(user):
 
         if journee_courante > 1:
             try:
+                # Charger tous les MVPs en 2 requetes (au lieu de N)
+                all_mvps = get_all_mvp_saison(saison_id)
+
                 # Compter les titres par joueur
                 titres = {}
                 mvp_list = []
                 for j in range(1, journee_courante):
-                    mvp_j = get_mvp_semaine(j, saison_id)
+                    mvp_j = all_mvps.get(j)
                     mvp_list.append((j, mvp_j))
                     if mvp_j:
                         pseudo = mvp_j['pseudo']
@@ -468,15 +474,32 @@ def afficher_classement(user):
                             break
                     streaks_at_journee[j] = streak
 
+                # Calcul inline des streaks depuis mvp_list (sans requetes Supabase)
+                def _streak_depuis_mvp_list(uid, mvp_list):
+                    streak = 0
+                    for _, mvp_j in reversed(mvp_list):
+                        if mvp_j and mvp_j['user_id'] == uid:
+                            streak += 1
+                        else:
+                            break
+                    return streak
+
+                def _bonus_depuis_streak(streak):
+                    if streak < 2:
+                        return 0
+                    elif streak == 2:
+                        return 10
+                    return 10 + 15 * (streak - 2)
+
                 # Calculer le bonus pour les joueurs actuellement en serie
                 bonus_actifs = {}
                 if mvp_list:
                     for pseudo, count in titres.items():
-                        # Trouver le user_id pour ce pseudo
                         for j, mvp_j in mvp_list:
                             if mvp_j and mvp_j['pseudo'] == pseudo:
                                 uid = mvp_j['user_id']
-                                bonus = get_bonus_meilleur_joueur(uid, saison_id)
+                                streak = _streak_depuis_mvp_list(uid, mvp_list)
+                                bonus = _bonus_depuis_streak(streak)
                                 if bonus > 0:
                                     bonus_actifs[pseudo] = bonus
                                 break
@@ -486,10 +509,8 @@ def afficher_classement(user):
                     bonus_html = '<div style="background:linear-gradient(135deg,#002520,#003530);border:2px solid #00FF00;border-radius:10px;padding:12px;margin:15px 0;">'
                     bonus_html += '<div style="color:#00FF00;font-weight:bold;text-align:center;margin-bottom:8px;">🔥 Bonus serie active</div>'
                     for pseudo, bonus in bonus_actifs.items():
-                        streak = get_streak_meilleur_joueur(
-                            next(mvp_j['user_id'] for j, mvp_j in mvp_list if mvp_j and mvp_j['pseudo'] == pseudo),
-                            saison_id
-                        )
+                        uid = next(mvp_j['user_id'] for j, mvp_j in mvp_list if mvp_j and mvp_j['pseudo'] == pseudo)
+                        streak = _streak_depuis_mvp_list(uid, mvp_list)
                         bonus_html += f'<div style="color:#FFF;text-align:center;font-size:0.85em;">{pseudo} : {streak} journees consecutives → <span style="color:#00FF00;font-weight:bold;">+{bonus} pts</span></div>'
                     bonus_html += '</div>'
                     st.markdown(bonus_html, unsafe_allow_html=True)

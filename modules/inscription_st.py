@@ -114,13 +114,17 @@ def enregistrer_utilisateur(prenom, pseudo, email, telephone, pin, parrain, avat
         statut = 'Actif' if nb_users == 0 else 'en_attente'
         is_first_user = (nb_users == 0)
 
+        # Hasher le PIN avant stockage
+        import bcrypt
+        pin_hash = bcrypt.hashpw(pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
         # Creer l'utilisateur dans Supabase
         user_data = {
             'prenom': prenom,
             'pseudo': pseudo,
             'email': email,
             'telephone': telephone,
-            'pin': pin,
+            'pin': pin_hash,
             'statut': statut,
             'parrain': parrain
         }

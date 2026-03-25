@@ -228,3 +228,42 @@ def afficher_profil(user):
 
     with col_s3:
         st.metric("Pronostics", nb_pronos)
+
+    # === CHANGER MON PIN ===
+    st.markdown("---")
+    st.markdown("### Changer mon PIN")
+
+    with st.form("form_pin"):
+        ancien_pin = st.text_input("PIN actuel", type="password", placeholder="Votre PIN actuel")
+        nouveau_pin = st.text_input("Nouveau PIN", type="password", placeholder="Min 9 car. : 6 chiffres, 2 lettres, 1 symbole")
+        nouveau_pin2 = st.text_input("Confirmer le nouveau PIN", type="password")
+        submitted_pin = st.form_submit_button("Changer le PIN", use_container_width=True)
+
+        if submitted_pin:
+            import bcrypt
+            from modules.inscription_st import valider_pin
+
+            if not ancien_pin or not nouveau_pin or not nouveau_pin2:
+                st.error("Veuillez remplir tous les champs.")
+            elif nouveau_pin != nouveau_pin2:
+                st.error("Les nouveaux PIN ne correspondent pas.")
+            else:
+                pin_ok, criteres = valider_pin(nouveau_pin)
+                if not pin_ok:
+                    st.error("Le nouveau PIN ne respecte pas les regles : 9 caracteres min., 6 chiffres, 2 lettres, 1 symbole.")
+                else:
+                    profil_full = get_user_profile(user['id'])
+                    stored_hash = (profil_full or {}).get('pin', '')
+                    try:
+                        ancien_ok = stored_hash and bcrypt.checkpw(ancien_pin.encode('utf-8'), stored_hash.encode('utf-8'))
+                    except Exception:
+                        ancien_ok = False
+
+                    if not ancien_ok:
+                        st.error("PIN actuel incorrect.")
+                    else:
+                        new_hash = bcrypt.hashpw(nouveau_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                        if update_user_profile(user['id'], {'pin': new_hash}):
+                            st.success("PIN change avec succes !")
+                        else:
+                            st.error("Erreur lors du changement de PIN.")
