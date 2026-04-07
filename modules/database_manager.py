@@ -1233,6 +1233,20 @@ def get_matchs_journee_cached(saison_id, semaine_id):
         return get_supabase().get_matches_journee(saison_id, semaine_id)
 
 
+def get_matchs_journee_historique_cached(saison_id, semaine_id):
+    """Recupere tous les matchs d'une journee passee (actifs+inactifs) avec cache 5min"""
+    try:
+        import streamlit as st
+        @st.cache_data(ttl=300)
+        def _fetch(saison_id, semaine_id):
+            from modules.supabase_db import get_supabase
+            return get_supabase().get_matches_journee_historique(saison_id, semaine_id)
+        return _fetch(saison_id, semaine_id)
+    except Exception:
+        from modules.supabase_db import get_supabase
+        return get_supabase().get_matches_journee_historique(saison_id, semaine_id)
+
+
 def get_is_admin_cached(user_id):
     """Verifie is_admin avec cache 5 min (change rarement)"""
     try:

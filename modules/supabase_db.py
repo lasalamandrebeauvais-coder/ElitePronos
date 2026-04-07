@@ -138,9 +138,15 @@ class SupabaseClient:
     # ============================================
 
     def get_matches_journee(self, saison_id, semaine_id):
-        """Recupere les matchs d'une journee"""
+        """Recupere les matchs actifs d'une journee"""
         return self._request('GET',
             f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&is_active=eq.true&select=*&order=date_match'
+        ) or []
+
+    def get_matches_journee_historique(self, saison_id, semaine_id):
+        """Recupere tous les matchs d'une journee (actifs et inactifs) pour consultation historique"""
+        return self._request('GET',
+            f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{semaine_id}&select=*&order=date_match'
         ) or []
 
     def get_match_by_id(self, match_id):
