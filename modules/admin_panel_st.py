@@ -853,6 +853,71 @@ def afficher_panel_admin():
         st.markdown("#### 3. Valider les Resultats")
         st.caption("Recupere les scores officiels depuis l'API et fige les resultats de la journee.")
 
+        # === VERIFICATION AUTOMATIQUE DES SCORES ===
+        if st.button("🔍 VERIFIER LES SCORES (double controle)", use_container_width=True):
+            with st.spinner("Verification des scores en cours..."):
+                from modules.database_manager import verifier_scores_vs_api
+                resultats, msg_verif = verifier_scores_vs_api(semaine_selectionnee, saison)
+
+            if not resultats:
+                st.warning(f"Verification impossible : {msg_verif}")
+            else:
+                nb_anomalies = sum(1 for r in resultats if r['statut'] == 'anomalie')
+                nb_ok = sum(1 for r in resultats if r['statut'] == 'ok')
+                nb_inconnus = sum(1 for r in resultats if r['statut'] == 'non_trouve')
+
+                if nb_anomalies == 0:
+                    st.success(f"✅ Tous les scores sont corrects ({nb_ok} matchs verifies)")
+                else:
+                    st.error(f"⚠️ {nb_anomalies} anomalie(s) detectee(s) sur {len(resultats)} matchs")
+
+                for r in resultats:
+                    home = r['equipe_home']
+                    away = r['equipe_away']
+                    s_db = r['score_db']
+                    s_api = r['score_api']
+                    statut = r['statut']
+
+                    if statut == 'ok':
+                        st.markdown(
+                            f"✅ **{home} {s_db[0]}-{s_db[1]} {away}** — score confirme par l'API",
+                        )
+                    elif statut == 'anomalie':
+                        col_a, col_b = st.columns([3, 1])
+                        with col_a:
+                            st.markdown(
+                                f"⚠️ **{home} vs {away}**  \n"
+                                f"&nbsp;&nbsp;• En base : **{s_db[0]}-{s_db[1]}**  \n"
+                                f"&nbsp;&nbsp;• API officielle : **{s_api[0]}-{s_api[1]}**",
+                                unsafe_allow_html=True
+                            )
+                        with col_b:
+                            if st.button(f"Corriger", key=f"fix_{r['match_id']}"):
+                                supabase = get_supabase()
+                                supabase._request('PATCH', f"matches?id=eq.{r['match_id']}", {
+                                    'score_final_home': s_api[0],
+                                    'score_final_away': s_api[1],
+                                    'status': 'FINISHED'
+                                })
+                                supabase._request('PATCH', f"predictions?match_id=eq.{r['match_id']}", {
+                                    'points_gagnes': None,
+                                    'is_score_exact': None
+                                })
+                                from modules.database_manager import calculer_gains_supabase
+                                calculer_gains_supabase(semaine_selectionnee, saison)
+                                st.cache_data.clear()
+                                st.success(f"Score corrige : {s_api[0]}-{s_api[1]} — points recalcules")
+                                st.rerun()
+                    else:
+                        eurosport_url = f"https://www.eurosport.fr/football/ligue-1/{saison}-{saison+1}/calendrier-resultats.shtml"
+                        st.markdown(
+                            f"❓ **{home} vs {away}** — non trouve dans l'API  \n"
+                            f"[Verifier sur Eurosport ↗]({eurosport_url})",
+                            unsafe_allow_html=False
+                        )
+
+        st.markdown("---")
+
         col_val1, col_val2, col_val3 = st.columns(3)
 
         with col_val1:

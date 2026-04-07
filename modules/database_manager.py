@@ -2637,3 +2637,103 @@ def importer_matchs_journee_supabase(semaine_id, saison_id=None):
 
     except Exception as e:
         return False, str(e), 0
+
+
+def verifier_scores_vs_api(semaine_id, saison_id=None):
+    """
+    Compare les scores stockes en Supabase avec les scores officiels football-data.org.
+    Ne modifie RIEN - lecture seule pour verification.
+    Retourne une liste de resultats : ok, anomalie, ou non trouve dans l'API.
+    """
+    import requests
+    from datetime import timedelta
+    from modules.supabase_db import get_supabase
+
+    if saison_id is None:
+        saison_id = get_saison_actuelle()
+
+    try:
+        supabase = get_supabase()
+        API_TOKEN = _get_football_api_token()
+        headers = {'X-Auth-Token': API_TOKEN}
+
+        # Recuperer les matchs termines de la journee depuis Supabase
+        matchs_db = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}'
+            f'&score_final_home=not.is.null&select=id,equipe_home,equipe_away,score_final_home,score_final_away,date_match,championnat'
+        ) or []
+
+        if not matchs_db:
+            return [], "Aucun match termine pour cette journee"
+
+        # Recuperer les scores depuis football-data.org (Ligue 1 + championnats etrangers)
+        matchs_api = []
+
+        url_l1 = f'https://api.football-data.org/v4/competitions/FL1/matches?season={saison_id}&matchday={semaine_id}'
+        resp_l1 = requests.get(url_l1, headers=headers, timeout=10)
+        if resp_l1.status_code == 200:
+            matchs_api.extend(resp_l1.json().get('matches', []))
+
+        dates_db = [str(m.get('date_match', ''))[:10] for m in matchs_db if m.get('date_match')]
+        if dates_db:
+            dt_min = datetime.strptime(min(dates_db), '%Y-%m-%d') - timedelta(days=1)
+            dt_max = datetime.strptime(max(dates_db), '%Y-%m-%d') + timedelta(days=1)
+            date_from = dt_min.strftime('%Y-%m-%d')
+            date_to = dt_max.strftime('%Y-%m-%d')
+            for code in ['PL', 'PD', 'SA', 'BL1']:
+                try:
+                    resp = requests.get(
+                        f'https://api.football-data.org/v4/competitions/{code}/matches?dateFrom={date_from}&dateTo={date_to}',
+                        headers=headers, timeout=10
+                    )
+                    if resp.status_code == 200:
+                        matchs_api.extend(resp.json().get('matches', []))
+                except Exception:
+                    pass
+
+        # Construire un index des scores API par noms d'equipes
+        api_scores = {}
+        for m_api in matchs_api:
+            score = m_api.get('score', {}).get('fullTime', {})
+            if score.get('home') is None:
+                continue
+            home_name = m_api.get('homeTeam', {}).get('name', '')
+            away_name = m_api.get('awayTeam', {}).get('name', '')
+            api_scores[(home_name, away_name)] = (score['home'], score['away'])
+
+        # Comparer chaque match DB avec l'API
+        resultats = []
+        for m_db in matchs_db:
+            db_home = m_db['equipe_home']
+            db_away = m_db['equipe_away']
+            score_db = (m_db['score_final_home'], m_db['score_final_away'])
+
+            # Chercher le match dans l'API (matching flexible)
+            score_api = None
+            for (api_home, api_away), scores in api_scores.items():
+                if (api_home in db_home or db_home in api_home) and \
+                   (api_away in db_away or db_away in api_away):
+                    score_api = scores
+                    break
+
+            if score_api is None:
+                statut = 'non_trouve'
+            elif score_db == score_api:
+                statut = 'ok'
+            else:
+                statut = 'anomalie'
+
+            resultats.append({
+                'match_id': m_db['id'],
+                'equipe_home': db_home,
+                'equipe_away': db_away,
+                'score_db': score_db,
+                'score_api': score_api,
+                'statut': statut
+            })
+
+        nb_anomalies = sum(1 for r in resultats if r['statut'] == 'anomalie')
+        return resultats, f"{len(resultats)} matchs verifies, {nb_anomalies} anomalie(s)"
+
+    except Exception as e:
+        return [], str(e)
