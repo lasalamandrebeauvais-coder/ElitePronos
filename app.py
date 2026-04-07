@@ -704,7 +704,6 @@ else:
             from modules.supabase_db import get_supabase
             from modules.database_manager import (get_saison_actuelle, get_saison_label, get_journee_courante,
                 get_countdown_pronostics_journee_cached, get_mvp_semaine, get_matchs_journee_cached,
-                get_matchs_journee_historique_cached,
                 get_user_predictions_cached, get_rivaux_ids_cached, get_rivaux_predictions_cached,
                 get_user_joker_cached, get_recap_data_cached)
 
@@ -1207,7 +1206,7 @@ else:
                             key="rivaux_j_sel"
                         )
                         if j_sel_r != journee_courante:
-                            _matchs_r = get_matchs_journee_historique_cached(saison_id, j_sel_r)
+                            _matchs_r = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_r}&select=*&order=date_match') or []
                             mi_sel_r = ','.join(map(str, [m['id'] for m in _matchs_r]))
                             mi_list_r = [m['id'] for m in _matchs_r]
                             nb_r_score = sum(1 for m in _matchs_r if m.get('score_final_home') is not None)
@@ -1480,7 +1479,7 @@ else:
                                 key="recap_j_sel"
                             )
                             if j_sel_recap != journee_courante:
-                                _matchs_recap = get_matchs_journee_historique_cached(saison_id, j_sel_recap)
+                                _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&select=*&order=date_match') or []
                             else:
                                 _matchs_recap = matchs_journee
 
