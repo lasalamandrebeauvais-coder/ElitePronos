@@ -1196,21 +1196,42 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
                     else:
+                        # === SELECTEUR 5 DERNIERES JOURNEES ===
+                        _journees_r = list(range(max(1, journee_courante - 4), journee_courante + 1))
+                        j_sel_r = st.selectbox(
+                            "Journée :",
+                            _journees_r,
+                            format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
+                            index=len(_journees_r) - 1,
+                            key="rivaux_j_sel"
+                        )
+                        if j_sel_r != journee_courante:
+                            _matchs_r = get_matchs_journee_cached(saison_id, j_sel_r)
+                            mi_sel_r = ','.join(map(str, [m['id'] for m in _matchs_r]))
+                            mi_list_r = [m['id'] for m in _matchs_r]
+                            nb_r_score = sum(1 for m in _matchs_r if m.get('score_final_home') is not None)
+                            nb_r_total = len(_matchs_r)
+                        else:
+                            mi_sel_r = match_ids_str
+                            mi_list_r = match_ids
+                            nb_r_score = nb_matchs_avec_score
+                            nb_r_total = nb_matchs_journee
+
                         # Afficher les resultats et rivaux
-                        if nb_matchs_avec_score > 0:
+                        if nb_r_score > 0:
                             st.markdown(f"""
                             <div style="background: linear-gradient(135deg, #1a472a 0%, #2d5a3c 100%); border: 2px solid #00FF00; border-radius: 15px; padding: 15px; text-align: center; margin: 10px 0;">
-                                <h4 style="color: #00FF00; margin: 0;">📊 RESULTATS J{journee_courante}</h4>
-                                <p style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 0.9em;">{nb_matchs_avec_score}/{nb_matchs_journee} match(s) termine(s)</p>
+                                <h4 style="color: #00FF00; margin: 0;">📊 RESULTATS J{j_sel_r}</h4>
+                                <p style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 0.9em;">{nb_r_score}/{nb_r_total} match(s) termine(s)</p>
                             </div>
                             """, unsafe_allow_html=True)
 
                         # Recuperer les rivaux (cache 60s)
                         rivaux_ids = get_rivaux_ids_cached(user_id)
 
-                        if match_ids and rivaux_ids:
+                        if mi_list_r and rivaux_ids:
                             rivaux_ids_str = ','.join(map(str, rivaux_ids))
-                            all_predictions = supabase._request('GET', f'predictions?match_id=in.({match_ids_str})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,utilisateurs(id,pseudo)') or []
+                            all_predictions = supabase._request('GET', f'predictions?match_id=in.({mi_sel_r})&user_id=in.({rivaux_ids_str})&select=user_id,points_gagnes,utilisateurs(id,pseudo)') or []
                             joueurs_dict = {}
                             for p in all_predictions:
                                 uid = p['user_id']
@@ -1221,9 +1242,9 @@ else:
                             joueurs_journee = [(uid, data['pseudo'], round(data['total'], 2)) for uid, data in sorted(joueurs_dict.items(), key=lambda x: x[1]['total'], reverse=True)]
 
                             # Bloc MES PRONOSTICS (cache 15s)
-                            _my_preds = get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str)
+                            _my_preds = get_user_predictions_cached(user_id, saison_id, j_sel_r, mi_sel_r)
                             my_pronos = [p for p in _my_preds if p.get('matches')]
-                            my_joker = get_user_joker_cached(user_id, journee_courante)
+                            my_joker = get_user_joker_cached(user_id, j_sel_r)
                             my_joker_icon = ""
                             if my_joker:
                                 jt = my_joker[0].get('type_joker', '')
@@ -1324,7 +1345,7 @@ else:
                             all_rivaux_ids = [j[0] for j in joueurs_journee]
                             all_rivaux_str = ','.join(map(str, all_rivaux_ids)) if all_rivaux_ids else '0'
 
-                            _rivaux_data = get_rivaux_predictions_cached(all_rivaux_str, match_ids_str, journee_courante)
+                            _rivaux_data = get_rivaux_predictions_cached(all_rivaux_str, mi_sel_r, j_sel_r)
                             all_jokers = _rivaux_data['jokers']
                             jokers_map = {j['utilisateur_id']: j['type_joker'] for j in all_jokers}
                             vol_cibles_map = {j['utilisateur_id']: j.get('cible_vol_id') for j in all_jokers if j.get('type_joker') == 'VOL' and j.get('cible_vol_id')}
@@ -1348,7 +1369,7 @@ else:
                                 cibles_manquants = [cid for cid in cible_ids_all if cid not in pronos_par_joueur]
                                 if cibles_manquants:
                                     cm_str = ','.join(map(str, cibles_manquants))
-                                    for p in (supabase._request('GET', f'predictions?user_id=in.({cm_str})&match_id=in.({match_ids_str})&select=user_id,score_prono_home,score_prono_away,mise_points,matches(equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away)') or []):
+                                    for p in (supabase._request('GET', f'predictions?user_id=in.({cm_str})&match_id=in.({mi_sel_r})&select=user_id,score_prono_home,score_prono_away,mise_points,matches(equipe_home,equipe_away,score_final_home,score_final_away,cote_home,cote_draw,cote_away)') or []):
                                         uid = p['user_id']
                                         if uid not in pronos_par_joueur:
                                             pronos_par_joueur[uid] = []
@@ -1448,13 +1469,27 @@ else:
                         try:
                             import pandas as pd
 
-                            st.subheader(f"📋 Recap J{journee_courante}")
+                            # === SELECTEUR TOUTE LA SAISON ===
+                            _journees_recap = list(range(1, journee_courante + 1))
+                            j_sel_recap = st.selectbox(
+                                "Journée :",
+                                _journees_recap,
+                                format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
+                                index=len(_journees_recap) - 1,
+                                key="recap_j_sel"
+                            )
+                            if j_sel_recap != journee_courante:
+                                _matchs_recap = get_matchs_journee_cached(saison_id, j_sel_recap)
+                            else:
+                                _matchs_recap = matchs_journee
+
+                            st.subheader(f"📋 Recap J{j_sel_recap}")
 
                             # Recuperer donnees pour le tableau (cache 30s - 1 seul appel groupe)
-                            match_ids_recap = [m['id'] for m in matchs_journee]
+                            match_ids_recap = [m['id'] for m in _matchs_recap]
                             match_ids_recap_str = ','.join(map(str, match_ids_recap))
 
-                            _recap = get_recap_data_cached(match_ids_recap_str, journee_courante)
+                            _recap = get_recap_data_cached(match_ids_recap_str, j_sel_recap)
                             all_preds = _recap['preds']
                             all_users = _recap['users']
                             user_map_recap = {u['id']: u['pseudo'] for u in all_users}
@@ -1522,7 +1557,7 @@ else:
 
                             # Construire les en-tetes de matchs
                             match_headers = []
-                            for m in matchs_journee:
+                            for m in _matchs_recap:
                                 h = TEAM_ABBR.get(m['equipe_home'].lower(), m['equipe_home'][:5].upper())
                                 a = TEAM_ABBR.get(m['equipe_away'].lower(), m['equipe_away'][:5].upper())
                                 match_headers.append((m['id'], f"{h}-{a}"))
