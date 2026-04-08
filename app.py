@@ -1269,34 +1269,24 @@ else:
 
                 # === TAB RIVAUX ===
                 with tab_rivaux:
-                    # === SELECTEUR 5 DERNIERES JOURNEES ===
-                    _journees_r = list(range(max(1, journee_courante - 4), journee_courante + 1))
-                    j_sel_r = st.selectbox(
-                        "Journée :",
-                        _journees_r,
-                        format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
-                        index=len(_journees_r) - 1,
-                        key="rivaux_j_sel"
-                    )
-                    if j_sel_r == journee_courante and pronostics_ouverts:
-                        st.markdown("""
-                        <div style="background: #002040; border: 1px solid #666; border-radius: 10px; padding: 20px; text-align: center; color: #888;">
-                            <div style="font-size: 2em; margin-bottom: 10px;">🔒</div>
-                            <div>Les pronostics des rivaux seront visibles apres la fermeture</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    # === SELECTEUR HISTORIQUE (toutes les journees passees, courante exclue) ===
+                    _journees_r = list(range(1, journee_courante))
+                    if not _journees_r:
+                        st.info("Aucune journée passée disponible pour le moment.")
                     else:
-                        if j_sel_r != journee_courante:
-                            _matchs_r = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_r}&select=*&order=date_match') or []
-                            mi_sel_r = ','.join(map(str, [m['id'] for m in _matchs_r]))
-                            mi_list_r = [m['id'] for m in _matchs_r]
-                            nb_r_score = sum(1 for m in _matchs_r if m.get('score_final_home') is not None)
-                            nb_r_total = len(_matchs_r)
-                        else:
-                            mi_sel_r = match_ids_str
-                            mi_list_r = match_ids
-                            nb_r_score = nb_matchs_avec_score
-                            nb_r_total = nb_matchs_journee
+                        j_sel_r = st.selectbox(
+                            "Journée :",
+                            _journees_r,
+                            format_func=lambda j: f"J{j}",
+                            index=len(_journees_r) - 1,
+                            key="rivaux_j_sel"
+                        )
+                        # Toujours une journee historique : fetch depuis Supabase
+                        _matchs_r = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_r}&select=*&order=date_match') or []
+                        mi_sel_r = ','.join(map(str, [m['id'] for m in _matchs_r]))
+                        mi_list_r = [m['id'] for m in _matchs_r]
+                        nb_r_score = sum(1 for m in _matchs_r if m.get('score_final_home') is not None)
+                        nb_r_total = len(_matchs_r)
 
                         # Afficher les resultats et rivaux
                         if nb_r_score > 0:
@@ -1547,22 +1537,19 @@ else:
                     try:
                         import pandas as pd
 
-                        # === SELECTEUR TOUTE LA SAISON ===
-                        _journees_recap = list(range(1, journee_courante + 1))
-                        j_sel_recap = st.selectbox(
-                            "Journée :",
-                            _journees_recap,
-                            format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
-                            index=len(_journees_recap) - 1,
-                            key="recap_j_sel"
-                        )
-                        if j_sel_recap == journee_courante and pronostics_ouverts:
-                            st.info("🔒 Le tableau recap sera visible après la fermeture des pronostics")
+                        # === SELECTEUR HISTORIQUE (journees passees uniquement, courante exclue) ===
+                        _journees_recap = list(range(1, journee_courante))
+                        if not _journees_recap:
+                            st.info("Aucune journée passée disponible pour le moment.")
                         else:
-                            if j_sel_recap != journee_courante:
-                                _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&select=*&order=date_match') or []
-                            else:
-                                _matchs_recap = matchs_journee
+                            j_sel_recap = st.selectbox(
+                                "Journée :",
+                                _journees_recap,
+                                format_func=lambda j: f"J{j}",
+                                index=len(_journees_recap) - 1,
+                                key="recap_j_sel"
+                            )
+                            _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&select=*&order=date_match') or []
 
                             st.subheader(f"📋 Recap J{j_sel_recap}")
 
