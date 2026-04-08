@@ -489,9 +489,35 @@ st.markdown("""
     .stDeployButton {display: none !important;}
     [data-testid="stToolbar"] {display: none !important;}
     [data-testid="manage-app-button"] {display: none !important;}
-    .viewerBadge_container__r5tak {display: none !important;}
     [data-testid="stDecoration"] {display: none !important;}
     #stDecoration {display: none !important;}
+
+    /* ===== HIDE BOTTOM-RIGHT BADGES (Streamlit / Supabase / Manage App) ===== */
+    .viewerBadge_container__r5tak {display: none !important;}
+    [class*="viewerBadge"] {display: none !important;}
+    [data-testid="stStatusWidget"] {display: none !important;}
+    [class*="StatusWidget"] {display: none !important;}
+    [class*="AppView"] > section > div > div > div > a[href*="streamlit"] {display: none !important;}
+    iframe[src*="streamlit"] {display: none !important;}
+    [data-testid="stActionButtonIcon"] {display: none !important;}
+    ._profileContainer_51w34_53 {display: none !important;}
+    ._container_51w34_1 {display: none !important;}
+    #root > div > div > div > div > div > section > div > div > div > div > a {display: none !important;}
+    .css-1dp5vir, .css-14xtW6, .css-cio0dv {display: none !important;}
+    [data-testid="collapsedControl"] ~ * a[href*="streamlit.io"] {display: none !important;}
+    /* Masquer TOUS les elements fixes en bas a droite (globe + couronne) */
+    [data-testid="manage-app-button"] {display: none !important;}
+    [class*="manage-app"] {display: none !important;}
+    [class*="ToolbarActions"] {display: none !important;}
+    [data-testid="stToolbarActions"] {display: none !important;}
+    [class*="toolbarActions"] {display: none !important;}
+    [data-baseweb="button"][kind="secondary"][class*="toolbar"] {display: none !important;}
+    /* Cible les elements fixes positionnels (globe bleu, couronne rouge) */
+    div[data-testid="stBottomBlockContainer"] {display: none !important;}
+    [class*="bottompanel"] {display: none !important;}
+    [class*="bottom-panel"] {display: none !important;}
+    section[data-testid="stBottom"] {display: none !important;}
+    /* Fallback : masquer tout fixe en bas a droite via JS injecte */
 
     /* ===== MOBILE RESPONSIVE ===== */
 
@@ -606,6 +632,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Masquer les badges Streamlit Cloud via components.v1.html (accede au DOM parent)
+import streamlit.components.v1 as _components
+_components.html("""
+<script>
+(function hideBadges() {
+    function remove() {
+        try {
+            var doc = window.parent.document;
+            var selectors = [
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stToolbarActions"]',
+                '[data-testid="manage-app-button"]',
+                '[data-testid="stBottom"]',
+                '[data-testid="stToolbar"]',
+                '[data-testid="stDecoration"]',
+                '[class*="viewerBadge"]',
+                '[class*="StatusWidget"]',
+                '[class*="ToolbarActions"]',
+                '[class*="manage-app"]'
+            ];
+            selectors.forEach(function(sel) {
+                doc.querySelectorAll(sel).forEach(function(el) {
+                    el.style.setProperty('display', 'none', 'important');
+                });
+            });
+            // Masquer les elements fixes en bas a droite (petite taille)
+            doc.querySelectorAll('*').forEach(function(el) {
+                var s = doc.defaultView.getComputedStyle(el);
+                if (s.position === 'fixed' &&
+                    parseInt(s.bottom || '999') < 100 &&
+                    parseInt(s.right || '999') < 100 &&
+                    el.offsetWidth < 250 && el.offsetWidth > 0) {
+                    el.style.setProperty('display', 'none', 'important');
+                }
+            });
+        } catch(e) {}
+    }
+    remove();
+    // Observer les changements DOM du parent
+    try {
+        var obs = new MutationObserver(remove);
+        obs.observe(window.parent.document.body, {childList: true, subtree: true});
+    } catch(e) {}
+})();
+</script>
+""", height=0, scrolling=False)
+
 # Mascotte + Titre principal
 _kingo_title_path = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
 _kt_col1, _kt_col2 = st.columns([1, 5])
@@ -630,7 +703,11 @@ if 'page' not in st.session_state:
 # =====================================================
 if not is_logged_in():
     # Menu de navigation reduit
-    st.sidebar.image("https://via.placeholder.com/150x150/D4AF37/000000?text=EP", width=100)
+    _sidebar_logo = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
+    if os.path.exists(_sidebar_logo):
+        st.sidebar.image(_sidebar_logo, width=100)
+    else:
+        st.sidebar.markdown("### ⚽ ELITE PRONOS")
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Bienvenue!")
     st.sidebar.info("Connectez-vous pour acceder a votre espace.")
@@ -664,7 +741,11 @@ else:
     user = get_current_user()
 
     # Menu de navigation dans la sidebar
-    st.sidebar.image("https://via.placeholder.com/150x150/D4AF37/000000?text=EP", width=100)
+    _sidebar_logo2 = os.path.join(os.path.dirname(__file__), 'assets', 'kingo accueil.png')
+    if os.path.exists(_sidebar_logo2):
+        st.sidebar.image(_sidebar_logo2, width=100)
+    else:
+        st.sidebar.markdown("### ⚽ ELITE PRONOS")
     st.sidebar.markdown("---")
 
     # Info utilisateur connecte
@@ -943,7 +1024,7 @@ else:
 
             if pronostics_ouverts:
                 # PRONOSTICS OUVERTS: Afficher les pronostics du joueur (cache 15s)
-                predictions_data = get_user_predictions_cached(user_id, saison_id, journee_courante, match_ids_str if 'match_ids_str' in dir() else '')
+                predictions_data = get_user_predictions_cached(user_id, saison_id, journee_courante, '')
                 mes_pronos_accueil = [(p['matches']['id'], p['matches']['equipe_home'], p['matches']['equipe_away'], p['score_prono_home'], p['score_prono_away'], p['mise_points']) for p in predictions_data if p.get('matches') and p['matches'].get('semaine_id') == journee_courante]
 
                 if mes_pronos_accueil:
@@ -1188,7 +1269,16 @@ else:
 
                 # === TAB RIVAUX ===
                 with tab_rivaux:
-                    if pronostics_ouverts:
+                    # === SELECTEUR 5 DERNIERES JOURNEES ===
+                    _journees_r = list(range(max(1, journee_courante - 4), journee_courante + 1))
+                    j_sel_r = st.selectbox(
+                        "Journée :",
+                        _journees_r,
+                        format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
+                        index=len(_journees_r) - 1,
+                        key="rivaux_j_sel"
+                    )
+                    if j_sel_r == journee_courante and pronostics_ouverts:
                         st.markdown("""
                         <div style="background: #002040; border: 1px solid #666; border-radius: 10px; padding: 20px; text-align: center; color: #888;">
                             <div style="font-size: 2em; margin-bottom: 10px;">🔒</div>
@@ -1196,15 +1286,6 @@ else:
                         </div>
                         """, unsafe_allow_html=True)
                     else:
-                        # === SELECTEUR 5 DERNIERES JOURNEES ===
-                        _journees_r = list(range(max(1, journee_courante - 4), journee_courante + 1))
-                        j_sel_r = st.selectbox(
-                            "Journée :",
-                            _journees_r,
-                            format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
-                            index=len(_journees_r) - 1,
-                            key="rivaux_j_sel"
-                        )
                         if j_sel_r != journee_courante:
                             _matchs_r = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_r}&select=*&order=date_match') or []
                             mi_sel_r = ','.join(map(str, [m['id'] for m in _matchs_r]))
@@ -1463,21 +1544,21 @@ else:
 
                 # === TAB RECAP ===
                 with tab_recap:
-                    if pronostics_ouverts:
-                        st.info("🔒 Le tableau recap sera visible après la fermeture des pronostics")
-                    else:
-                        try:
-                            import pandas as pd
+                    try:
+                        import pandas as pd
 
-                            # === SELECTEUR TOUTE LA SAISON ===
-                            _journees_recap = list(range(1, journee_courante + 1))
-                            j_sel_recap = st.selectbox(
-                                "Journée :",
-                                _journees_recap,
-                                format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
-                                index=len(_journees_recap) - 1,
-                                key="recap_j_sel"
-                            )
+                        # === SELECTEUR TOUTE LA SAISON ===
+                        _journees_recap = list(range(1, journee_courante + 1))
+                        j_sel_recap = st.selectbox(
+                            "Journée :",
+                            _journees_recap,
+                            format_func=lambda j: f"J{j}  (actuelle)" if j == journee_courante else f"J{j}",
+                            index=len(_journees_recap) - 1,
+                            key="recap_j_sel"
+                        )
+                        if j_sel_recap == journee_courante and pronostics_ouverts:
+                            st.info("🔒 Le tableau recap sera visible après la fermeture des pronostics")
+                        else:
                             if j_sel_recap != journee_courante:
                                 _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&select=*&order=date_match') or []
                             else:
@@ -1609,8 +1690,8 @@ else:
 
                             st.markdown(html, unsafe_allow_html=True)
 
-                        except Exception as e:
-                            st.warning(f"Erreur chargement recap: {e}")
+                    except Exception as e:
+                        st.warning(f"Erreur chargement recap: {e}")
 
         except Exception as e:
             st.error(f"Erreur de lecture Supabase: {e}")
