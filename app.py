@@ -1647,59 +1647,61 @@ else:
                                 'atlético de madrid': 'ATM', 'atletico madrid': 'ATM',
                             }
 
-                            # Construire les en-tetes de matchs
-                            match_headers = []
-                            for m in _matchs_recap:
-                                h = TEAM_ABBR.get(m['equipe_home'].lower(), m['equipe_home'][:5].upper())
-                                a = TEAM_ABBR.get(m['equipe_away'].lower(), m['equipe_away'][:5].upper())
-                                match_headers.append((m['id'], f"{h}-{a}"))
+                            if not _matchs_recap:
+                                st.warning("Aucun match pronostiqué trouvé pour cette journée.")
+                            else:
+                                # Construire les en-tetes de matchs (abreviations)
+                                match_headers = []
+                                for m in _matchs_recap:
+                                    h = TEAM_ABBR.get(m['equipe_home'].lower(), m['equipe_home'][:5].upper())
+                                    a = TEAM_ABBR.get(m['equipe_away'].lower(), m['equipe_away'][:5].upper())
+                                    score_final = ''
+                                    if m.get('score_final_home') is not None:
+                                        score_final = f"{m['score_final_home']}-{m['score_final_away']}"
+                                    match_headers.append((m['id'], h, a, score_final))
 
-                            # Construire le tableau HTML (scrollable sur mobile)
-                            html = '<div class="ep-table-scroll">'
-                            html += '<table style="width:100%;border-collapse:collapse;font-size:0.7rem;text-align:center;background:#001529;min-width:500px;">'
-                            # En-tete doree
-                            html += '<thead><tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
-                            html += '<th style="padding:6px 4px;border:1px solid #003060;">#</th>'
-                            html += '<th style="padding:6px 4px;text-align:left;border:1px solid #003060;">Pseudo</th>'
-                            html += '<th style="padding:6px 4px;border:1px solid #003060;">🃏</th>'
-                            for _, header in match_headers:
-                                html += f'<th style="padding:6px 4px;border:1px solid #003060;">{header}</th>'
-                            html += '</tr></thead>'
+                                # Tableau HTML avec scroll horizontal force
+                                html = '<div style="width:100%;overflow-x:scroll;-webkit-overflow-scrolling:touch;">'
+                                html += '<table style="border-collapse:collapse;font-size:0.68rem;text-align:center;background:#001529;white-space:nowrap;">'
 
-                            # Lignes joueurs avec alternance de couleurs
-                            html += '<tbody>'
-                            for idx, (uid, pseudo) in enumerate(joueurs_recap):
-                                rang = rang_map.get(uid, '-')
-                                if rang == 1:
-                                    r = '🥇'
-                                elif rang == 2:
-                                    r = '🥈'
-                                elif rang == 3:
-                                    r = '🥉'
-                                else:
-                                    r = str(rang).rjust(3)
+                                # En-tete : colonnes fixes + 1 colonne par match (sur 2 lignes)
+                                html += '<thead>'
+                                html += '<tr style="background:linear-gradient(135deg,#D4AF37,#B8960C);color:#001529;font-weight:bold;">'
+                                html += '<th style="padding:5px 6px;border:1px solid #003060;position:sticky;left:0;background:linear-gradient(135deg,#D4AF37,#B8960C);z-index:2;">#</th>'
+                                html += '<th style="padding:5px 8px;text-align:left;border:1px solid #003060;position:sticky;left:22px;background:linear-gradient(135deg,#D4AF37,#B8960C);z-index:2;">Pseudo</th>'
+                                html += '<th style="padding:5px 5px;border:1px solid #003060;">🃏</th>'
+                                for mid, h, a, sf in match_headers:
+                                    sf_display = f'<br><span style="color:#001529;font-size:0.6rem;">({sf})</span>' if sf else ''
+                                    html += f'<th style="padding:5px 6px;border:1px solid #003060;min-width:70px;">{h}<br>vs {a}{sf_display}</th>'
+                                html += '</tr></thead>'
 
-                                jt = jokers_map_recap.get(uid, '')
-                                j = '⚡' if jt == 'double' else '🃏' if jt == 'vol' else '-'
+                                # Lignes joueurs
+                                html += '<tbody>'
+                                for idx, (uid, pseudo) in enumerate(joueurs_recap):
+                                    rang = rang_map.get(uid, '-')
+                                    r = '🥇' if rang == 1 else '🥈' if rang == 2 else '🥉' if rang == 3 else str(rang)
+                                    jt = jokers_map_recap.get(uid, '')
+                                    j = '⚡' if jt == 'double' else '🃏' if jt == 'vol' else '-'
+                                    bg = '#002040' if idx % 2 == 0 else '#001a35'
 
-                                bg = '#002040' if idx % 2 == 0 else '#001a35'
-                                html += f'<tr style="background:{bg};color:#FFF;">'
-                                html += f'<td style="padding:5px 4px;border:1px solid #003060;">{r}</td>'
-                                html += f'<td style="padding:5px 4px;text-align:left;border:1px solid #003060;">{pseudo[:10]}</td>'
-                                html += f'<td style="padding:5px 4px;border:1px solid #003060;">{j}</td>'
-                                for mid, _ in match_headers:
-                                    raw = pronos_recap.get(uid, {}).get(mid, None)
-                                    if raw:
-                                        parts = raw.split(' - ')
-                                        score = f"{parts[0]}-{parts[1]}"
-                                        mise = parts[2] if len(parts) > 2 else '0'
-                                        html += f'<td style="padding:5px 4px;border:1px solid #003060;">{score} <span style="color:#FF4444;">({mise})</span></td>'
-                                    else:
-                                        html += '<td style="padding:5px 4px;border:1px solid #003060;color:#555;">-</td>'
-                                html += '</tr>'
-                            html += '</tbody></table></div>'
+                                    html += f'<tr style="background:{bg};color:#FFF;">'
+                                    html += f'<td style="padding:5px 6px;border:1px solid #003060;position:sticky;left:0;background:{bg};z-index:1;">{r}</td>'
+                                    html += f'<td style="padding:5px 8px;text-align:left;border:1px solid #003060;position:sticky;left:22px;background:{bg};z-index:1;font-weight:bold;">{pseudo[:10]}</td>'
+                                    html += f'<td style="padding:5px 5px;border:1px solid #003060;">{j}</td>'
+                                    for mid, _, _, _ in match_headers:
+                                        raw = pronos_recap.get(uid, {}).get(mid, None)
+                                        if raw:
+                                            parts = raw.split(' - ')
+                                            score = f"{parts[0]}-{parts[1]}"
+                                            mise = parts[2] if len(parts) > 2 else '0'
+                                            html += f'<td style="padding:5px 6px;border:1px solid #003060;">{score}<br><span style="color:#FF6644;font-size:0.6rem;">{mise}pt</span></td>'
+                                        else:
+                                            html += '<td style="padding:5px 6px;border:1px solid #003060;color:#444;">—</td>'
+                                    html += '</tr>'
+                                html += '</tbody></table></div>'
+                                html += '<div style="color:#888;font-size:0.65rem;text-align:right;margin-top:3px;">← glisser pour voir tous les matchs →</div>'
 
-                            st.markdown(html, unsafe_allow_html=True)
+                                st.markdown(html, unsafe_allow_html=True)
 
                     except Exception as e:
                         st.warning(f"Erreur chargement recap: {e}")
