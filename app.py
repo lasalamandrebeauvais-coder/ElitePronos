@@ -1549,7 +1549,8 @@ else:
                                 index=len(_journees_recap) - 1,
                                 key="recap_j_sel"
                             )
-                            _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&is_active=eq.true&select=*&order=date_match&limit=4') or []
+                            from modules.database_manager import get_matchs_journee_historique_cached
+                            _matchs_recap = get_matchs_journee_historique_cached(saison_id, j_sel_recap)[:4]
 
                             st.subheader(f"📋 Recap J{j_sel_recap}")
 
