@@ -1549,15 +1549,38 @@ else:
                                 index=len(_journees_recap) - 1,
                                 key="recap_j_sel"
                             )
-                            from modules.database_manager import get_matchs_journee_historique_cached
-                            _matchs_recap = get_matchs_journee_historique_cached(saison_id, j_sel_recap)[:4]
-
                             st.subheader(f"📋 Recap J{j_sel_recap}")
 
-                            # Recuperer donnees pour le tableau (cache 30s - 1 seul appel groupe)
-                            match_ids_recap = [m['id'] for m in _matchs_recap]
+                            # 1. Recuperer les matchs actifs de la journee (is_active=true = matchs selectionnes)
+                            _matchs_actifs = supabase._request('GET',
+                                f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&is_active=eq.true&select=id&order=id'
+                            ) or []
+                            _ids_actifs_str = ','.join(str(m['id']) for m in _matchs_actifs)
+
+                            # 2. Parmi ces matchs, garder uniquement ceux qui ont des predictions (pronostiques)
+                            if _ids_actifs_str:
+                                _preds_ids = supabase._request('GET',
+                                    f'predictions?match_id=in.({_ids_actifs_str})&select=match_id'
+                                ) or []
+                                _seen_ids = []
+                                for _p in _preds_ids:
+                                    if _p['match_id'] not in _seen_ids:
+                                        _seen_ids.append(_p['match_id'])
+                                match_ids_recap = _seen_ids[:4]
+                            else:
+                                match_ids_recap = []
+
                             match_ids_recap_str = ','.join(map(str, match_ids_recap))
 
+                            # 3. Fetcher les details complets de ces matchs
+                            if match_ids_recap:
+                                _matchs_recap = supabase._request('GET',
+                                    f'matches?id=in.({match_ids_recap_str})&select=*&order=date_match'
+                                ) or []
+                            else:
+                                _matchs_recap = []
+
+                            # 4. Recuperer predictions + users + jokers
                             _recap = get_recap_data_cached(match_ids_recap_str, j_sel_recap)
                             all_preds = _recap['preds']
                             all_users = _recap['users']
