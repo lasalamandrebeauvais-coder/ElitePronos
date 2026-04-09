@@ -1549,7 +1549,7 @@ else:
                                 index=len(_journees_recap) - 1,
                                 key="recap_j_sel"
                             )
-                            _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&select=*&order=date_match') or []
+                            _matchs_recap = supabase._request('GET', f'matches?saison_id=eq.{saison_id}&semaine_id=eq.{j_sel_recap}&is_active=eq.true&select=*&order=date_match&limit=4') or []
 
                             st.subheader(f"📋 Recap J{j_sel_recap}")
 
