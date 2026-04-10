@@ -957,9 +957,9 @@ def generer_html_rappel_retardataire(pseudo, semaine_id):
                 </div>
 
                 <div style="background: rgba(255, 215, 0, 0.1); border: 1px solid #ff6b6b; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center;">
-                    <div style="font-size: 36px; color: #ff6b6b; font-weight: bold;">&#9200; H - 4</div>
+                    <div style="font-size: 36px; color: #ff6b6b; font-weight: bold;">&#9200; H - 1</div>
                     <p style="margin: 10px 0 0 0; color: #ff6b6b; font-size: 16px; font-weight: bold;">
-                        Plus que quelques heures avant la deadline de la Journee {semaine_id} !
+                        Plus qu'1 HEURE avant la deadline de la Journee {semaine_id} !
                     </p>
                 </div>
 
@@ -1016,17 +1016,17 @@ def check_et_envoyer_rappel_retardataires(semaine_id, saison_id):
         except:
             return
 
-    # 2. Calculer si on est dans la fenetre H-4 avant deadline
-    # Deadline = date_match - 1h, donc H-4 avant deadline = date_match - 5h
+    # 2. Calculer si on est dans la fenetre H-1 avant deadline
+    # Deadline = date_match - 1h, donc H-1 avant deadline = date_match - 2h
     now = datetime.now()
-    cible = date_match - timedelta(hours=5)  # 4h avant deadline
+    cible = date_match - timedelta(hours=2)  # 1h avant deadline
     diff_minutes = (now - cible).total_seconds() / 60
 
-    # Fenetre : entre -15 et +15 minutes autour de la cible (30 min de marge)
+    # Fenetre : entre -15 et +15 minutes autour de la cible (30 min de marge pour le cron)
     if not (-15 <= diff_minutes <= 15):
         return
 
-    print(f"=== RAPPEL RETARDATAIRES - H-4 avant deadline J{semaine_id} ===")
+    print(f"=== RAPPEL RETARDATAIRES - H-1 avant deadline J{semaine_id} ===")
 
     # 3. Recuperer les matchs actifs (ceux de Kingo)
     kingo_id = get_kingo_user_id()
@@ -1732,7 +1732,7 @@ def run_auto_update():
 
     print(f"Journee: {semaine_id}")
 
-    # === VERIFIER RAPPEL RETARDATAIRES (H-4 avant deadline) ===
+    # === VERIFIER RAPPEL RETARDATAIRES (H-1 avant deadline) ===
     try:
         check_et_envoyer_rappel_retardataires(semaine_id, saison_id)
     except Exception as e:

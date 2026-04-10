@@ -2328,7 +2328,7 @@ def envoyer_tableau_pronos_admin(semaine_id):
 
 
 # ============================================
-# EMAIL RAPPEL RETARDATAIRES (H-4 avant deadline)
+# EMAIL RAPPEL RETARDATAIRES (H-1 avant deadline)
 # ============================================
 
 PHRASES_KINGO_RETARDATAIRES = [
@@ -2417,9 +2417,9 @@ def email_rappel_retardataires(pseudo, semaine_id):
 
     <!-- Countdown urgence -->
     <div class="highlight-box" style="border-color: #ff6b6b; background: rgba(255, 107, 107, 0.1);">
-        <div class="big-text" style="color: #ff6b6b;">&#9200; H - 4</div>
+        <div class="big-text" style="color: #ff6b6b;">&#9200; H - 1</div>
         <p style="margin: 10px 0 0 0; color: #ff6b6b; font-size: 16px; font-weight: bold;">
-            Plus que quelques heures avant la deadline de la Journee {semaine_id} !
+            Plus qu'1 HEURE avant la deadline de la Journee {semaine_id} !
         </p>
     </div>
 
