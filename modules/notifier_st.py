@@ -1393,13 +1393,14 @@ def email_synthese_paris(semaine_id, jokers_actifs=None, stats_matchs=None, comm
     return get_base_template(content, "Synthese des Paris")
 
 
-def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot="", highlights=None):
+def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot="", highlights=None, matchs_annules=None):
     """
     Email de resultats avec debrief ironique du bot
     classement: liste de dicts {pseudo, points, rang, bons_pronos, scores_exacts, grand_chelem}
     matchs_resultats: liste de dicts {equipe_home, equipe_away, score_final_home, score_final_away}
     commentaire_bot: debrief ironique genere par Kingo
     highlights: dict {grand_chelem, jokers, plus_gros_score, meilleure_remontee, plus_grosse_chute}
+    matchs_annules: liste de dicts {equipe_home, equipe_away} — matchs annules cette journee
     """
     if highlights is None:
         highlights = {}
@@ -1421,14 +1422,22 @@ def email_resultats_ironiques(semaine_id, classement, matchs_resultats, commenta
 
     # === RESULTATS DES MATCHS ===
     matchs_html = ""
-    if matchs_resultats:
+    if matchs_resultats or matchs_annules:
         matchs_items = ""
-        for m in matchs_resultats:
+        for m in (matchs_resultats or []):
             matchs_items += f'''
             <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: #1a1a2e; border-radius: 8px;">
                 <div style="flex: 1; text-align: right; color: #ccc; font-size: 13px;">{m['equipe_home']}</div>
                 <div style="margin: 0 15px; padding: 5px 15px; background: linear-gradient(135deg, #1a3a5c 0%, #0d2a45 100%); border: 1px solid #D4AF37; border-radius: 5px; color: #ffffff; font-weight: bold; font-size: 16px;">{m['score_final_home']} - {m['score_final_away']}</div>
                 <div style="flex: 1; text-align: left; color: #ccc; font-size: 13px;">{m['equipe_away']}</div>
+            </div>
+            '''
+        for m in (matchs_annules or []):
+            matchs_items += f'''
+            <div style="display: flex; align-items: center; padding: 10px; margin: 5px 0; background: #1a1a2e; border-radius: 8px; opacity: 0.7;">
+                <div style="flex: 1; text-align: right; color: #888; font-size: 13px; text-decoration: line-through;">{m['equipe_home']}</div>
+                <div style="margin: 0 15px; padding: 5px 15px; background: #2a1a1a; border: 1px solid #888; border-radius: 5px; color: #ff8888; font-weight: bold; font-size: 13px; text-align: center;">Match annule</div>
+                <div style="flex: 1; text-align: left; color: #888; font-size: 13px; text-decoration: line-through;">{m['equipe_away']}</div>
             </div>
             '''
         matchs_html = f'''
@@ -1863,10 +1872,11 @@ def envoyer_synthese_paris(semaine_id):
     return resultats
 
 
-def _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs):
+def _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs, matchs_annules=None):
     """
     Genere le debrief ironique de Kingo pour l'email des resultats.
     Parle de la meilleure perf, des bons scores (3+), moque gentiment le dernier.
+    matchs_annules: liste de dicts {equipe_home, equipe_away} des matchs annules cette journee.
     """
     if not classement:
         return ""
@@ -1948,6 +1958,18 @@ def _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs):
         ]
         lignes.append(random.choice(phrases_dernier))
 
+    # --- Matchs annules ---
+    if matchs_annules:
+        for ma in matchs_annules:
+            home = ma.get('equipe_home', '?')
+            away = ma.get('equipe_away', '?')
+            phrases_annul = [
+                f"<br><br>⚠️ Petite info en passant : <strong>{home} vs {away}</strong> a ete reporte et annule cette semaine. 0 pts pour tout le monde sur ce match. Le foot, c'est imprévisible... surtout quand les organisateurs font n'importe quoi.",
+                f"<br><br>⚠️ Ah oui, j'allais oublier : <strong>{home} vs {away}</strong> n'a pas eu lieu. Match annule, 0 pts pour tous les pronos. On s'adapte, comme toujours.",
+                f"<br><br>⚠️ Note importante : <strong>{home} vs {away}</strong> est annule. Ni perdant ni gagnant sur ce match. Le foot decide parfois de ne pas se jouer... philosophique.",
+            ]
+            lignes.append(random.choice(phrases_annul))
+
     # --- Phrase de cloture ---
     phrases_fin = [
         "<br><br>Rendez-vous la semaine prochaine, et n'oubliez pas : meme un singe avec des flechettes pourrait vous battre. Prouvez-moi le contraire !",
@@ -1974,7 +1996,12 @@ def envoyer_resultats_ironiques(semaine_id):
     match_ids = [m['id'] for m in matchs]
     match_map = {m['id']: m for m in matchs}
 
-    if not match_ids:
+    # Recuperer les matchs ANNULES de la semaine
+    matchs_annules = supabase._request('GET',
+        f'matches?semaine_id=eq.{semaine_id}&status=eq.CANCELLED&select=id,equipe_home,equipe_away'
+    ) or []
+
+    if not match_ids and not matchs_annules:
         return []
 
     # Recuperer les utilisateurs actifs
@@ -1982,7 +2009,10 @@ def envoyer_resultats_ironiques(semaine_id):
     user_map = {u['id']: u['pseudo'] for u in users}
 
     # Recuperer les predictions avec details
-    predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes') or []
+    if match_ids:
+        predictions = supabase._request('GET', f'predictions?match_id=in.({",".join(map(str, match_ids))})&select=user_id,match_id,score_prono_home,score_prono_away,mise_points,points_gagnes') or []
+    else:
+        predictions = []
 
     # Recuperer les jokers (avec cible pour VOL)
     jokers_data = supabase._request('GET', f'jokers_historique?semaine_id=eq.{semaine_id}&select=utilisateur_id,type_joker,cible_vol_id') or []
@@ -2128,13 +2158,13 @@ def envoyer_resultats_ironiques(semaine_id):
     }
 
     # Generer le debrief ironique
-    commentaire_bot = _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs)
+    commentaire_bot = _generer_debrief_resultats(classement, matchs_resultats, jokers_actifs, matchs_annules=matchs_annules)
 
     # Envoyer a tous les utilisateurs
     utilisateurs = get_utilisateurs_emails()
     resultats = []
 
-    html = email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot, highlights)
+    html = email_resultats_ironiques(semaine_id, classement, matchs_resultats, commentaire_bot, highlights, matchs_annules=matchs_annules)
 
     for user in utilisateurs:
         success, msg = send_email(

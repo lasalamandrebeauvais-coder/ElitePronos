@@ -555,6 +555,21 @@ def recalculer_points_complet(semaine_id, saison_id):
     if vol_cibles:
         print(f"VOL applique a {len(vol_cibles)} joueur(s)")
 
+    # Forcer points_gagnes=0 pour les matchs CANCELLED de cette journee
+    response_cancelled = requests.get(
+        f"{SUPABASE_URL}/rest/v1/matches?semaine_id=eq.{semaine_id}&saison_id=eq.{saison_id}&status=eq.CANCELLED&select=id",
+        headers=SUPABASE_HEADERS
+    )
+    if response_cancelled.status_code == 200:
+        cancelled_matchs = response_cancelled.json()
+        for cm in cancelled_matchs:
+            requests.patch(
+                f"{SUPABASE_URL}/rest/v1/predictions?match_id=eq.{cm['id']}",
+                json={'points_gagnes': 0, 'is_score_exact': False},
+                headers={**SUPABASE_HEADERS, 'Prefer': 'return=minimal'}
+            )
+            print(f"[CANCELLED] Match id={cm['id']} -> predictions set to 0 pts")
+
     return total_updates
 
 

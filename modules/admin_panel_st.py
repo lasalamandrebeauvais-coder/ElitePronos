@@ -1087,6 +1087,69 @@ def afficher_panel_admin():
 
         st.markdown("---")
 
+        # === SECTION 3b: ANNULER UN MATCH REPORTE ===
+        st.markdown("#### 3b. Annuler un Match Reporte")
+        st.caption("Marque un match comme ANNULE. Les joueurs ne gagnent ni ne perdent de points sur ce match. 0 pts pour tous les pronos.")
+
+        matchs_annulables = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&is_active=eq.true&status=neq.FINISHED&select=id,equipe_home,equipe_away,status&order=id'
+        ) or []
+        # Exclure ceux déjà CANCELLED
+        matchs_annulables = [m for m in matchs_annulables if m.get('status') != 'CANCELLED']
+
+        # Afficher les matchs déjà annulés
+        matchs_annules_existants = supabase._request('GET',
+            f'matches?semaine_id=eq.{semaine_selectionnee}&saison_id=eq.{saison}&status=eq.CANCELLED&select=id,equipe_home,equipe_away&order=id'
+        ) or []
+        if matchs_annules_existants:
+            st.warning(f"**{len(matchs_annules_existants)} match(s) deja annule(s) cette journee :**")
+            for ma in matchs_annules_existants:
+                col_ma1, col_ma2 = st.columns([4, 1])
+                with col_ma1:
+                    st.markdown(f"❌ ~~{ma['equipe_home']} vs {ma['equipe_away']}~~ — ANNULE (0 pts)")
+                with col_ma2:
+                    if st.button("Restaurer", key=f"restore_{ma['id']}"):
+                        supabase._request('PATCH', f'matches?id=eq.{ma["id"]}', {
+                            'status': 'SCHEDULED',
+                            'is_active': True
+                        })
+                        supabase._request('PATCH', f'predictions?match_id=eq.{ma["id"]}', {
+                            'points_gagnes': None,
+                            'is_score_exact': None
+                        })
+                        st.cache_data.clear()
+                        st.success("Match restaure. Recalcule les points si necessaire.")
+                        st.rerun()
+
+        if not matchs_annulables:
+            if not matchs_annules_existants:
+                st.info("Aucun match annulable pour cette journee (tous termines ou deja annules).")
+        else:
+            options_annul = {f"{m['equipe_home']} vs {m['equipe_away']}  (id={m['id']})": m['id'] for m in matchs_annulables}
+            match_annul_label = st.selectbox("Choisir le match a annuler", list(options_annul.keys()), key="select_annul")
+            match_annul_id = options_annul[match_annul_label]
+
+            col_annul1, col_annul2 = st.columns([3, 1])
+            with col_annul1:
+                st.caption("Cette action est reversible via le bouton 'Restaurer'.")
+            with col_annul2:
+                if st.button("ANNULER CE MATCH", type="secondary", use_container_width=True, key="btn_annuler_match"):
+                    # Marquer CANCELLED + desactiver
+                    supabase._request('PATCH', f'matches?id=eq.{match_annul_id}', {
+                        'status': 'CANCELLED',
+                        'is_active': False
+                    })
+                    # 0 pts sur toutes les predictions
+                    supabase._request('PATCH', f'predictions?match_id=eq.{match_annul_id}', {
+                        'points_gagnes': 0,
+                        'is_score_exact': False
+                    })
+                    st.cache_data.clear()
+                    st.success(f"Match annule : {match_annul_label}. Tous les pronos -> 0 pts.")
+                    st.rerun()
+
+        st.markdown("---")
+
         # === SECTION 4: BOT DEBRIEF SUR ACCUEIL ===
         st.markdown("#### 4. Debrief Bot sur Accueil")
         st.caption("Genere et affiche le compte-rendu ironique du Bot sur la page d'accueil.")
