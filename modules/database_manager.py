@@ -45,7 +45,7 @@ JOURS_OUVERTURE_PRONOSTICS = 5     # J-5 avant chaque journee
 # CONFIGURATION SAISON FORCEE
 # ============================================
 # Mettre a None pour detection automatique, ou forcer une saison specifique
-SAISON_FORCEE = 2025  # Force la saison 2025-2026 (Phase Test)
+SAISON_FORCEE = 2025  # Force la saison 2025-2026 — a passer a 2026 apres cloture
 
 
 # ============================================

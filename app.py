@@ -27,6 +27,7 @@ from modules.login_st import (
 )
 from modules.dashboard_st import afficher_dashboard
 from modules.reglement_st import afficher_reglement
+from modules.palmares_st import afficher_palmares
 from modules.scheduler_resultats import get_scheduler_status
 
 # Initialiser la session
@@ -761,9 +762,9 @@ else:
     from modules.database_manager import get_is_admin_cached
     is_admin = get_is_admin_cached(user['id'])
     if is_admin:
-        pages = ["Admin", "Accueil", "Tableau de bord", "Reglement"]
+        pages = ["Admin", "Accueil", "Tableau de bord", "Palmarès", "Reglement"]
     else:
-        pages = ["Accueil", "Tableau de bord", "Reglement"]
+        pages = ["Accueil", "Tableau de bord", "Palmarès", "Reglement"]
 
     # Gerer la page par defaut apres connexion
     if st.session_state.page not in pages:
@@ -1729,6 +1730,10 @@ else:
     # === PAGE REGLEMENT ===
     elif menu == "Reglement":
         afficher_reglement()
+
+    # === PAGE PALMARES ===
+    elif menu == "Palmarès":
+        afficher_palmares()
 
     # === PAGE ADMIN ===
     elif menu == "Admin":

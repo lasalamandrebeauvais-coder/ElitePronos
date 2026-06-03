@@ -1297,6 +1297,120 @@ def afficher_panel_admin():
                             else:
                                 st.write(f"✗ {email_addr}: {msg}")
 
+        st.markdown("---")
+
+        # === SECTION 5: CLOTURE DE SAISON ===
+        st.markdown("#### 5. Clôturer la Saison")
+        st.caption("Fige le classement final, enregistre le palmarès et archive la saison.")
+
+        saison_id = get_saison_actuelle()
+        saison_label = get_saison_label(saison_id)
+        supabase_cloture = get_supabase()
+
+        st.info(f"Saison active : **{saison_label}** (id: {saison_id})")
+
+        # Calculer le classement final
+        all_predictions = supabase_cloture._request('GET',
+            f'predictions?saison_id=eq.{saison_id}&select=user_id,points_gagnes,is_score_exact'
+        ) or []
+
+        utilisateurs_actifs = supabase_cloture.get_all_utilisateurs(statut='Actif')
+        user_map = {u['id']: u['pseudo'] for u in utilisateurs_actifs}
+
+        # Agréger stats par joueur
+        user_stats_final = {}
+        for p in all_predictions:
+            uid = p['user_id']
+            if uid not in user_stats_final:
+                user_stats_final[uid] = {'points': 0, 'bons': 0, 'exacts': 0}
+            pts = p.get('points_gagnes') or 0
+            user_stats_final[uid]['points'] += pts
+            if pts > 0:
+                user_stats_final[uid]['bons'] += 1
+            if p.get('is_score_exact'):
+                user_stats_final[uid]['exacts'] += 1
+
+        # Compter les Grand Chelem par joueur (semaines MVP)
+        from modules.database_manager import get_all_mvp_saison
+        mvps = get_all_mvp_saison(saison_id) or {}
+        grand_chelem_par_user = {}
+        for semaine, mvp_data in mvps.items():
+            if mvp_data and mvp_data.get('user_id'):
+                uid = mvp_data['user_id']
+                grand_chelem_par_user[uid] = grand_chelem_par_user.get(uid, 0) + 1
+
+        # Construire classement final trié
+        classement_final = []
+        for uid, stats in user_stats_final.items():
+            if uid in user_map:
+                classement_final.append({
+                    'user_id': uid,
+                    'pseudo': user_map[uid],
+                    'points_total': round(stats['points'], 2),
+                    'bonnes_predictions': stats['bons'],
+                    'scores_exacts': stats['exacts'],
+                    'grand_chelem': grand_chelem_par_user.get(uid, 0)
+                })
+        classement_final.sort(key=lambda x: x['points_total'], reverse=True)
+
+        if not classement_final:
+            st.warning("Aucune donnée de prédiction trouvée pour cette saison.")
+        else:
+            st.markdown(f"**Classement final — {saison_label}** ({len(classement_final)} joueurs)")
+
+            # Aperçu podium
+            cols = st.columns(min(3, len(classement_final)))
+            medailles = ["🥇", "🥈", "🥉"]
+            for i, col in enumerate(cols):
+                if i < len(classement_final):
+                    j = classement_final[i]
+                    col.metric(
+                        label=f"{medailles[i]} {j['pseudo']}",
+                        value=f"{j['points_total']} pts",
+                        delta=f"{j['scores_exacts']} exacts · {j['grand_chelem']} GC"
+                    )
+
+            # Tableau complet
+            with st.expander("Voir le classement complet"):
+                for idx, j in enumerate(classement_final, 1):
+                    st.write(f"**{idx}.** {j['pseudo']} — {j['points_total']} pts | {j['bonnes_predictions']} bons | {j['scores_exacts']} exacts | {j['grand_chelem']} Grand Chelem")
+
+            st.markdown("---")
+            st.warning("⚠️ Cette action est irréversible : elle archive la saison et enregistre le palmarès définitif.")
+
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                confirmer = st.checkbox(f"Je confirme la clôture de la saison {saison_label}")
+            with col_btn2:
+                if confirmer and st.button("🏆 Clôturer la saison", type="primary"):
+                    with st.spinner("Enregistrement du palmarès..."):
+                        erreurs = []
+                        for place, joueur in enumerate(classement_final, 1):
+                            payload = {
+                                'saison_id': saison_id,
+                                'user_id': joueur['user_id'],
+                                'place': place,
+                                'points_total': joueur['points_total'],
+                                'bonnes_predictions': joueur['bonnes_predictions'],
+                                'scores_exacts': joueur['scores_exacts'],
+                                'grand_chelem': joueur['grand_chelem']
+                            }
+                            res = supabase_cloture._request('POST', 'palmares', payload)
+                            if res is None:
+                                erreurs.append(joueur['pseudo'])
+
+                        # Archiver la saison
+                        supabase_cloture._request('PATCH',
+                            f'saisons?annee_debut=eq.{saison_id}',
+                            {'is_active': False}
+                        )
+
+                    if erreurs:
+                        st.error(f"Erreurs sur : {', '.join(erreurs)}")
+                    else:
+                        st.success(f"✅ Saison {saison_label} clôturée ! Palmarès enregistré pour {len(classement_final)} joueurs.")
+                        st.balloons()
+
     # Stats rapides
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Stats Admin")
