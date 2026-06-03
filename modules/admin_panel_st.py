@@ -206,7 +206,7 @@ def afficher_panel_admin():
     st.markdown("---")
 
     # Onglets
-    tab3, tab1, tab2, tab4 = st.tabs(["Gestion Journee", "Inscriptions en attente", "Tous les utilisateurs", "Prospection"])
+    tab3, tab1, tab2, tab4, tab5 = st.tabs(["Gestion Journee", "Inscriptions en attente", "Tous les utilisateurs", "Prospection", "🏆 Fin de Saison"])
 
     # === ONGLET 1 : INSCRIPTIONS EN ATTENTE ===
     with tab1:
@@ -1297,10 +1297,9 @@ def afficher_panel_admin():
                             else:
                                 st.write(f"✗ {email_addr}: {msg}")
 
-        st.markdown("---")
-
-        # === SECTION 5: CLOTURE DE SAISON ===
-        st.markdown("#### 5. Clôturer la Saison")
+    # === ONGLET 5 : FIN DE SAISON ===
+    with tab5:
+        st.markdown("### Clôturer la Saison")
         st.caption("Fige le classement final, enregistre le palmarès et archive la saison.")
 
         saison_id = get_saison_actuelle()
