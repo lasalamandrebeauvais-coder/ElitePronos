@@ -1410,6 +1410,74 @@ def afficher_panel_admin():
                         st.success(f"✅ Saison {saison_label} clôturée ! Palmarès enregistré pour {len(classement_final)} joueurs.")
                         st.balloons()
 
+        st.markdown("---")
+
+        # === LANCEMENT NOUVELLE SAISON ===
+        st.markdown("### Lancer la nouvelle saison")
+        st.caption("Remet tous les joueurs en attente de validation et envoie l'email d'annonce.")
+
+        nouvelle_saison_id = saison_id + 1
+        nouvelle_saison_label = get_saison_label(nouvelle_saison_id)
+
+        # Récupérer le champion de la saison clôturée (place 1 dans palmares)
+        palmares_data = supabase_cloture._request('GET',
+            f'palmares?saison_id=eq.{saison_id}&place=eq.1&select=user_id'
+        ) or []
+        champion_pseudo = None
+        if palmares_data:
+            champion_user = supabase_cloture._request('GET',
+                f'utilisateurs?id=eq.{palmares_data[0]["user_id"]}&select=pseudo'
+            ) or []
+            if champion_user:
+                champion_pseudo = champion_user[0]['pseudo']
+
+        st.info(f"Nouvelle saison : **{nouvelle_saison_label}**")
+        if champion_pseudo:
+            st.success(f"Champion sortant : 🏆 **{champion_pseudo}**")
+
+        col_nl1, col_nl2 = st.columns(2)
+        with col_nl1:
+            confirmer_nl = st.checkbox(f"Je lance officiellement la saison {nouvelle_saison_label}")
+        with col_nl2:
+            if confirmer_nl and st.button("🚀 Lancer la nouvelle saison", type="primary"):
+                with st.spinner("Remise à zéro des joueurs et envoi des emails..."):
+
+                    # Remettre tous les joueurs non-admin en en_attente
+                    tous_joueurs = supabase_cloture._request('GET',
+                        'utilisateurs?select=id,pseudo,is_admin&statut=eq.Actif'
+                    ) or []
+
+                    nb_reset = 0
+                    for joueur in tous_joueurs:
+                        if not joueur.get('is_admin'):
+                            supabase_cloture._request('PATCH',
+                                f'utilisateurs?id=eq.{joueur["id"]}',
+                                {'statut': 'en_attente', 'reglement_accepte': False}
+                            )
+                            nb_reset += 1
+
+                    # Activer la nouvelle saison
+                    supabase_cloture._request('PATCH',
+                        f'saisons?annee_debut=eq.{nouvelle_saison_id}',
+                        {'is_active': True}
+                    )
+
+                    # Envoyer les emails
+                    from modules.notifier_st import envoyer_email_nouvelle_saison
+                    nb_ok, nb_err, details_emails = envoyer_email_nouvelle_saison(
+                        champion_pseudo=champion_pseudo,
+                        saison_label_precedente=saison_label,
+                        nouvelle_saison_label=nouvelle_saison_label
+                    )
+
+                st.success(f"✅ {nb_reset} joueurs remis en attente · {nb_ok} emails envoyés · {nb_err} erreurs")
+                st.info("⚠️ Dernière étape : demande à Claude Code de basculer SAISON_FORCEE = 2026 dans database_manager.py")
+
+                with st.expander("Détail des emails"):
+                    for d in details_emails:
+                        icon = "✓" if d['success'] else "✗"
+                        st.write(f"{icon} {d['pseudo']} ({d['email']})")
+
     # Stats rapides
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Stats Admin")

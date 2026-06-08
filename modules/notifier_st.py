@@ -2767,5 +2767,122 @@ def envoyer_relance_non_regles():
     return nb_ok, nb_err, details
 
 
+# ============================================
+# EMAIL NOUVELLE SAISON
+# ============================================
+
+def envoyer_email_nouvelle_saison(champion_pseudo=None, saison_label_precedente=None, nouvelle_saison_label=None):
+    """
+    Envoie l'email d'annonce de la nouvelle saison a tous les joueurs.
+    Remet les joueurs en 'en_attente' et les invite a valider le reglement.
+    champion_pseudo: pseudo du champion de la saison precedente
+    """
+    from modules.supabase_db import get_supabase
+
+    supabase = get_supabase()
+    utilisateurs = supabase._request('GET', 'utilisateurs?statut=eq.en_attente&select=id,pseudo,email,prenom') or []
+
+    if not utilisateurs:
+        return 0, 0, []
+
+    app_url = "https://elitepronos-thnb3wvag3b8szfkoapp7yh.streamlit.app/"
+
+    champion_html = ""
+    if champion_pseudo:
+        champion_html = f"""
+        <div style="background: linear-gradient(135deg, #1a1400, #2a2000);
+                    border: 2px solid #D4AF37; border-radius: 12px;
+                    padding: 20px; text-align: center; margin: 20px 0;">
+            <div style="font-size: 2.5rem;">🏆</div>
+            <div style="color: #8899aa; font-size: 0.85em; margin-bottom: 4px;">
+                Champion {saison_label_precedente or ''}
+            </div>
+            <div style="color: #FFD700; font-size: 1.4rem; font-weight: 800;">
+                {champion_pseudo}
+            </div>
+            <div style="color: #8899aa; font-size: 0.8em; margin-top: 6px;">
+                Bravo au roi de la saison — maintenant tout le monde repart à zéro.
+            </div>
+        </div>
+        """
+
+    nb_ok = 0
+    nb_err = 0
+    details = []
+
+    for user in utilisateurs:
+        prenom = user.get('prenom') or user.get('pseudo', '')
+        pseudo = user.get('pseudo', '')
+        email = user.get('email', '')
+
+        if not email:
+            continue
+
+        content = f"""
+        <div style="text-align:center; padding: 30px 0 10px;">
+            <div style="font-size: 3rem;">⚽</div>
+            <h1 style="color: #D4AF37; font-size: 1.8rem; margin: 10px 0;">
+                Nouvelle Saison {nouvelle_saison_label or ''}
+            </h1>
+            <p style="color: #8899aa; font-size: 0.9em;">Elite Pronos — Le tournoi reprend !</p>
+        </div>
+
+        <div style="background: #001529; border: 1px solid #1a3a5c;
+                    border-radius: 12px; padding: 24px; margin: 20px 0;">
+            <p style="color: #e6edf3; font-size: 1em; line-height: 1.7; margin: 0 0 12px;">
+                Bonjour <strong style="color: #D4AF37;">@{pseudo}</strong>,
+            </p>
+            <p style="color: #e6edf3; font-size: 1em; line-height: 1.7; margin: 0;">
+                La saison <strong style="color: #D4AF37;">{nouvelle_saison_label or ''}</strong> est officiellement lancée.
+                Tout le monde repart de zéro — nouveaux pronostics, nouveaux jokers, nouveau champion à couronner.
+            </p>
+        </div>
+
+        {champion_html}
+
+        <div style="background: #001529; border: 1px solid #1a3a5c;
+                    border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <div style="color: #D4AF37; font-weight: 700; font-size: 1em; margin-bottom: 12px;">
+                📋 Pour participer à la nouvelle saison
+            </div>
+            <ol style="color: #e6edf3; font-size: 0.95em; line-height: 2; padding-left: 20px; margin: 0;">
+                <li>Connecte-toi avec ton pseudo et ton PIN habituel</li>
+                <li>Lis et accepte le règlement de la saison</li>
+                <li>Attends la validation de l'admin</li>
+                <li>C'est parti — 3 jokers doubles et 2 jokers vols t'attendent !</li>
+            </ol>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{app_url}"
+               style="background: linear-gradient(135deg, #D4AF37, #B8960C);
+                      color: #000; font-weight: 800; font-size: 1em;
+                      padding: 14px 36px; border-radius: 8px;
+                      text-decoration: none; display: inline-block;">
+                🚀 Rejoindre la saison {nouvelle_saison_label or ''}
+            </a>
+        </div>
+
+        <div style="text-align: center; color: #556677; font-size: 0.8em; margin-top: 20px;">
+            Ton compte @{pseudo} est réactivé dès validation du règlement par l'admin.
+        </div>
+        """
+
+        html = get_base_template(content, f"Nouvelle Saison {nouvelle_saison_label or ''}")
+        ok, msg = send_email(
+            email,
+            f"Elite Pronos — La saison {nouvelle_saison_label or ''} est lancée ! 🏆",
+            html
+        )
+
+        if ok:
+            nb_ok += 1
+        else:
+            nb_err += 1
+        details.append({'pseudo': pseudo, 'email': email, 'success': ok, 'message': msg})
+
+    return nb_ok, nb_err, details
+
+
 if __name__ == "__main__":
     test_email_template()
