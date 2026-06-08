@@ -1299,6 +1299,7 @@ def afficher_panel_admin():
 
     # === ONGLET 5 : FIN DE SAISON ===
     with tab5:
+      try:
         st.markdown("### Clôturer la Saison")
         st.caption("Fige le classement final, enregistre le palmarès et archive la saison.")
 
@@ -1477,6 +1478,9 @@ def afficher_panel_admin():
                     for d in details_emails:
                         icon = "✓" if d['success'] else "✗"
                         st.write(f"{icon} {d['pseudo']} ({d['email']})")
+
+      except Exception as e:
+        st.error(f"Erreur dans l'onglet Fin de Saison : {str(e)}")
 
     # Stats rapides
     st.sidebar.markdown("---")
